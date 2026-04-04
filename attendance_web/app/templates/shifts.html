@@ -1,69 +1,80 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <h2>Bang ma ca lam</h2>
-    <p class="muted">Trang nay dung de tao ma ca moi. Khi can sua, bam "Sua" o bang ben duoi de mo trang chinh sua rieng.</p>
-    <form method="post" class="form-grid">
-        <input
-            name="code"
-            placeholder="Ma ca (VD: X, XVP, XT)"
-            value=""
-            required
-        >
-        <input name="name" placeholder="Ten ca" value="" required>
-        <input
-            type="time"
-            name="start_time"
-            value=""
-            placeholder="Gio vao"
-        >
-        <input
-            type="time"
-            name="end_time"
-            value=""
-            placeholder="Gio ra"
-        >
-        <input
-            type="number"
-            step="1"
-            min="0"
-            name="break_minutes"
-            value="0"
-            placeholder="Nghi (phut)"
-        >
-        <input
-            type="number"
-            step="0.5"
-            min="0"
-            name="standard_hours"
-            value="8"
-            placeholder="Gio quy dinh"
-        >
-        <input
-            type="number"
-            step="0.5"
-            min="0"
-            name="default_overtime_hours"
-            value="0"
-            placeholder="OT mac dinh"
-        >
-        <input
-            type="number"
-            step="1000"
-            min="0"
-            name="meal_allowance"
-            value="0"
-            placeholder="Tien an"
-        >
-        <input name="changed_by" placeholder="Nguoi sua" value="admin">
-        <input name="notes" placeholder="Ghi chu" value="">
-        <label><input type="checkbox" name="is_leave_code"> Ma nghi</label>
-        <label><input type="checkbox" name="is_paid_leave"> Nghi van tinh luong</label>
-        <button type="submit">Luu ma ca</button>
-    </form>
-</div>
+<section class="panel page-toolbar">
+    <div>
+        <h2>Bang ma ca lam</h2>
+        <p class="muted">Danh sach ma ca chuan cua he thong.</p>
+    </div>
+    <div class="toolbar-actions">
+        <button type="button" id="shift-tools-toggle-btn" class="secondary" aria-expanded="false">Mo form tao ca</button>
+    </div>
+</section>
 
-<div class="panel">
+<section id="shift-tools-container" class="page-tools tools-collapsed">
+    <div class="panel soft-panel">
+        <h3>Tao ma ca moi</h3>
+        <form method="post" class="form-grid">
+            <input
+                name="code"
+                placeholder="Ma ca (VD: X, XVP, XT)"
+                value=""
+                required
+            >
+            <input name="name" placeholder="Ten ca" value="" required>
+            <input
+                type="time"
+                name="start_time"
+                value=""
+                placeholder="Gio vao"
+            >
+            <input
+                type="time"
+                name="end_time"
+                value=""
+                placeholder="Gio ra"
+            >
+            <input
+                type="number"
+                step="1"
+                min="0"
+                name="break_minutes"
+                value="0"
+                placeholder="Nghi (phut)"
+            >
+            <input
+                type="number"
+                step="0.5"
+                min="0"
+                name="standard_hours"
+                value="8"
+                placeholder="Gio quy dinh"
+            >
+            <input
+                type="number"
+                step="0.5"
+                min="0"
+                name="default_overtime_hours"
+                value="0"
+                placeholder="OT mac dinh"
+            >
+            <input
+                type="number"
+                step="1000"
+                min="0"
+                name="meal_allowance"
+                value="0"
+                placeholder="Tien an"
+            >
+            <input name="changed_by" placeholder="Nguoi sua" value="admin">
+            <input name="notes" placeholder="Ghi chu" value="">
+            <label><input type="checkbox" name="is_leave_code"> Ma nghi</label>
+            <label><input type="checkbox" name="is_paid_leave"> Nghi van tinh luong</label>
+            <button type="submit">Luu ma ca</button>
+        </form>
+    </div>
+</section>
+
+<section class="panel data-panel">
     <div class="table-wrap">
         <table>
             <thead>
@@ -120,5 +131,29 @@
             </tbody>
         </table>
     </div>
-</div>
+</section>
+
+<script>
+(() => {
+    const toolsContainer = document.getElementById("shift-tools-container");
+    const toggleButton = document.getElementById("shift-tools-toggle-btn");
+
+    if (!toolsContainer || !toggleButton) {
+        return;
+    }
+
+    const setToolsState = (collapsed) => {
+        toolsContainer.classList.toggle("tools-collapsed", collapsed);
+        toggleButton.textContent = collapsed ? "Mo form tao ca" : "Thu gon form";
+        toggleButton.setAttribute("aria-expanded", String(!collapsed));
+    };
+
+    toggleButton.addEventListener("click", () => {
+        const collapsed = toolsContainer.classList.contains("tools-collapsed");
+        setToolsState(!collapsed);
+    });
+
+    setToolsState(true);
+})();
+</script>
 {% endblock %}

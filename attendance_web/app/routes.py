@@ -312,39 +312,120 @@ def register_routes(app):
             warning_rows=warning_rows,
         )
 
-    @app.route("/employees", methods=["GET", "POST"])
+    @app.route("/employees", methods=["GET"])
     def employees():
+        rows = Employee.query.order_by(Employee.employee_code.asc()).all()
+        active_rows = [row for row in rows if row.is_active]
+        return render_template(
+            "employees.html",
+            title="Nhan vien",
+            employees=rows,
+            total_employees=len(rows),
+            active_employees=len(active_rows),
+        )
+
+    @app.route("/employees/new", methods=["GET", "POST"])
+    def create_employee():
         shift_codes = [row.code for row in ShiftTemplate.query.order_by(ShiftTemplate.code.asc()).all()]
 
+        form_values = {
+            "employee_code": "",
+            "full_name": "",
+            "gender": "",
+            "hometown": "",
+            "birth_year": "",
+            "default_shift_code": "X",
+            "is_active": True,
+            "changed_by": session.get("username", "admin"),
+        }
+
         if request.method == "POST":
-            actor = request.form.get("changed_by", "admin")
+            actor = (request.form.get("changed_by") or session.get("username") or "admin").strip() or "admin"
             employee_code = request.form.get("employee_code", "").strip()
             full_name = request.form.get("full_name", "").strip()
             gender = request.form.get("gender", "").strip() or None
             hometown = request.form.get("hometown", "").strip() or None
-            birth_year = request.form.get("birth_year", "").strip()
+            birth_year_raw = request.form.get("birth_year", "").strip()
             default_shift_code = request.form.get("default_shift_code", "X").strip().upper()
+            is_active = request.form.get("is_active") == "on"
+
+            form_values.update(
+                {
+                    "employee_code": employee_code,
+                    "full_name": full_name,
+                    "gender": gender or "",
+                    "hometown": hometown or "",
+                    "birth_year": birth_year_raw,
+                    "default_shift_code": default_shift_code,
+                    "is_active": is_active,
+                    "changed_by": actor,
+                }
+            )
 
             if not employee_code or not full_name:
                 flash("Can nhap Ma NV va Ho ten", "error")
-                return redirect(url_for("employees"))
+                return render_template(
+                    "employee_form.html",
+                    title="Them nhan vien",
+                    form_title="Them nhan vien moi",
+                    form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
+                    submit_label="Tao nhan vien",
+                    form_values=form_values,
+                    shift_codes=shift_codes,
+                    is_edit=False,
+                )
 
             if default_shift_code not in shift_codes:
                 flash("Ma ca mac dinh khong hop le", "error")
-                return redirect(url_for("employees"))
+                return render_template(
+                    "employee_form.html",
+                    title="Them nhan vien",
+                    form_title="Them nhan vien moi",
+                    form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
+                    submit_label="Tao nhan vien",
+                    form_values=form_values,
+                    shift_codes=shift_codes,
+                    is_edit=False,
+                )
 
             existing = Employee.query.filter_by(employee_code=employee_code).first()
             if existing:
                 flash("Ma nhan vien da ton tai", "error")
-                return redirect(url_for("employees"))
+                return render_template(
+                    "employee_form.html",
+                    title="Them nhan vien",
+                    form_title="Them nhan vien moi",
+                    form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
+                    submit_label="Tao nhan vien",
+                    form_values=form_values,
+                    shift_codes=shift_codes,
+                    is_edit=False,
+                )
+
+            birth_year = None
+            if birth_year_raw:
+                if not birth_year_raw.isdigit():
+                    flash("Nam sinh khong hop le", "error")
+                    return render_template(
+                        "employee_form.html",
+                        title="Them nhan vien",
+                        form_title="Them nhan vien moi",
+                        form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
+                        submit_label="Tao nhan vien",
+                        form_values=form_values,
+                        shift_codes=shift_codes,
+                        is_edit=False,
+                    )
+                birth_year = int(birth_year_raw)
 
             employee = Employee(
                 employee_code=employee_code,
                 full_name=full_name,
                 gender=gender,
                 hometown=hometown,
-                birth_year=int(birth_year) if birth_year else None,
+                birth_year=birth_year,
                 default_shift_code=default_shift_code,
+                is_active=is_active,
             )
             db.session.add(employee)
             db.session.flush()
@@ -360,8 +441,153 @@ def register_routes(app):
             flash("Da them nhan vien", "success")
             return redirect(url_for("employees"))
 
-        rows = Employee.query.order_by(Employee.employee_code.asc()).all()
-        return render_template("employees.html", employees=rows, shift_codes=shift_codes)
+        return render_template(
+            "employee_form.html",
+            title="Them nhan vien",
+            form_title="Them nhan vien moi",
+            form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
+            submit_label="Tao nhan vien",
+            form_values=form_values,
+            shift_codes=shift_codes,
+            is_edit=False,
+        )
+
+    @app.route("/employees/<int:employee_id>/edit", methods=["GET", "POST"])
+    def edit_employee(employee_id):
+        employee = Employee.query.get_or_404(employee_id)
+        shift_codes = [row.code for row in ShiftTemplate.query.order_by(ShiftTemplate.code.asc()).all()]
+
+        form_values = {
+            "employee_code": employee.employee_code,
+            "full_name": employee.full_name,
+            "gender": employee.gender or "",
+            "hometown": employee.hometown or "",
+            "birth_year": employee.birth_year or "",
+            "default_shift_code": employee.default_shift_code,
+            "is_active": bool(employee.is_active),
+            "changed_by": session.get("username", "admin"),
+        }
+
+        if request.method == "POST":
+            actor = (request.form.get("changed_by") or session.get("username") or "admin").strip() or "admin"
+            employee_code = request.form.get("employee_code", "").strip()
+            full_name = request.form.get("full_name", "").strip()
+            gender = request.form.get("gender", "").strip() or None
+            hometown = request.form.get("hometown", "").strip() or None
+            birth_year_raw = request.form.get("birth_year", "").strip()
+            default_shift_code = request.form.get("default_shift_code", "X").strip().upper()
+            is_active = request.form.get("is_active") == "on"
+
+            form_values.update(
+                {
+                    "employee_code": employee_code,
+                    "full_name": full_name,
+                    "gender": gender or "",
+                    "hometown": hometown or "",
+                    "birth_year": birth_year_raw,
+                    "default_shift_code": default_shift_code,
+                    "is_active": is_active,
+                    "changed_by": actor,
+                }
+            )
+
+            if not employee_code or not full_name:
+                flash("Can nhap Ma NV va Ho ten", "error")
+                return render_template(
+                    "employee_form.html",
+                    title="Sua nhan vien",
+                    form_title="Cap nhat thong tin nhan vien",
+                    form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
+                    submit_label="Luu cap nhat",
+                    form_values=form_values,
+                    shift_codes=shift_codes,
+                    is_edit=True,
+                    employee=employee,
+                )
+
+            if default_shift_code not in shift_codes:
+                flash("Ma ca mac dinh khong hop le", "error")
+                return render_template(
+                    "employee_form.html",
+                    title="Sua nhan vien",
+                    form_title="Cap nhat thong tin nhan vien",
+                    form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
+                    submit_label="Luu cap nhat",
+                    form_values=form_values,
+                    shift_codes=shift_codes,
+                    is_edit=True,
+                    employee=employee,
+                )
+
+            duplicated = (
+                Employee.query.filter(
+                    Employee.employee_code == employee_code,
+                    Employee.id != employee.id,
+                ).first()
+            )
+            if duplicated:
+                flash("Ma nhan vien da ton tai", "error")
+                return render_template(
+                    "employee_form.html",
+                    title="Sua nhan vien",
+                    form_title="Cap nhat thong tin nhan vien",
+                    form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
+                    submit_label="Luu cap nhat",
+                    form_values=form_values,
+                    shift_codes=shift_codes,
+                    is_edit=True,
+                    employee=employee,
+                )
+
+            birth_year = None
+            if birth_year_raw:
+                if not birth_year_raw.isdigit():
+                    flash("Nam sinh khong hop le", "error")
+                    return render_template(
+                        "employee_form.html",
+                        title="Sua nhan vien",
+                        form_title="Cap nhat thong tin nhan vien",
+                        form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
+                        submit_label="Luu cap nhat",
+                        form_values=form_values,
+                        shift_codes=shift_codes,
+                        is_edit=True,
+                        employee=employee,
+                    )
+                birth_year = int(birth_year_raw)
+
+            before = employee.to_dict()
+            employee.employee_code = employee_code
+            employee.full_name = full_name
+            employee.gender = gender
+            employee.hometown = hometown
+            employee.birth_year = birth_year
+            employee.default_shift_code = default_shift_code
+            employee.is_active = is_active
+
+            log_action(
+                "employees",
+                employee.id,
+                "UPDATE",
+                changed_by=actor,
+                before_data=before,
+                after_data=employee.to_dict(),
+            )
+            db.session.commit()
+            flash("Da cap nhat nhan vien", "success")
+            return redirect(url_for("employees"))
+
+        return render_template(
+            "employee_form.html",
+            title="Sua nhan vien",
+            form_title="Cap nhat thong tin nhan vien",
+            form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
+            submit_label="Luu cap nhat",
+            form_values=form_values,
+            shift_codes=shift_codes,
+            is_edit=True,
+            employee=employee,
+        )
 
     @app.route("/employees/<int:employee_id>")
     def employee_detail(employee_id):

@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <h2>Import file cham cong</h2>
-    <p class="muted">Tai file 17-31.csv hoac file xlsx tho len he thong. Co the chon xoa du lieu cu cua thang truoc khi import de sua sai nhanh.</p>
-    <form method="post" enctype="multipart/form-data" class="form-grid">
+<section class="panel page-toolbar">
+    <div>
+        <h2>Import file cham cong</h2>
+        <p class="muted">Nap file CSV/XLSX va tu dong tai tao du lieu cham cong.</p>
+    </div>
+    <form method="post" enctype="multipart/form-data" class="toolbar-inline-form">
         <input type="file" name="attendance_file" accept=".csv,.xlsx,.xls" required>
         <input type="month" name="month_key" placeholder="De trong de tu dong theo file">
-        <label><input type="checkbox" name="replace_existing_month" checked> Xoa du lieu cu cua thang truoc khi import</label>
+        <label><input type="checkbox" name="replace_existing_month" checked> Xoa du lieu cu</label>
         <input name="changed_by" placeholder="Nguoi import" value="admin">
         <button type="submit">Import va xu ly</button>
     </form>
-</div>
+</section>
 
-<div class="panel">
+<section class="panel data-panel">
     <h3>Lich su import gan day</h3>
     <div class="table-wrap">
         <table>
@@ -53,5 +55,5 @@
             </tbody>
         </table>
     </div>
-</div>
+</section>
 {% endblock %}

@@ -1,43 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <div class="inline-form">
-        <div>
-            <h2>Bang ngay OFF, chu nhat, ngay le</h2>
-            <p class="muted">Tick nghi = he thong xem la OFF/le. Bo tick = ngay lam binh thuong. Chu nhat van mac dinh OFF neu khong co ca de tranh bi N.</p>
-        </div>
-        <form method="get" class="form-grid">
-            <input type="month" name="month" value="{{ month_key }}" required>
-            <button type="submit">Xem thang</button>
+<section class="panel page-toolbar">
+    <div>
+        <h2>Bang ngay OFF, chu nhat, ngay le</h2>
+        <p class="muted">Thang dang xem: <strong>{{ month_key }}</strong></p>
+    </div>
+    <div class="toolbar-actions">
+        <form method="get" class="toolbar-month-form">
+            <label for="holiday-month">Thang</label>
+            <input id="holiday-month" type="month" name="month" value="{{ month_key }}" required>
+            <button type="submit">Xem</button>
+        </form>
+        <button type="button" id="holiday-tools-toggle-btn" class="secondary" aria-expanded="false">Mo cong cu</button>
+    </div>
+</section>
+
+<section id="holiday-tools-container" class="page-tools tools-collapsed">
+    <div class="panel soft-panel">
+        <h3>Tao nhanh OFF va ngay le theo thang</h3>
+        <form method="post" class="form-grid">
+            <input type="hidden" name="action" value="generate_month">
+            <input type="month" name="month_key" value="{{ month_key }}" required>
+            <input name="changed_by" placeholder="Nguoi sua" value="admin">
+            <button type="submit" class="secondary">Tao OFF chu nhat + le VN</button>
         </form>
     </div>
-</div>
 
-<div class="panel">
-    <h3>Tao nhanh chu nhat OFF + ngay le Viet Nam theo thang</h3>
-    <form method="post" class="form-grid">
-        <input type="hidden" name="action" value="generate_month">
-        <input type="month" name="month_key" value="{{ month_key }}" required>
-        <input name="changed_by" placeholder="Nguoi sua" value="admin">
-        <button type="submit" class="secondary">Tao OFF chu nhat + le VN</button>
-    </form>
-</div>
+    <div class="panel soft-panel">
+        <h3>Them nhanh ngay OFF, le</h3>
+        <form method="post" class="form-grid">
+            <input type="hidden" name="action" value="save_single">
+            <input type="hidden" name="month_key" value="{{ month_key }}">
+            <input type="date" name="holiday_date" required>
+            <input name="name" placeholder="Ten ngay le" required>
+            <input name="notes" placeholder="Ghi chu">
+            <label><input type="checkbox" name="is_paid" checked> Tick nghi</label>
+            <input name="changed_by" placeholder="Nguoi sua" value="admin">
+            <button type="submit">Luu ngay OFF</button>
+        </form>
+    </div>
+</section>
 
-<div class="panel">
-    <h3>Them/sua ngay OFF, le</h3>
-    <form method="post" class="form-grid">
-        <input type="hidden" name="action" value="save_single">
-        <input type="hidden" name="month_key" value="{{ month_key }}">
-        <input type="date" name="holiday_date" required>
-        <input name="name" placeholder="Ten ngay le" required>
-        <input name="notes" placeholder="Ghi chu">
-        <label><input type="checkbox" name="is_paid" checked> Tick nghi</label>
-        <input name="changed_by" placeholder="Nguoi sua" value="admin">
-        <button type="submit">Luu ngay OFF</button>
-    </form>
-</div>
-
-<div class="panel">
+<section class="panel data-panel">
     <div class="table-wrap">
         <table>
             <thead>
@@ -114,5 +118,29 @@
             </tbody>
         </table>
     </div>
-</div>
+</section>
+
+<script>
+(() => {
+    const toolsContainer = document.getElementById("holiday-tools-container");
+    const toggleButton = document.getElementById("holiday-tools-toggle-btn");
+
+    if (!toolsContainer || !toggleButton) {
+        return;
+    }
+
+    const setToolsState = (collapsed) => {
+        toolsContainer.classList.toggle("tools-collapsed", collapsed);
+        toggleButton.textContent = collapsed ? "Mo cong cu" : "Thu gon";
+        toggleButton.setAttribute("aria-expanded", String(!collapsed));
+    };
+
+    toggleButton.addEventListener("click", () => {
+        const collapsed = toolsContainer.classList.contains("tools-collapsed");
+        setToolsState(!collapsed);
+    });
+
+    setToolsState(true);
+})();
+</script>
 {% endblock %}

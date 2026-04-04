@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employee-form-shell">
+    <div class="employee-form-head">
+        <div>
+            <p class="dashboard-eyebrow">Employee Profile</p>
+            <h2>{{ form_title }}</h2>
+            <p class="muted">{{ form_subtitle }}</p>
+        </div>
+        <a class="button-link button-link-secondary" href="{{ url_for('employees') }}">Quay lai danh sach</a>
+    </div>
+
+    <form method="post" class="employee-vertical-form">
+        <div class="field-stack">
+            <label for="employee_code">Ma nhan vien</label>
+            <input id="employee_code" name="employee_code" value="{{ form_values.employee_code }}" placeholder="VD: NV001" required>
+        </div>
+
+        <div class="field-stack">
+            <label for="full_name">Ho ten</label>
+            <input id="full_name" name="full_name" value="{{ form_values.full_name }}" placeholder="Nhap ho ten" required>
+        </div>
+
+        <div class="field-stack">
+            <label for="gender">Gioi tinh</label>
+            <select id="gender" name="gender">
+                <option value="" {% if not form_values.gender %}selected{% endif %}>Chua chon</option>
+                <option value="Nam" {% if form_values.gender == 'Nam' %}selected{% endif %}>Nam</option>
+                <option value="Nu" {% if form_values.gender == 'Nu' %}selected{% endif %}>Nu</option>
+            </select>
+        </div>
+
+        <div class="field-stack">
+            <label for="hometown">Que quan</label>
+            <input id="hometown" name="hometown" value="{{ form_values.hometown }}" placeholder="Nhap que quan">
+        </div>
+
+        <div class="field-stack">
+            <label for="birth_year">Nam sinh</label>
+            <input id="birth_year" type="number" min="1900" max="2100" name="birth_year" value="{{ form_values.birth_year }}" placeholder="VD: 1995">
+        </div>
+
+        <div class="field-stack">
+            <label for="default_shift_code">Ca mac dinh</label>
+            <select id="default_shift_code" name="default_shift_code" required>
+                {% for code in shift_codes %}
+                <option value="{{ code }}" {% if form_values.default_shift_code == code %}selected{% endif %}>{{ code }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="field-stack checkbox-stack">
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_active" {% if form_values.is_active %}checked{% endif %}>
+                Nhan vien dang hoat dong
+            </label>
+        </div>
+
+        <div class="field-stack">
+            <label for="changed_by">Nguoi thao tac</label>
+            <input id="changed_by" name="changed_by" value="{{ form_values.changed_by }}" placeholder="Nguoi thao tac" required>
+        </div>
+
+        <div class="employee-form-actions">
+            <button type="submit">{{ submit_label }}</button>
+            {% if is_edit %}
+            <a class="button-link button-link-secondary" href="{{ url_for('employee_detail', employee_id=employee.id) }}">Xem chi tiet nhan vien</a>
+            {% endif %}
+        </div>
+    </form>
+</section>
+{% endblock %}

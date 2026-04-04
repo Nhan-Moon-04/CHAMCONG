@@ -1,32 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <div class="inline-form">
-        <div>
-            <h2>Bang luong theo thang</h2>
-            <p class="muted">Luong o day la luong thang cua tung nhan vien. Cong chuan thang ap dung dung chung cho toan bo nhan vien.</p>
-            <p class="muted">Cong chuan hien tai cua thang {{ month_key }}: <strong>{{ company_work_days }}</strong></p>
-        </div>
-        <form method="get">
+<section class="panel page-toolbar">
+    <div>
+        <h2>Bang luong theo thang</h2>
+        <p class="muted">Cong chuan thang {{ month_key }}: <strong>{{ company_work_days }}</strong></p>
+    </div>
+    <div class="toolbar-actions">
+        <form method="get" class="toolbar-month-form">
             <label for="month">Thang</label>
             <input id="month" type="month" name="month" value="{{ month_key }}">
             <button type="submit">Xem</button>
         </form>
+        <button type="button" id="salary-tools-toggle-btn" class="secondary" aria-expanded="false">Mo cong cu</button>
     </div>
-</div>
+</section>
 
-<div class="panel">
-    <div class="inline-form salary-tools-toggle-row">
-        <div>
-            <h3>Cong cu quan ly luong</h3>
-            <p class="muted">Mac dinh thu gon de chi hien bang danh sach. Bam nut de mo/cat gon cong cu nhap va import.</p>
-        </div>
-        <button type="button" id="salary-tools-toggle-btn" class="secondary" aria-expanded="false">Mo cong cu v</button>
-    </div>
-</div>
-
-<div id="salary-tools-container" class="salary-tools-collapsed">
-    <div class="panel">
+<section id="salary-tools-container" class="page-tools tools-collapsed">
+    <div class="panel soft-panel">
         <h3>Cau hinh cong chuan thang (dung cho tat ca nhan vien)</h3>
         <form method="post" class="form-grid">
             <input type="hidden" name="action" value="save_month_workdays">
@@ -38,9 +28,8 @@
         </form>
     </div>
 
-    <div class="panel">
+    <div class="panel soft-panel">
         <h3>Import he luong theo thang</h3>
-        <p class="muted">File ho tro CSV/XLSX. Cot bat buoc: Ma NV, Muc Luong Thang. Cot He so chia luong (ngay) neu co se duoc ap dung cho tat ca nhan vien trong thang.</p>
         <form method="post" action="{{ url_for('import_salaries') }}" enctype="multipart/form-data" class="form-grid">
             <input type="file" name="salary_file" accept=".csv,.xlsx,.xls,.xlsm,.xltx,.xltm" required>
             <input type="month" name="month_key" value="{{ month_key }}" required>
@@ -50,7 +39,7 @@
         </form>
     </div>
 
-    <div class="panel">
+    <div class="panel soft-panel">
         <h3>Nhap luong thang cho tung nhan vien</h3>
         <form method="post" class="form-grid">
             <input type="hidden" name="action" value="save_employee_salary">
@@ -67,9 +56,9 @@
             <button type="submit">Luu luong thang</button>
         </form>
     </div>
-</div>
+</section>
 
-<div class="panel">
+<section class="panel data-panel">
     <div class="table-wrap">
         <table>
             <thead>
@@ -103,7 +92,7 @@
             </tbody>
         </table>
     </div>
-</div>
+</section>
 
 <script>
 (() => {
@@ -115,13 +104,13 @@
     }
 
     const setToolsState = (collapsed) => {
-        toolsContainer.classList.toggle("salary-tools-collapsed", collapsed);
-        toggleButton.textContent = collapsed ? "Mo cong cu v" : "Thu gon ^";
+        toolsContainer.classList.toggle("tools-collapsed", collapsed);
+        toggleButton.textContent = collapsed ? "Mo cong cu" : "Thu gon";
         toggleButton.setAttribute("aria-expanded", String(!collapsed));
     };
 
     toggleButton.addEventListener("click", () => {
-        const collapsed = toolsContainer.classList.contains("salary-tools-collapsed");
+        const collapsed = toolsContainer.classList.contains("tools-collapsed");
         setToolsState(!collapsed);
     });
 

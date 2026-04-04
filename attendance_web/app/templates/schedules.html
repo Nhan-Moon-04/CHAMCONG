@@ -1,58 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <div class="inline-form">
-        <div>
-            <h2>Lich lam va bang tang ca</h2>
-            <p class="muted">Nhap ma ca theo ngay. He thong tu doi chieu cham cong, tinh N neu co lich lam nhung khong co du lieu vao/ra.</p>
-        </div>
-        <form method="get">
+<section class="panel page-toolbar">
+    <div>
+        <h2>Lich lam va bang tang ca</h2>
+        <p class="muted">Thang dang xem: <strong>{{ month_key }}</strong></p>
+    </div>
+    <div class="toolbar-actions">
+        <form method="get" class="toolbar-month-form">
             <label for="month">Thang</label>
             <input id="month" type="month" name="month" value="{{ month_key }}">
             <button type="submit">Xem</button>
         </form>
+        <button type="button" id="schedule-tools-toggle-btn" class="secondary" aria-expanded="false">Mo cong cu</button>
     </div>
-</div>
+</section>
 
-<div class="panel">
-    <h3>Import lich lam tu Excel</h3>
-    <p class="muted">Dinh dang file giong viec.xlsx: cot A la STT, cot B la Ngay, tu cot C tro di la ID <ma> - <ten>, moi o la ma ca (X, XVP, XT...).</p>
-    <form method="post" action="{{ url_for('import_schedules') }}" enctype="multipart/form-data" class="form-grid">
-        <input type="file" name="schedule_file" accept=".xlsx,.xls,.xlsm,.xltx,.xltm" required>
-        <input type="month" name="month_key" value="{{ month_key }}" required>
-        <label><input type="checkbox" name="replace_existing_month" checked> Xoa lich cu cua thang truoc khi import</label>
-        <label><input type="checkbox" name="open_details_after_import" checked> Mo bang chi tiet sau khi import</label>
-        <input name="changed_by" placeholder="Nguoi import" value="admin">
-        <button type="submit" class="secondary">Import lich lam</button>
-    </form>
-</div>
+<section id="schedule-tools-container" class="page-tools tools-collapsed">
+    <div class="panel soft-panel">
+        <h3>Import lich lam tu Excel</h3>
+        <form method="post" action="{{ url_for('import_schedules') }}" enctype="multipart/form-data" class="form-grid">
+            <input type="file" name="schedule_file" accept=".xlsx,.xls,.xlsm,.xltx,.xltm" required>
+            <input type="month" name="month_key" value="{{ month_key }}" required>
+            <label><input type="checkbox" name="replace_existing_month" checked> Xoa lich cu cua thang truoc khi import</label>
+            <label><input type="checkbox" name="open_details_after_import" checked> Mo bang chi tiet sau khi import</label>
+            <input name="changed_by" placeholder="Nguoi import" value="admin">
+            <button type="submit" class="secondary">Import lich lam</button>
+        </form>
+    </div>
 
-<div class="panel">
-    <form method="post" class="form-grid" id="schedule-form">
-        <select name="employee_id" required>
-            <option value="">Nhan vien</option>
-            {% for row in employees %}
-            <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
-            {% endfor %}
-        </select>
-        <input type="date" name="work_date" required>
-        <input name="shift_code" list="shift-codes" placeholder="Ma ca (go de goi y)" required>
-        <datalist id="shift-codes">
-            {% for row in shift_codes %}
-            <option value="{{ row.code }}">{{ row.name }}</option>
-            {% endfor %}
-        </datalist>
-        <input type="number" name="absence_hours" step="0.5" min="0" max="8" value="0" placeholder="Nghi 1-2h">
-        <input type="number" name="overtime_hours" step="0.5" min="0" placeholder="Tang ca (de trong -> lay mac dinh)">
-        <input name="overtime_reason" placeholder="Ly do tang ca">
-        <input name="notes" placeholder="Ghi chu">
-        <input name="changed_by" placeholder="Nguoi sua" value="admin">
-        <button type="submit">Luu lich</button>
-    </form>
-    <p class="muted">Luu y: Ma X4 mac dinh 8h + 4h tang ca, ma X3 mac dinh 8h + 3h tang ca. Neu co nghi 1-2h thi he thong tru gio tang ca truoc.</p>
-</div>
+    <div class="panel soft-panel">
+        <h3>Nhap nhanh lich lam</h3>
+        <form method="post" class="form-grid" id="schedule-form">
+            <select name="employee_id" required>
+                <option value="">Nhan vien</option>
+                {% for row in employees %}
+                <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
+                {% endfor %}
+            </select>
+            <input type="date" name="work_date" required>
+            <input name="shift_code" list="shift-codes" placeholder="Ma ca (go de goi y)" required>
+            <datalist id="shift-codes">
+                {% for row in shift_codes %}
+                <option value="{{ row.code }}">{{ row.name }}</option>
+                {% endfor %}
+            </datalist>
+            <input type="number" name="absence_hours" step="0.5" min="0" max="8" value="0" placeholder="Nghi 1-2h">
+            <input type="number" name="overtime_hours" step="0.5" min="0" placeholder="Tang ca (de trong -> lay mac dinh)">
+            <input name="overtime_reason" placeholder="Ly do tang ca">
+            <input name="notes" placeholder="Ghi chu">
+            <input name="changed_by" placeholder="Nguoi sua" value="admin">
+            <button type="submit">Luu lich</button>
+        </form>
+        <p class="muted">Ma X4 mac dinh 8h + 4h tang ca, ma X3 mac dinh 8h + 3h tang ca.</p>
+    </div>
+</section>
 
-<div class="panel">
+<section class="panel data-panel">
     <div class="table-wrap">
         <table>
             <thead>
@@ -87,7 +90,7 @@
             </tbody>
         </table>
     </div>
-</div>
+</section>
 
 <script id="valid-shift-codes" type="application/json">{{ valid_shift_codes | tojson }}</script>
 
@@ -104,5 +107,23 @@ form.addEventListener("submit", function (event) {
         event.preventDefault();
     }
 });
+
+const scheduleToolsContainer = document.getElementById("schedule-tools-container");
+const scheduleToggleButton = document.getElementById("schedule-tools-toggle-btn");
+
+if (scheduleToolsContainer && scheduleToggleButton) {
+    const setToolsState = (collapsed) => {
+        scheduleToolsContainer.classList.toggle("tools-collapsed", collapsed);
+        scheduleToggleButton.textContent = collapsed ? "Mo cong cu" : "Thu gon";
+        scheduleToggleButton.setAttribute("aria-expanded", String(!collapsed));
+    };
+
+    scheduleToggleButton.addEventListener("click", () => {
+        const collapsed = scheduleToolsContainer.classList.contains("tools-collapsed");
+        setToolsState(!collapsed);
+    });
+
+    setToolsState(true);
+}
 </script>
 {% endblock %}
