@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employee-form-shell">
+    <div class="employee-form-head">
+        <div>
+            <p class="dashboard-eyebrow">User Account</p>
+            <h2>{{ form_title }}</h2>
+            <p class="muted">{{ form_subtitle }}</p>
+        </div>
+        <a class="button-link button-link-secondary" href="{{ back_url }}">Quay lai danh sach user</a>
+    </div>
+
+    <form method="post" class="employee-vertical-form">
+        <div class="field-stack">
+            <label for="username">Ten dang nhap</label>
+            <input id="username" name="username" value="{{ form_values.username }}" placeholder="VD: nhan" required>
+        </div>
+
+        <div class="field-stack">
+            <label for="full_name">Ho ten hien thi</label>
+            <input id="full_name" name="full_name" value="{{ form_values.full_name }}" placeholder="Nhap ho ten hien thi">
+        </div>
+
+        <div class="field-stack">
+            <label for="password">{% if is_edit %}Mat khau moi (bo trong neu giu nguyen){% else %}Mat khau{% endif %}</label>
+            <input id="password" type="password" name="password" {% if not is_edit %}required{% endif %}>
+        </div>
+
+        <div class="field-stack checkbox-stack">
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_admin" {% if form_values.is_admin %}checked{% endif %}>
+                Cap quyen admin
+            </label>
+        </div>
+
+        <div class="field-stack checkbox-stack">
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_active" {% if form_values.is_active %}checked{% endif %}>
+                User dang hoat dong
+            </label>
+        </div>
+
+        <div class="employee-form-actions">
+            <button type="submit">{{ submit_label }}</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

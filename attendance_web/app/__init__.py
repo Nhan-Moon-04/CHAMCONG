@@ -8,6 +8,7 @@ from .database import db
 from .routes import register_routes
 from .services.attendance import ensure_default_data
 from .services.backup import register_scheduler
+from .services.users import ensure_default_admin_user
 
 
 def create_app():
@@ -26,6 +27,11 @@ def create_app():
         from . import models  # noqa: F401
 
         db.create_all()
+        ensure_default_admin_user(
+            app.config.get("LOGIN_USERNAME", "admin"),
+            app.config.get("LOGIN_PASSWORD", "123456"),
+            actor="system-seed",
+        )
         ensure_default_data(actor="system-seed")
 
     register_routes(app)

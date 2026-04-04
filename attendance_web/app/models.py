@@ -28,6 +28,22 @@ class TimestampMixin:
     )
 
 
+class AppUser(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "app_users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    full_name = db.Column(db.String(120), nullable=True)
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    def to_dict(self):
+        payload = super().to_dict()
+        payload.pop("password_hash", None)
+        return payload
+
+
 class ShiftTemplate(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = "shift_templates"
 

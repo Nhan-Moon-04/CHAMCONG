@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employees-header">
+    <div>
+        <p class="dashboard-eyebrow">Access Control</p>
+        <h2>Quan ly user</h2>
+        <p class="muted">Chi tai khoan admin moi co quyen them, sua, xoa user dang nhap.</p>
+    </div>
+    <a class="button-link" href="{{ url_for('create_user') }}">Them user</a>
+</section>
+
+<section class="card-grid employees-summary-grid">
+    <article class="card">
+        <div class="kpi-title">Tong user</div>
+        <div class="kpi-value">{{ total_users }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Dang hoat dong</div>
+        <div class="kpi-value">{{ active_users }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Admin</div>
+        <div class="kpi-value">{{ admin_users }}</div>
+    </article>
+</section>
+
+<section class="panel data-panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Ho ten</th>
+                    <th>Vai tro</th>
+                    <th>Trang thai</th>
+                    <th>Tao luc</th>
+                    <th>Hanh dong</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in users %}
+                <tr>
+                    <td>{{ row.username }}</td>
+                    <td>{{ row.full_name or "-" }}</td>
+                    <td>
+                        {% if row.is_admin %}
+                            <span class="badge badge-ok">Admin</span>
+                        {% else %}
+                            <span class="badge">User</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.is_active %}
+                            <span class="badge badge-ok">Hoat dong</span>
+                        {% else %}
+                            <span class="badge badge-warn">Da khoa</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '-' }}</td>
+                    <td class="employees-actions-cell">
+                        <a class="link-pill" href="{{ url_for('edit_user', user_id=row.id) }}">Sua</a>
+                        {% if row.id != current_user_id %}
+                        <form method="post" action="{{ url_for('delete_user', user_id=row.id) }}" class="row-action-form" onsubmit="return confirm('Xoa user nay?')">
+                            <button type="submit" class="secondary danger">Xoa</button>
+                        </form>
+                        {% else %}
+                            <span class="muted">Dang dang nhap</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">Chua co user nao.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

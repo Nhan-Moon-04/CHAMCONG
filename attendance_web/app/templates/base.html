@@ -33,12 +33,16 @@
                 <a class="{% if request.endpoint == 'schedules' %}active{% endif %}" href="{{ url_for('schedules') }}">Lich lam va OT</a>
                 <a class="{% if request.endpoint == 'details' %}active{% endif %}" href="{{ url_for('details') }}">Bang chi tiet</a>
                 <a class="{% if request.endpoint in ['audit_logs', 'export_audit_csv'] %}active{% endif %}" href="{{ url_for('audit_logs') }}">Audit log</a>
+                {% if current_user_is_admin %}
+                <a class="{% if request.endpoint in ['users', 'create_user', 'edit_user', 'delete_user'] %}active{% endif %}" href="{{ url_for('users') }}">Quan ly user</a>
+                {% endif %}
             </nav>
 
             <div class="sidebar-footer">
                 <div class="user-chip">
                     <span class="user-chip-label">Dang nhap boi</span>
                     <strong>{{ current_user or 'admin' }}</strong>
+                    <span class="muted">@{{ current_user_username or 'admin' }}</span>
                 </div>
                 <form method="post" action="{{ url_for('logout') }}" class="logout-form">
                     <button type="submit" class="secondary">Dang xuat</button>

@@ -21,10 +21,12 @@ from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import joinedload
+from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 from .database import db
 from .models import (
+    AppUser,
     AttendanceDaily,
     AttendanceDetail,
     AttendanceLog,
@@ -289,12 +291,47 @@ def _collect_details_view_data(query_args, emit_flash=True):
     }
 
 
+def _normalize_username(value):
+    return (value or "").strip().lower()
+
+
+def _user_audit_payload(user):
+    return {
+        "id": user.id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "is_admin": bool(user.is_admin),
+        "is_active": bool(user.is_active),
+    }
+
+
+def _active_admin_count():
+    return AppUser.query.filter_by(is_admin=True, is_active=True).count()
+
+
 def register_routes(app):
+    def _set_auth_session(user):
+        session["is_authenticated"] = True
+        session["user_id"] = user.id
+        session["username"] = user.username
+        session["display_name"] = user.full_name or user.username
+        session["is_admin"] = bool(user.is_admin)
+
+    def _require_admin():
+        if session.get("is_admin"):
+            return None
+
+        flash("Ban khong co quyen truy cap chuc nang nay", "error")
+        return redirect(url_for("dashboard"))
+
     @app.context_processor
     def inject_auth_state():
         return {
             "is_authenticated": bool(session.get("is_authenticated")),
-            "current_user": session.get("username", ""),
+            "current_user": session.get("display_name") or session.get("username", ""),
+            "current_user_username": session.get("username", ""),
+            "current_user_is_admin": bool(session.get("is_admin")),
+            "current_user_id": session.get("user_id"),
         }
 
     @app.before_request
@@ -307,6 +344,24 @@ def register_routes(app):
             next_path = request.full_path if request.query_string else request.path
             return redirect(url_for("login", next=next_path))
 
+        current_user = None
+        user_id = session.get("user_id")
+        username = _normalize_username(session.get("username", ""))
+
+        if user_id is not None:
+            current_user = AppUser.query.filter_by(id=user_id).first()
+
+        if current_user is None and username:
+            current_user = AppUser.query.filter(func.lower(AppUser.username) == username).first()
+
+        if current_user is None or not current_user.is_active:
+            session.clear()
+            flash("Tai khoan khong hop le hoac da bi khoa", "error")
+            next_path = request.full_path if request.query_string else request.path
+            return redirect(url_for("login", next=next_path))
+
+        _set_auth_session(current_user)
+
         return None
 
     @app.route("/login", methods=["GET", "POST"])
@@ -317,15 +372,16 @@ def register_routes(app):
         query_next = _sanitize_next_path((request.args.get("next") or "").strip())
 
         if request.method == "POST":
-            username = (request.form.get("username") or "").strip()
+            username = _normalize_username(request.form.get("username"))
             password = request.form.get("password") or ""
-            expected_username = current_app.config.get("LOGIN_USERNAME", "admin")
-            expected_password = current_app.config.get("LOGIN_PASSWORD", "123456")
 
-            if username == expected_username and password == expected_password:
+            user = None
+            if username:
+                user = AppUser.query.filter(func.lower(AppUser.username) == username).first()
+
+            if user and user.is_active and check_password_hash(user.password_hash, password):
                 session.clear()
-                session["is_authenticated"] = True
-                session["username"] = username
+                _set_auth_session(user)
                 session.permanent = True
                 flash("Dang nhap thanh cong", "success")
 
@@ -333,7 +389,10 @@ def register_routes(app):
                 target = form_next or query_next or url_for("dashboard")
                 return redirect(target)
 
-            flash("Sai tai khoan hoac mat khau", "error")
+            if user and not user.is_active:
+                flash("Tai khoan da bi khoa", "error")
+            else:
+                flash("Sai tai khoan hoac mat khau", "error")
 
         return render_template("login.html", title="Dang nhap", next_url=query_next or "")
 
@@ -342,6 +401,305 @@ def register_routes(app):
         session.clear()
         flash("Da dang xuat", "success")
         return redirect(url_for("login"))
+
+    @app.route("/users", methods=["GET"])
+    def users():
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        rows = AppUser.query.order_by(AppUser.username.asc()).all()
+        active_users = [row for row in rows if row.is_active]
+        admin_users = [row for row in rows if row.is_admin]
+
+        return render_template(
+            "users.html",
+            title="Quan ly user",
+            users=rows,
+            total_users=len(rows),
+            active_users=len(active_users),
+            admin_users=len(admin_users),
+            current_user_id=session.get("user_id"),
+        )
+
+    @app.route("/users/new", methods=["GET", "POST"])
+    def create_user():
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        form_values = {
+            "username": "",
+            "full_name": "",
+            "is_admin": False,
+            "is_active": True,
+        }
+
+        if request.method == "POST":
+            actor = session.get("username") or "admin"
+            username = _normalize_username(request.form.get("username"))
+            full_name = (request.form.get("full_name") or "").strip() or None
+            password = request.form.get("password") or ""
+            is_admin = request.form.get("is_admin") == "on"
+            is_active = request.form.get("is_active") == "on"
+
+            form_values.update(
+                {
+                    "username": username,
+                    "full_name": full_name or "",
+                    "is_admin": is_admin,
+                    "is_active": is_active,
+                }
+            )
+
+            if not username:
+                flash("Can nhap ten dang nhap", "error")
+                return render_template(
+                    "user_form.html",
+                    title="Them user",
+                    form_title="Them user moi",
+                    form_subtitle="Tao tai khoan dang nhap moi cho he thong.",
+                    submit_label="Tao user",
+                    back_url=url_for("users"),
+                    form_values=form_values,
+                    is_edit=False,
+                )
+
+            if len(password) < 4:
+                flash("Mat khau toi thieu 4 ky tu", "error")
+                return render_template(
+                    "user_form.html",
+                    title="Them user",
+                    form_title="Them user moi",
+                    form_subtitle="Tao tai khoan dang nhap moi cho he thong.",
+                    submit_label="Tao user",
+                    back_url=url_for("users"),
+                    form_values=form_values,
+                    is_edit=False,
+                )
+
+            existing = AppUser.query.filter(func.lower(AppUser.username) == username).first()
+            if existing:
+                flash("Ten dang nhap da ton tai", "error")
+                return render_template(
+                    "user_form.html",
+                    title="Them user",
+                    form_title="Them user moi",
+                    form_subtitle="Tao tai khoan dang nhap moi cho he thong.",
+                    submit_label="Tao user",
+                    back_url=url_for("users"),
+                    form_values=form_values,
+                    is_edit=False,
+                )
+
+            user = AppUser(
+                username=username,
+                full_name=full_name,
+                password_hash=generate_password_hash(password),
+                is_admin=is_admin,
+                is_active=is_active,
+            )
+            db.session.add(user)
+            db.session.flush()
+
+            log_action(
+                "app_users",
+                str(user.id),
+                "INSERT",
+                changed_by=actor,
+                after_data=_user_audit_payload(user),
+            )
+            db.session.commit()
+            flash("Da them user", "success")
+            return redirect(url_for("users"))
+
+        return render_template(
+            "user_form.html",
+            title="Them user",
+            form_title="Them user moi",
+            form_subtitle="Tao tai khoan dang nhap moi cho he thong.",
+            submit_label="Tao user",
+            back_url=url_for("users"),
+            form_values=form_values,
+            is_edit=False,
+        )
+
+    @app.route("/users/<int:user_id>/edit", methods=["GET", "POST"])
+    def edit_user(user_id):
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        user = AppUser.query.get_or_404(user_id)
+        form_values = {
+            "username": user.username,
+            "full_name": user.full_name or "",
+            "is_admin": bool(user.is_admin),
+            "is_active": bool(user.is_active),
+        }
+
+        if request.method == "POST":
+            actor = session.get("username") or "admin"
+            username = _normalize_username(request.form.get("username"))
+            full_name = (request.form.get("full_name") or "").strip() or None
+            password = request.form.get("password") or ""
+            is_admin = request.form.get("is_admin") == "on"
+            is_active = request.form.get("is_active") == "on"
+
+            form_values.update(
+                {
+                    "username": username,
+                    "full_name": full_name or "",
+                    "is_admin": is_admin,
+                    "is_active": is_active,
+                }
+            )
+
+            if not username:
+                flash("Can nhap ten dang nhap", "error")
+                return render_template(
+                    "user_form.html",
+                    title="Sua user",
+                    form_title="Cap nhat user",
+                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
+                    submit_label="Luu cap nhat",
+                    back_url=url_for("users"),
+                    form_values=form_values,
+                    is_edit=True,
+                    user=user,
+                )
+
+            if password and len(password) < 4:
+                flash("Mat khau moi toi thieu 4 ky tu", "error")
+                return render_template(
+                    "user_form.html",
+                    title="Sua user",
+                    form_title="Cap nhat user",
+                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
+                    submit_label="Luu cap nhat",
+                    back_url=url_for("users"),
+                    form_values=form_values,
+                    is_edit=True,
+                    user=user,
+                )
+
+            duplicate = (
+                AppUser.query.filter(func.lower(AppUser.username) == username, AppUser.id != user.id)
+                .first()
+            )
+            if duplicate:
+                flash("Ten dang nhap da ton tai", "error")
+                return render_template(
+                    "user_form.html",
+                    title="Sua user",
+                    form_title="Cap nhat user",
+                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
+                    submit_label="Luu cap nhat",
+                    back_url=url_for("users"),
+                    form_values=form_values,
+                    is_edit=True,
+                    user=user,
+                )
+
+            current_user_id = session.get("user_id")
+            is_last_active_admin = user.is_admin and user.is_active and _active_admin_count() <= 1
+
+            if is_last_active_admin and (not is_admin or not is_active):
+                flash("Khong the ha quyen user admin cuoi cung", "error")
+                return render_template(
+                    "user_form.html",
+                    title="Sua user",
+                    form_title="Cap nhat user",
+                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
+                    submit_label="Luu cap nhat",
+                    back_url=url_for("users"),
+                    form_values=form_values,
+                    is_edit=True,
+                    user=user,
+                )
+
+            if user.id == current_user_id and (not is_admin or not is_active):
+                flash("Khong the tu khoa hoac bo quyen admin cua tai khoan dang dang nhap", "error")
+                return render_template(
+                    "user_form.html",
+                    title="Sua user",
+                    form_title="Cap nhat user",
+                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
+                    submit_label="Luu cap nhat",
+                    back_url=url_for("users"),
+                    form_values=form_values,
+                    is_edit=True,
+                    user=user,
+                )
+
+            before_data = _user_audit_payload(user)
+
+            user.username = username
+            user.full_name = full_name
+            user.is_admin = is_admin
+            user.is_active = is_active
+            if password:
+                user.password_hash = generate_password_hash(password)
+
+            db.session.flush()
+            log_action(
+                "app_users",
+                str(user.id),
+                "UPDATE",
+                changed_by=actor,
+                before_data=before_data,
+                after_data=_user_audit_payload(user),
+            )
+            db.session.commit()
+
+            if user.id == current_user_id:
+                _set_auth_session(user)
+
+            flash("Da cap nhat user", "success")
+            return redirect(url_for("users"))
+
+        return render_template(
+            "user_form.html",
+            title="Sua user",
+            form_title="Cap nhat user",
+            form_subtitle="Cap nhat quyen va thong tin tai khoan.",
+            submit_label="Luu cap nhat",
+            back_url=url_for("users"),
+            form_values=form_values,
+            is_edit=True,
+            user=user,
+        )
+
+    @app.route("/users/<int:user_id>/delete", methods=["POST"])
+    def delete_user(user_id):
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        user = AppUser.query.get_or_404(user_id)
+        current_user_id = session.get("user_id")
+        if user.id == current_user_id:
+            flash("Khong the xoa tai khoan dang dang nhap", "error")
+            return redirect(url_for("users"))
+
+        if user.is_admin and user.is_active and _active_admin_count() <= 1:
+            flash("Khong the xoa user admin cuoi cung", "error")
+            return redirect(url_for("users"))
+
+        actor = session.get("username") or "admin"
+        before_data = _user_audit_payload(user)
+        db.session.delete(user)
+
+        log_action(
+            "app_users",
+            str(user.id),
+            "DELETE",
+            changed_by=actor,
+            before_data=before_data,
+        )
+        db.session.commit()
+        flash("Da xoa user", "success")
+        return redirect(url_for("users"))
 
     @app.route("/")
     def dashboard():

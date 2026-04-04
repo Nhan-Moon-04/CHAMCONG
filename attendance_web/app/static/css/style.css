@@ -158,6 +158,11 @@ body {
     gap: 2px;
 }
 
+.user-chip .muted {
+    color: rgba(226, 232, 240, 0.72);
+    font-size: 0.82rem;
+}
+
 .user-chip-label {
     font-size: 0.72rem;
     color: rgba(226, 232, 240, 0.78);
