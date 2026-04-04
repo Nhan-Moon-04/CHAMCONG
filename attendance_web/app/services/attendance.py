@@ -12,6 +12,7 @@ from ..models import (
     Holiday,
     LeaveBalance,
     MonthlySalary,
+    MonthlyWorkdayConfig,
     ShiftTemplate,
     WorkSchedule,
 )
@@ -324,10 +325,19 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
     # is_paid is used by UI as a "tick nghi" flag: checked dates are treated as OFF/le.
     holidays = {row.holiday_date for row in holiday_rows if row.is_paid}
 
-    salary_map = {
-        row.employee_id: row
-        for row in MonthlySalary.query.filter_by(month_key=month_key).all()
-    }
+    salary_rows = MonthlySalary.query.filter_by(month_key=month_key).all()
+    salary_map = {row.employee_id: row for row in salary_rows}
+
+    month_config = MonthlyWorkdayConfig.query.filter_by(month_key=month_key).first()
+    company_work_days = _to_float(month_config.company_work_days if month_config else None)
+    if company_work_days <= 0:
+        legacy_coeff = 0.0
+        for row in salary_rows:
+            value = _to_float(row.salary_coefficient)
+            if value >= 10:
+                legacy_coeff = value
+                break
+        company_work_days = legacy_coeff if legacy_coeff > 0 else 26.0
 
     schedules = (
         WorkSchedule.query.options(
@@ -438,9 +448,11 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 paid_hours = 0.0
 
             salary = salary_map.get(employee.id)
-            base_daily = 0.0
+            monthly_wage = 0.0
             if salary:
-                base_daily = _to_float(salary.base_daily_wage) * _to_float(salary.salary_coefficient)
+                monthly_wage = _to_float(salary.base_daily_wage)
+
+            base_daily = (monthly_wage / company_work_days) if company_work_days > 0 else 0.0
 
             if standard_hours > 0:
                 daily_wage = base_daily * (paid_hours / standard_hours)

@@ -83,6 +83,15 @@ class MonthlySalary(db.Model, TimestampMixin, SerializableMixin):
     )
 
 
+class MonthlyWorkdayConfig(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "monthly_workday_configs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    month_key = db.Column(db.String(7), nullable=False, unique=True, index=True)
+    company_work_days = db.Column(db.Numeric(6, 2), nullable=False, default=26)
+    notes = db.Column(db.String(255), nullable=True)
+
+
 class Holiday(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = "holidays"
 

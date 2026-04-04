@@ -4,7 +4,8 @@
     <div class="inline-form">
         <div>
             <h2>Bang luong theo thang</h2>
-            <p class="muted">Moi nhan vien co luong, he so va hinh thuc nhan tien khac nhau theo tung thang.</p>
+            <p class="muted">Luong o day la luong thang cua tung nhan vien. Cong chuan thang ap dung dung chung cho toan bo nhan vien.</p>
+            <p class="muted">Cong chuan hien tai cua thang {{ month_key }}: <strong>{{ company_work_days }}</strong></p>
         </div>
         <form method="get">
             <label for="month">Thang</label>
@@ -15,20 +16,57 @@
 </div>
 
 <div class="panel">
-    <form method="post" class="form-grid">
-        <select name="employee_id" required>
-            <option value="">Chon nhan vien</option>
-            {% for row in employees %}
-            <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
-            {% endfor %}
-        </select>
-        <input type="month" name="month_key" value="{{ month_key }}" required>
-        <input type="number" step="1000" min="0" name="base_daily_wage" placeholder="Luong/ngay" required>
-        <input type="number" step="0.01" min="0" name="salary_coefficient" value="1" placeholder="He so luong" required>
-        <input name="pay_method" placeholder="Hinh thuc nhan tien (Tien mat/CK)">
-        <input name="changed_by" placeholder="Nguoi sua" value="admin">
-        <button type="submit">Luu bang luong</button>
-    </form>
+    <div class="inline-form salary-tools-toggle-row">
+        <div>
+            <h3>Cong cu quan ly luong</h3>
+            <p class="muted">Mac dinh thu gon de chi hien bang danh sach. Bam nut de mo/cat gon cong cu nhap va import.</p>
+        </div>
+        <button type="button" id="salary-tools-toggle-btn" class="secondary" aria-expanded="false">Mo cong cu v</button>
+    </div>
+</div>
+
+<div id="salary-tools-container" class="salary-tools-collapsed">
+    <div class="panel">
+        <h3>Cau hinh cong chuan thang (dung cho tat ca nhan vien)</h3>
+        <form method="post" class="form-grid">
+            <input type="hidden" name="action" value="save_month_workdays">
+            <input type="month" name="month_key" value="{{ month_key }}" required>
+            <input type="number" step="0.5" min="1" name="company_work_days" value="{{ company_work_days }}" placeholder="Cong chuan thang" required>
+            <input name="notes" placeholder="Ghi chu cong chuan" value="{{ workday_config.notes if workday_config else '' }}">
+            <input name="changed_by" placeholder="Nguoi sua" value="admin">
+            <button type="submit" class="secondary">Luu cong chuan thang</button>
+        </form>
+    </div>
+
+    <div class="panel">
+        <h3>Import he luong theo thang</h3>
+        <p class="muted">File ho tro CSV/XLSX. Cot bat buoc: Ma NV, Muc Luong Thang. Cot He so chia luong (ngay) neu co se duoc ap dung cho tat ca nhan vien trong thang.</p>
+        <form method="post" action="{{ url_for('import_salaries') }}" enctype="multipart/form-data" class="form-grid">
+            <input type="file" name="salary_file" accept=".csv,.xlsx,.xls,.xlsm,.xltx,.xltm" required>
+            <input type="month" name="month_key" value="{{ month_key }}" required>
+            <label><input type="checkbox" name="replace_existing_month"> Xoa luong cu cua thang truoc khi import</label>
+            <input name="changed_by" placeholder="Nguoi import" value="admin">
+            <button type="submit" class="secondary">Import he luong</button>
+        </form>
+    </div>
+
+    <div class="panel">
+        <h3>Nhap luong thang cho tung nhan vien</h3>
+        <form method="post" class="form-grid">
+            <input type="hidden" name="action" value="save_employee_salary">
+            <select name="employee_id" required>
+                <option value="">Chon nhan vien</option>
+                {% for row in employees %}
+                <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
+                {% endfor %}
+            </select>
+            <input type="month" name="month_key" value="{{ month_key }}" required>
+            <input type="number" step="1000" min="0" name="base_monthly_wage" placeholder="Luong thang" required>
+            <input name="pay_method" placeholder="Hinh thuc nhan tien (Tien mat/CK)">
+            <input name="changed_by" placeholder="Nguoi sua" value="admin">
+            <button type="submit">Luu luong thang</button>
+        </form>
+    </div>
 </div>
 
 <div class="panel">
@@ -37,30 +75,57 @@
             <thead>
                 <tr>
                     <th>Thang</th>
+                    <th>Cong chuan thang</th>
                     <th>Ma NV</th>
                     <th>Ho ten</th>
-                    <th>Luong/ngay</th>
-                    <th>He so</th>
+                    <th>Luong thang</th>
+                    <th>Luong ngay quy doi</th>
                     <th>Hinh thuc nhan tien</th>
                 </tr>
             </thead>
             <tbody>
-                {% for row in salaries %}
+                {% for item in salary_rows %}
+                {% set row = item.salary %}
                 <tr>
                     <td>{{ row.month_key }}</td>
+                    <td>{{ company_work_days }}</td>
                     <td>{{ row.employee.employee_code }}</td>
                     <td><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=month_key) }}">{{ row.employee.full_name }}</a></td>
-                    <td>{{ "{:,.0f}".format(row.base_daily_wage) }}</td>
-                    <td>{{ row.salary_coefficient }}</td>
+                    <td>{{ "{:,.0f}".format(item.monthly_wage) }}</td>
+                    <td>{{ "{:,.0f}".format(item.daily_rate) }}</td>
                     <td>{{ row.pay_method or '-' }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6">Chua co du lieu luong cho thang nay.</td>
+                    <td colspan="7">Chua co du lieu luong cho thang nay.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<script>
+(() => {
+    const toolsContainer = document.getElementById("salary-tools-container");
+    const toggleButton = document.getElementById("salary-tools-toggle-btn");
+
+    if (!toolsContainer || !toggleButton) {
+        return;
+    }
+
+    const setToolsState = (collapsed) => {
+        toolsContainer.classList.toggle("salary-tools-collapsed", collapsed);
+        toggleButton.textContent = collapsed ? "Mo cong cu v" : "Thu gon ^";
+        toggleButton.setAttribute("aria-expanded", String(!collapsed));
+    };
+
+    toggleButton.addEventListener("click", () => {
+        const collapsed = toolsContainer.classList.contains("salary-tools-collapsed");
+        setToolsState(!collapsed);
+    });
+
+    setToolsState(true);
+})();
+</script>
 {% endblock %}

@@ -62,22 +62,25 @@
             <thead>
                 <tr>
                     <th>Thang</th>
-                    <th>Luong/ngay</th>
-                    <th>He so</th>
+                    <th>Luong thang</th>
+                    <th>Cong chuan thang</th>
+                    <th>Luong ngay quy doi</th>
                     <th>Hinh thuc nhan tien</th>
                 </tr>
             </thead>
             <tbody>
-                {% for row in salaries %}
+                {% for item in salary_history_rows %}
+                {% set row = item.salary %}
                 <tr>
                     <td>{{ row.month_key }}</td>
-                    <td>{{ "{:,.0f}".format(row.base_daily_wage) }}</td>
-                    <td>{{ row.salary_coefficient }}</td>
+                    <td>{{ "{:,.0f}".format(item.monthly_wage) }}</td>
+                    <td>{{ item.company_work_days }}</td>
+                    <td>{{ "{:,.0f}".format(item.daily_rate) }}</td>
                     <td>{{ row.pay_method or "-" }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4">Chua co bang luong theo thang.</td>
+                    <td colspan="5">Chua co bang luong theo thang.</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -407,6 +407,18 @@ a {
     padding: 6px 10px;
 }
 
+.salary-tools-toggle-row {
+    align-items: center;
+}
+
+#salary-tools-toggle-btn {
+    width: auto;
+}
+
+#salary-tools-container.salary-tools-collapsed {
+    display: none;
+}
+
 @media (max-width: 980px) {
     .layout {
         grid-template-columns: 1fr;

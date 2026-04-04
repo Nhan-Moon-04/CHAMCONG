@@ -28,6 +28,7 @@ from .models import (
     Holiday,
     LeaveBalance,
     MonthlySalary,
+    MonthlyWorkdayConfig,
     OvertimeEntry,
     ShiftTemplate,
     WorkSchedule,
@@ -42,6 +43,7 @@ from .services.attendance import (
 from .services.audit import log_action
 from .services.backup import run_pg_dump
 from .services.importer import import_attendance_file
+from .services.salary_importer import import_salary_file
 from .services.schedule_importer import import_schedule_file
 
 
@@ -86,6 +88,20 @@ def _iter_month_keys(start_date, end_date):
             current = date(current.year + 1, 1, 1)
         else:
             current = date(current.year, current.month + 1, 1)
+
+
+def _resolve_company_work_days(month_key):
+    config = MonthlyWorkdayConfig.query.filter_by(month_key=month_key).first()
+    config_value = _to_float(config.company_work_days if config else None, 0)
+    if config_value > 0:
+        return config_value, config
+
+    legacy_salary = MonthlySalary.query.filter_by(month_key=month_key).order_by(MonthlySalary.id.asc()).first()
+    legacy_value = _to_float(legacy_salary.salary_coefficient if legacy_salary else None, 0)
+    if legacy_value >= 10:
+        return legacy_value, config
+
+    return 26.0, config
 
 
 def _get_holiday_library():
@@ -272,6 +288,32 @@ def register_routes(app):
             .all()
         )
 
+        month_keys = [row.month_key for row in salaries]
+        config_rows = (
+            MonthlyWorkdayConfig.query.filter(MonthlyWorkdayConfig.month_key.in_(month_keys)).all()
+            if month_keys
+            else []
+        )
+        config_map = {row.month_key: _to_float(row.company_work_days, 0) for row in config_rows}
+
+        salary_history_rows = []
+        for row in salaries:
+            company_work_days = config_map.get(row.month_key, 0)
+            if company_work_days <= 0:
+                legacy_value = _to_float(row.salary_coefficient, 0)
+                company_work_days = legacy_value if legacy_value >= 10 else 26.0
+
+            monthly_wage = _to_float(row.base_daily_wage)
+            daily_rate = (monthly_wage / company_work_days) if company_work_days > 0 else 0.0
+            salary_history_rows.append(
+                {
+                    "salary": row,
+                    "monthly_wage": round(monthly_wage, 2),
+                    "company_work_days": round(company_work_days, 2),
+                    "daily_rate": round(daily_rate, 2),
+                }
+            )
+
         summary_paid_hours = sum(float(row.paid_hours or 0) for row in details)
         summary_wage = sum(float(row.daily_wage or 0) for row in details)
 
@@ -280,7 +322,7 @@ def register_routes(app):
             employee=employee,
             month_key=month_key,
             details=details,
-            salaries=salaries,
+            salary_history_rows=salary_history_rows,
             balances=balances,
             summary_paid_hours=summary_paid_hours,
             summary_wage=summary_wage,
@@ -414,18 +456,79 @@ def register_routes(app):
         month_key = _safe_month_key(request.args.get("month"))
 
         if request.method == "POST":
-            actor = request.form.get("changed_by", "admin")
-            employee_id = int(request.form.get("employee_id"))
-            target_month = _safe_month_key(request.form.get("month_key"))
-            base_daily_wage = _to_float(request.form.get("base_daily_wage"), 0)
-            salary_coefficient = _to_float(request.form.get("salary_coefficient"), 1)
+            actor = request.form.get("changed_by", "admin").strip() or "admin"
+            action = request.form.get("action", "save_employee_salary").strip()
+            target_month = _safe_month_key(request.form.get("month_key") or month_key)
+
+            if action == "save_month_workdays":
+                company_work_days = _to_float(request.form.get("company_work_days"), 0)
+                notes = request.form.get("notes", "").strip() or None
+
+                if company_work_days <= 0:
+                    flash("Cong chuan thang phai lon hon 0", "error")
+                    return redirect(url_for("salaries", month=target_month))
+
+                config = MonthlyWorkdayConfig.query.filter_by(month_key=target_month).first()
+                if config:
+                    before = config.to_dict()
+                    config.company_work_days = company_work_days
+                    config.notes = notes
+                    log_action(
+                        "monthly_workday_configs",
+                        config.id,
+                        "UPDATE",
+                        changed_by=actor,
+                        before_data=before,
+                        after_data=config.to_dict(),
+                    )
+                else:
+                    config = MonthlyWorkdayConfig(
+                        month_key=target_month,
+                        company_work_days=company_work_days,
+                        notes=notes,
+                    )
+                    db.session.add(config)
+                    db.session.flush()
+                    log_action(
+                        "monthly_workday_configs",
+                        config.id,
+                        "INSERT",
+                        changed_by=actor,
+                        after_data=config.to_dict(),
+                    )
+
+                month_salary_rows = MonthlySalary.query.filter_by(month_key=target_month).all()
+                for salary_row in month_salary_rows:
+                    salary_row.salary_coefficient = company_work_days
+
+                db.session.commit()
+                rebuild_month_details(target_month, actor)
+                flash("Da luu cong chuan thang (ap dung toan bo nhan vien)", "success")
+                return redirect(url_for("salaries", month=target_month))
+
+            employee_id_raw = request.form.get("employee_id", "").strip()
+            if not employee_id_raw.isdigit():
+                flash("Can chon nhan vien", "error")
+                return redirect(url_for("salaries", month=target_month))
+
+            employee_id = int(employee_id_raw)
+            base_monthly_wage = _to_float(
+                request.form.get("base_monthly_wage") or request.form.get("base_daily_wage"),
+                0,
+            )
             pay_method = request.form.get("pay_method", "").strip() or None
+
+            if base_monthly_wage < 0:
+                flash("Luong thang khong hop le", "error")
+                return redirect(url_for("salaries", month=target_month))
+
+            company_work_days, _ = _resolve_company_work_days(target_month)
 
             row = MonthlySalary.query.filter_by(employee_id=employee_id, month_key=target_month).first()
             if row:
                 before = row.to_dict()
-                row.base_daily_wage = base_daily_wage
-                row.salary_coefficient = salary_coefficient
+                row.base_daily_wage = base_monthly_wage
+                row.salary_coefficient = company_work_days
                 row.pay_method = pay_method
                 log_action(
                     "monthly_salaries",
@@ -434,13 +537,14 @@ def register_routes(app):
                     changed_by=actor,
                     before_data=before,
                     after_data=row.to_dict(),
+                    notes="Luong thang theo nhan vien",
                 )
             else:
                 row = MonthlySalary(
                     employee_id=employee_id,
                     month_key=target_month,
-                    base_daily_wage=base_daily_wage,
-                    salary_coefficient=salary_coefficient,
+                    base_daily_wage=base_monthly_wage,
+                    salary_coefficient=company_work_days,
                     pay_method=pay_method,
                 )
                 db.session.add(row)
@@ -451,26 +555,106 @@ def register_routes(app):
                     "INSERT",
                     changed_by=actor,
                     after_data=row.to_dict(),
+                    notes="Luong thang theo nhan vien",
                 )
 
             db.session.commit()
             rebuild_month_details(target_month, actor)
-            flash("Da luu bang luong theo thang", "success")
+            flash("Da luu luong thang nhan vien", "success")
             return redirect(url_for("salaries", month=target_month))
 
         employees = Employee.query.order_by(Employee.employee_code.asc()).all()
+        company_work_days, workday_config = _resolve_company_work_days(month_key)
         rows = (
             MonthlySalary.query.options(joinedload(MonthlySalary.employee))
             .filter(MonthlySalary.month_key == month_key)
-            .order_by(MonthlySalary.id.desc())
+            .order_by(MonthlySalary.employee_id.asc())
             .all()
         )
+
+        salary_rows = []
+        for row in rows:
+            monthly_wage = _to_float(row.base_daily_wage)
+            daily_rate = (monthly_wage / company_work_days) if company_work_days > 0 else 0.0
+            salary_rows.append(
+                {
+                    "salary": row,
+                    "monthly_wage": round(monthly_wage, 2),
+                    "daily_rate": round(daily_rate, 2),
+                }
+            )
+
         return render_template(
             "salaries.html",
             month_key=month_key,
             employees=employees,
-            salaries=rows,
+            salary_rows=salary_rows,
+            company_work_days=round(company_work_days, 2),
+            workday_config=workday_config,
         )
+
+    @app.route("/salaries/import", methods=["POST"])
+    def import_salaries():
+        actor = request.form.get("changed_by", "admin").strip() or "admin"
+        month_key = _safe_month_key(request.form.get("month_key") or request.args.get("month"))
+        replace_existing_month = request.form.get("replace_existing_month") == "on"
+
+        upload = request.files.get("salary_file")
+        if not upload or upload.filename == "":
+            flash("Can chon file he luong de import", "error")
+            return redirect(url_for("salaries", month=month_key))
+
+        extension = Path(upload.filename).suffix.lower()
+        if extension not in {".xlsx", ".xlsm", ".xltx", ".xltm", ".xls", ".csv"}:
+            flash("File he luong chi ho tro CSV/XLSX", "error")
+            return redirect(url_for("salaries", month=month_key))
+
+        upload_folder = Path(current_app.config["UPLOAD_FOLDER"])
+        upload_folder.mkdir(parents=True, exist_ok=True)
+
+        safe_name = secure_filename(upload.filename)
+        temp_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{safe_name}"
+        temp_path = upload_folder / temp_name
+        upload.save(temp_path)
+
+        try:
+            default_work_days, _ = _resolve_company_work_days(month_key)
+            result = import_salary_file(
+                str(temp_path),
+                upload.filename,
+                actor=actor,
+                target_month=month_key,
+                default_company_work_days=default_work_days,
+                replace_existing=replace_existing_month,
+            )
+
+            rebuild_month_details(month_key, actor)
+
+            replaced_info = ""
+            if result["replace_existing"]:
+                replaced_info = f" Da xoa truoc {result['deleted_rows']} dong luong cu."
+
+            unknown_info = ""
+            if result["skipped_unknown"] > 0:
+                unknown_preview = ", ".join(result["unknown_codes"][:10])
+                unknown_info = (
+                    f" Bo qua {result['skipped_unknown']} dong do khong tim thay Ma NV"
+                    f" ({unknown_preview})."
+                )
+
+            flash(
+                f"Import he luong thang {month_key} xong: tao moi {result['created']}, "
+                f"cap nhat {result['updated']}, cong chuan {result['company_work_days']}.{replaced_info}{unknown_info}",
+                "success",
+            )
+            return redirect(url_for("salaries", month=month_key))
+        except Exception as exc:
+            db.session.rollback()
+            flash(f"Import he luong that bai: {exc}", "error")
+            return redirect(url_for("salaries", month=month_key))
+        finally:
+            if temp_path.exists():
+                os.remove(temp_path)
 
     @app.route("/holidays", methods=["GET", "POST"])
     def holidays():
