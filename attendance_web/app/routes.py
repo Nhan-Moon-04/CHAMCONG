@@ -18,6 +18,7 @@ from flask import (
     url_for,
 )
 from openpyxl import Workbook
+from openpyxl.styles import PatternFill
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
@@ -53,6 +54,13 @@ from .services.schedule_importer import import_schedule_file
 
 _holiday_lib = None
 _holiday_lib_checked = False
+
+DETAILS_HIGHLIGHT_TO_EXCEL_FILL = {
+    "half-leave": "FFFFF1D6",
+    "paid-leave": "FFE8F5E9",
+    "unexcused": "FFFFB3B3",
+    "missing-check": "FFFFF8CC",
+}
 
 
 def _safe_month_key(value):
@@ -163,6 +171,29 @@ def _get_vietnam_holiday_map(start_date, end_date):
     return holiday_map
 
 
+def _is_missing_check_event(detail_row):
+    check_in = getattr(detail_row, "check_in", None)
+    check_out = getattr(detail_row, "check_out", None)
+
+    if check_in and check_out:
+        return check_in == check_out
+    return bool(check_in) != bool(check_out)
+
+
+def _get_details_highlight_tag(detail_row):
+    status_code = str(getattr(detail_row, "status_code", "") or "").upper()
+
+    if _is_missing_check_event(detail_row):
+        return "missing-check"
+    if status_code in {"S", "C"}:
+        return "half-leave"
+    if status_code == "P":
+        return "paid-leave"
+    if status_code == "N":
+        return "unexcused"
+    return ""
+
+
 def _collect_details_view_data(query_args, emit_flash=True):
     month_key = _safe_month_key(query_args.get("month"))
     employee_id_raw = (query_args.get("employee_id", "") or "").strip()
@@ -234,6 +265,9 @@ def _collect_details_view_data(query_args, emit_flash=True):
     else:
         rows = build_live_month_details(month_key, employee_id=selected_employee_id)
         period_label = month_key
+
+    for row in rows:
+        setattr(row, "highlight_tag", _get_details_highlight_tag(row))
 
     query_params = {"month": month_key}
     if selected_employee_id is not None:
@@ -1584,6 +1618,11 @@ def register_routes(app):
         ]
         sheet.append(headers)
 
+        fill_by_tag = {
+            key: PatternFill(fill_type="solid", fgColor=value)
+            for key, value in DETAILS_HIGHLIGHT_TO_EXCEL_FILL.items()
+        }
+
         for index, row in enumerate(rows, start=1):
             sheet.append(
                 [
@@ -1605,6 +1644,12 @@ def register_routes(app):
                     float(row.meal_allowance_daily),
                 ]
             )
+
+            highlight_tag = getattr(row, "highlight_tag", "") or _get_details_highlight_tag(row)
+            row_fill = fill_by_tag.get(highlight_tag)
+            if row_fill:
+                for cell in sheet[sheet.max_row]:
+                    cell.fill = row_fill
 
         sheet.freeze_panes = "A2"
 

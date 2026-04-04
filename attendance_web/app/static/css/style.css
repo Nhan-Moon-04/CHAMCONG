@@ -75,8 +75,10 @@ body {
 
 .layout {
     min-height: 100vh;
+    height: 100vh;
     display: grid;
-    grid-template-columns: 290px 1fr;
+    grid-template-columns: 290px minmax(0, 1fr);
+    overflow: hidden;
 }
 
 .sidebar {
@@ -87,6 +89,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 18px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
 }
 
 .brand-block h1 {
@@ -165,6 +171,8 @@ body {
 
 .main-content {
     padding: 16px;
+    height: 100vh;
+    overflow-y: auto;
 }
 
 .topbar {
@@ -677,6 +685,38 @@ tr.sunday-row:hover td {
     background: #ffedd5;
 }
 
+tr.details-status-half-leave td {
+    background: #fff1d6;
+}
+
+tr.details-status-half-leave:hover td {
+    background: #ffe6bf;
+}
+
+tr.details-status-paid-leave td {
+    background: #e9f8ec;
+}
+
+tr.details-status-paid-leave:hover td {
+    background: #ddf3e2;
+}
+
+tr.details-status-unexcused td {
+    background: #f7b7b7;
+}
+
+tr.details-status-unexcused:hover td {
+    background: #f3a5a5;
+}
+
+tr.details-status-missing-check td {
+    background: #fff8cc;
+}
+
+tr.details-status-missing-check:hover td {
+    background: #fff1ad;
+}
+
 tr.employee-divider td {
     border-top: 2px solid #cbd5e1;
 }
@@ -959,12 +999,22 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
 
 @media (max-width: 980px) {
     .layout {
+        height: auto;
         grid-template-columns: 1fr;
+        overflow: visible;
     }
 
     .sidebar {
+        position: static;
+        height: auto;
+        overflow: visible;
         border-right: none;
         border-bottom: 1px solid rgba(148, 163, 184, 0.32);
+    }
+
+    .main-content {
+        height: auto;
+        overflow: visible;
     }
 
     .topbar {

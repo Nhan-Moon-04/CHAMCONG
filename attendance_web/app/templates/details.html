@@ -13,6 +13,7 @@
                 <p class="muted">Dang xem thang: <strong>{{ month_key }}</strong></p>
                 {% endif %}
                 <p class="muted">Dong to mau vang nhat la ngay Chu nhat.</p>
+                <p class="muted">Mau dong: Nghi nua buoi (cam nhat), Nghi co phep (xanh la nhat), Nghi khong phep (do), Quen checkin/checkout (vang nhat).</p>
                 <p class="muted">Giua moi nhan vien co them gach ngan de de phan biet theo nguoi.</p>
                 <p class="muted">Neu nhap Tu ngay/Den ngay thi he thong uu tien loc theo khoang thoi gian (co the qua nhieu thang).</p>
             </div>
@@ -67,7 +68,17 @@
                 {% set ns = namespace(prev_employee_id=None) %}
                 {% for row in details %}
                 {% set is_new_employee = ns.prev_employee_id is not none and ns.prev_employee_id != row.employee.id %}
-                <tr class="{% if row.work_date.weekday() == 6 %}sunday-row{% endif %}{% if is_new_employee %} employee-divider{% endif %}">
+                {% set highlight_class = "" %}
+                {% if row.highlight_tag == "half-leave" %}
+                    {% set highlight_class = "details-status-half-leave" %}
+                {% elif row.highlight_tag == "paid-leave" %}
+                    {% set highlight_class = "details-status-paid-leave" %}
+                {% elif row.highlight_tag == "unexcused" %}
+                    {% set highlight_class = "details-status-unexcused" %}
+                {% elif row.highlight_tag == "missing-check" %}
+                    {% set highlight_class = "details-status-missing-check" %}
+                {% endif %}
+                <tr class="{% if row.work_date.weekday() == 6 %}sunday-row {% endif %}{% if is_new_employee %}employee-divider {% endif %}{{ highlight_class }}">
                     <td data-sort-value="{{ loop.index }}">{{ loop.index }}</td>
                     <td data-sort-value="{{ row.employee.employee_code }}">{{ row.employee.employee_code }}</td>
                     <td data-sort-value="{{ row.employee.full_name|lower }}"><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=row.work_date.strftime('%Y-%m')) }}">{{ row.employee.full_name }}</a></td>
