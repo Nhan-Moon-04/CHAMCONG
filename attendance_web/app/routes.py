@@ -13,9 +13,11 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     session,
     url_for,
 )
+from openpyxl import Workbook
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
@@ -159,6 +161,98 @@ def _get_vietnam_holiday_map(start_date, end_date):
                     holiday_map[holiday_date] = holiday_name
 
     return holiday_map
+
+
+def _collect_details_view_data(query_args, emit_flash=True):
+    month_key = _safe_month_key(query_args.get("month"))
+    employee_id_raw = (query_args.get("employee_id", "") or "").strip()
+
+    selected_employee_id = None
+    if employee_id_raw:
+        try:
+            selected_employee_id = int(employee_id_raw)
+        except ValueError:
+            if emit_flash:
+                flash("Nhan vien khong hop le", "error")
+
+    start_date_raw = (query_args.get("start_date", "") or "").strip()
+    end_date_raw = (query_args.get("end_date", "") or "").strip()
+
+    parsed_start_date = None
+    parsed_end_date = None
+    has_date_parse_error = False
+
+    if start_date_raw:
+        try:
+            parsed_start_date = _parse_date(start_date_raw)
+        except (TypeError, ValueError):
+            if emit_flash:
+                flash("Tu ngay khong hop le", "error")
+            has_date_parse_error = True
+
+    if end_date_raw:
+        try:
+            parsed_end_date = _parse_date(end_date_raw)
+        except (TypeError, ValueError):
+            if emit_flash:
+                flash("Den ngay khong hop le", "error")
+            has_date_parse_error = True
+
+    if has_date_parse_error:
+        parsed_start_date = None
+        parsed_end_date = None
+
+    if parsed_start_date and not parsed_end_date:
+        parsed_end_date = parsed_start_date
+    if parsed_end_date and not parsed_start_date:
+        parsed_start_date = parsed_end_date
+
+    is_range_mode = bool(parsed_start_date and parsed_end_date)
+
+    if is_range_mode and parsed_start_date > parsed_end_date:
+        parsed_start_date, parsed_end_date = parsed_end_date, parsed_start_date
+
+    if is_range_mode:
+        rows = []
+        for item_month in _iter_month_keys(parsed_start_date, parsed_end_date):
+            month_rows = build_live_month_details(item_month, employee_id=selected_employee_id)
+            rows.extend(
+                row for row in month_rows if parsed_start_date <= row.work_date <= parsed_end_date
+            )
+
+        def _sort_key(detail_row):
+            raw_code = (detail_row.employee.employee_code or "").replace("'", "").strip()
+            if raw_code.isdigit():
+                code_key = (0, int(raw_code))
+            else:
+                code_key = (1, raw_code.lower())
+
+            return code_key, detail_row.work_date, detail_row.employee.id
+
+        rows.sort(key=_sort_key)
+        period_label = f"{parsed_start_date} den {parsed_end_date}"
+    else:
+        rows = build_live_month_details(month_key, employee_id=selected_employee_id)
+        period_label = month_key
+
+    query_params = {"month": month_key}
+    if selected_employee_id is not None:
+        query_params["employee_id"] = selected_employee_id
+    if parsed_start_date:
+        query_params["start_date"] = parsed_start_date.isoformat()
+    if parsed_end_date:
+        query_params["end_date"] = parsed_end_date.isoformat()
+
+    return {
+        "month_key": month_key,
+        "rows": rows,
+        "selected_employee_id": selected_employee_id,
+        "parsed_start_date": parsed_start_date,
+        "parsed_end_date": parsed_end_date,
+        "is_range_mode": is_range_mode,
+        "period_label": period_label,
+        "query_params": query_params,
+    }
 
 
 def register_routes(app):
@@ -1437,79 +1531,99 @@ def register_routes(app):
 
     @app.route("/details")
     def details():
-        month_key = _safe_month_key(request.args.get("month"))
-        employee_id = request.args.get("employee_id", "").strip()
-        selected_employee_id = int(employee_id) if employee_id else None
-        start_date_raw = request.args.get("start_date", "").strip()
-        end_date_raw = request.args.get("end_date", "").strip()
-
-        parsed_start_date = None
-        parsed_end_date = None
-        has_date_parse_error = False
-
-        if start_date_raw:
-            try:
-                parsed_start_date = _parse_date(start_date_raw)
-            except (TypeError, ValueError):
-                flash("Tu ngay khong hop le", "error")
-                has_date_parse_error = True
-
-        if end_date_raw:
-            try:
-                parsed_end_date = _parse_date(end_date_raw)
-            except (TypeError, ValueError):
-                flash("Den ngay khong hop le", "error")
-
-                has_date_parse_error = True
-
-        if has_date_parse_error:
-            parsed_start_date = None
-            parsed_end_date = None
-
-        if parsed_start_date and not parsed_end_date:
-            parsed_end_date = parsed_start_date
-        if parsed_end_date and not parsed_start_date:
-            parsed_start_date = parsed_end_date
-
-        is_range_mode = bool(parsed_start_date and parsed_end_date)
-
-        if is_range_mode and parsed_start_date > parsed_end_date:
-            parsed_start_date, parsed_end_date = parsed_end_date, parsed_start_date
-
-        if is_range_mode:
-            rows = []
-            for item_month in _iter_month_keys(parsed_start_date, parsed_end_date):
-                month_rows = build_live_month_details(item_month, employee_id=selected_employee_id)
-                rows.extend(
-                    row for row in month_rows if parsed_start_date <= row.work_date <= parsed_end_date
-                )
-
-            def _sort_key(detail_row):
-                raw_code = (detail_row.employee.employee_code or "").replace("'", "").strip()
-                if raw_code.isdigit():
-                    code_key = (0, int(raw_code))
-                else:
-                    code_key = (1, raw_code.lower())
-
-                return code_key, detail_row.work_date, detail_row.employee.id
-
-            rows.sort(key=_sort_key)
-            period_label = f"{parsed_start_date} den {parsed_end_date}"
-        else:
-            rows = build_live_month_details(month_key, employee_id=selected_employee_id)
-            period_label = month_key
+        details_view_data = _collect_details_view_data(request.args, emit_flash=True)
 
         employees = Employee.query.order_by(Employee.employee_code.asc()).all()
         return render_template(
             "details.html",
-            month_key=month_key,
-            details=rows,
+            month_key=details_view_data["month_key"],
+            details=details_view_data["rows"],
             employees=employees,
-            selected_employee_id=selected_employee_id,
-            start_date_value=parsed_start_date.isoformat() if parsed_start_date else "",
-            end_date_value=parsed_end_date.isoformat() if parsed_end_date else "",
-            is_range_mode=is_range_mode,
-            period_label=period_label,
+            selected_employee_id=details_view_data["selected_employee_id"],
+            start_date_value=(
+                details_view_data["parsed_start_date"].isoformat()
+                if details_view_data["parsed_start_date"]
+                else ""
+            ),
+            end_date_value=(
+                details_view_data["parsed_end_date"].isoformat()
+                if details_view_data["parsed_end_date"]
+                else ""
+            ),
+            is_range_mode=details_view_data["is_range_mode"],
+            period_label=details_view_data["period_label"],
+            export_excel_url=url_for("export_details_excel", **details_view_data["query_params"]),
+        )
+
+    @app.route("/details/export.xlsx")
+    def export_details_excel():
+        details_view_data = _collect_details_view_data(request.args, emit_flash=False)
+        rows = details_view_data["rows"]
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Bang chi tiet"
+
+        headers = [
+            "STT",
+            "Ma NV",
+            "Ho Ten",
+            "Ngay",
+            "Ten Ca",
+            "Gio Vao",
+            "Gio Ra",
+            "Gio Thuc",
+            "Chenh Lech",
+            "Tang Ca",
+            "Tong Gio",
+            "Status Code",
+            "So Gio",
+            "Luong Theo Ngay",
+            "Ghi Chu",
+            "Tien An Theo Ngay",
+        ]
+        sheet.append(headers)
+
+        for index, row in enumerate(rows, start=1):
+            sheet.append(
+                [
+                    index,
+                    row.employee.employee_code,
+                    row.employee.full_name,
+                    row.work_date.isoformat(),
+                    f"{row.shift_code} - {row.shift_name}",
+                    row.check_in.strftime("%Y-%m-%d %H:%M") if row.check_in else "",
+                    row.check_out.strftime("%Y-%m-%d %H:%M") if row.check_out else "",
+                    float(row.actual_work_hours),
+                    float(row.deviation_hours),
+                    float(row.overtime_hours),
+                    float(row.total_span_hours),
+                    row.status_code,
+                    float(row.paid_hours),
+                    float(row.daily_wage),
+                    row.notes or "",
+                    float(row.meal_allowance_daily),
+                ]
+            )
+
+        sheet.freeze_panes = "A2"
+
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        if details_view_data["is_range_mode"]:
+            start_date_label = details_view_data["parsed_start_date"].strftime("%Y%m%d")
+            end_date_label = details_view_data["parsed_end_date"].strftime("%Y%m%d")
+            filename = f"bang_chi_tiet_{start_date_label}_{end_date_label}.xlsx"
+        else:
+            filename = f"bang_chi_tiet_{details_view_data['month_key'].replace('-', '')}.xlsx"
+
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=filename,
         )
 
     @app.route("/audit")

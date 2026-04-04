@@ -32,15 +32,14 @@
     </div>
 </div>
 
-<div class="panel details-collapsed" id="details-table-panel">
+<div class="panel" id="details-table-panel">
     <div class="inline-form details-toolbar">
         <h3>Bang du lieu chi tiet</h3>
         <div class="details-toolbar-actions">
-            <button type="button" id="details-collapse-btn" class="secondary" aria-expanded="false">Mo bang v</button>
+            <a class="button-link button-link-secondary" href="{{ export_excel_url }}">Xuat Excel</a>
             <button type="button" id="details-fullscreen-btn" class="secondary">Phong to bang</button>
         </div>
     </div>
-    <p id="details-collapsed-note" class="muted">Bang dang thu gon. Bam "Mo bang v" de hien thi du lieu.</p>
     <button type="button" id="details-exit-fullscreen-btn" class="danger" hidden>X</button>
     <div class="table-wrap">
         <table id="details-table">
@@ -121,8 +120,6 @@
     const filterPanel = document.getElementById("details-filter-panel");
     const filterToggleButton = document.getElementById("details-filter-toggle-btn");
     const tablePanel = document.getElementById("details-table-panel");
-    const collapseButton = document.getElementById("details-collapse-btn");
-    const collapsedNote = document.getElementById("details-collapsed-note");
     const fullscreenButton = document.getElementById("details-fullscreen-btn");
     const fullscreenExitButton = document.getElementById("details-exit-fullscreen-btn");
 
@@ -268,15 +265,6 @@
         }
 
         tablePanel.classList.toggle("details-collapsed", collapsed);
-
-        if (collapseButton) {
-            collapseButton.textContent = collapsed ? "Mo bang v" : "Thu gon ^";
-            collapseButton.setAttribute("aria-expanded", String(!collapsed));
-        }
-
-        if (collapsedNote) {
-            collapsedNote.hidden = !collapsed;
-        }
     };
 
     const setFilterCollapsedState = (collapsed) => {
@@ -305,13 +293,6 @@
         });
     }
 
-    if (collapseButton) {
-        collapseButton.addEventListener("click", () => {
-            const isCollapsed = tablePanel ? tablePanel.classList.contains("details-collapsed") : false;
-            setCollapsedState(!isCollapsed);
-        });
-    }
-
     if (filterToggleButton) {
         filterToggleButton.addEventListener("click", () => {
             const isCollapsed = filterPanel ? filterPanel.classList.contains("details-filter-collapsed") : false;
@@ -329,7 +310,7 @@
 
     applyEmployeeDividers();
     setFilterCollapsedState(true);
-    setCollapsedState(true);
+    setCollapsedState(false);
     setFullscreenState();
 })();
 </script>

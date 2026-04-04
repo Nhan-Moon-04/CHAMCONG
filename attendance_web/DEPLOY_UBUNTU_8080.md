@@ -1,135 +1,107 @@
-# Deploy attendance_web len Ubuntu (port 8080)
+# Deploy Ubuntu 24 - Port 8080 - Auto Start
 
-Tai lieu nay huong dan deploy ban production cho project Flask + PostgreSQL tren Ubuntu, expose app o cong `8080`.
+Huong dan nay dung cho source:
+- https://github.com/Nhan-Moon-04/CHAMCONG
 
-## 1) Yeu cau
+## 1) Cai Docker va Git
 
-- Ubuntu 22.04 hoac 24.04
-- Tai khoan co quyen sudo
-- Da copy source code `attendance_web` len server (vi du: `/opt/attendance_web`)
-
-## 2) Cai package he thong
+Chay tren Ubuntu 24:
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip postgresql postgresql-contrib libpq-dev
+sudo apt install -y docker.io docker-compose-v2 git
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
-## 3) Tao database PostgreSQL
+Kiem tra:
 
 ```bash
-sudo -u postgres psql
+docker --version
+docker compose version
 ```
 
-Trong psql:
-
-```sql
-CREATE USER attendance_user WITH PASSWORD 'StrongPass123!';
-CREATE DATABASE attendance_db OWNER attendance_user;
-GRANT ALL PRIVILEGES ON DATABASE attendance_db TO attendance_user;
-\c attendance_db
-GRANT USAGE, CREATE ON SCHEMA public TO attendance_user;
-ALTER SCHEMA public OWNER TO attendance_user;
-\q
-```
-
-## 4) Chuan bi source code
+## 2) Clone source
 
 ```bash
-sudo mkdir -p /opt/attendance_web
-sudo chown -R $USER:$USER /opt/attendance_web
-# copy source vao /opt/attendance_web (git clone hoac rsync)
-cd /opt/attendance_web
+sudo mkdir -p /opt
+cd /opt
+sudo git clone https://github.com/Nhan-Moon-04/CHAMCONG.git
+sudo chown -R $USER:$USER /opt/CHAMCONG
+cd /opt/CHAMCONG/attendance_web
 ```
 
-Tao venv va cai thu vien:
+## 3) Tao file env
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install gunicorn
+cp .env.example .env
+nano .env
 ```
 
-## 5) Tao file .env
+Cap nhat cac bien quan trong:
+- SECRET_KEY=0989057191
+- LOGIN_USERNAME=admin
+- LOGIN_PASSWORD=123456
+- APP_TIMEZONE=Asia/Ho_Chi_Minh
+- BACKUP_TARGET_DIR=/app/backups
 
-Tao file `/opt/attendance_web/.env`:
+Neu ban muon doi tai khoan DB thi sua them DATABASE_URL.
 
-```env
-SECRET_KEY=change-me-to-a-long-random-string
-APP_NAME=HIEP LOI Workforce
-LOGIN_USERNAME=admin
-LOGIN_PASSWORD=123456
+## 3.1) PostgreSQL o dau?
 
-DATABASE_URL=postgresql://attendance_user:StrongPass123!@127.0.0.1:5432/attendance_db
-BACKUP_TARGET_DIR=/opt/attendance_web/backups
-BACKUP_RETENTION_DAYS=30
-ENABLE_BACKUP_SCHEDULER=1
-APP_TIMEZONE=Asia/Ho_Chi_Minh
-```
+Ban KHONG can cai PostgreSQL tren host Ubuntu khi deploy theo cach nay.
 
-Tao thu muc backup:
+PostgreSQL da nam trong docker-compose voi service `db` (image `postgres:16`).
+Khi chay `docker compose up -d --build`, he thong se len ca:
+- container DB: attendance_db
+- container Web: attendance_web
+
+Kiem tra DB container:
 
 ```bash
-mkdir -p /opt/attendance_web/backups
+docker compose ps db
+docker compose logs -f db
 ```
 
-## 6) Chay thu app bang gunicorn o cong 8080
+## 4) Chay web o port 8080
+
+Trong file docker-compose.yml, sua mapping port tu:
+- "5000:5000"
+thanh:
+- "8080:5000"
+
+Lenh sua nhanh:
 
 ```bash
-cd /opt/attendance_web
-source .venv/bin/activate
-gunicorn --bind 0.0.0.0:8080 --workers 3 --timeout 120 run:app
+sed -i 's/"5000:5000"/"8080:5000"/' docker-compose.yml
 ```
 
-Test nhanh:
+## 5) Build va run
 
 ```bash
-curl -I http://127.0.0.1:8080
+docker compose up -d --build
 ```
 
-Neu OK, nhan `Ctrl+C` de dung va tao service.
+Lenh tren se build web image va chay dong thoi ca `db` + `web`.
 
-## 7) Tao systemd service (tu chay cung may)
-
-Tao user he thong (1 lan):
+Kiem tra trang thai:
 
 ```bash
-sudo useradd --system --create-home --shell /bin/bash attendance
-sudo chown -R attendance:attendance /opt/attendance_web
+docker compose ps
+docker compose logs -f web
 ```
 
-Tao file `/etc/systemd/system/attendance-web.service`:
-
-```ini
-[Unit]
-Description=Attendance Web (Flask + Gunicorn)
-After=network.target postgresql.service
-
-[Service]
-User=attendance
-Group=attendance
-WorkingDirectory=/opt/attendance_web
-EnvironmentFile=/opt/attendance_web/.env
-ExecStart=/opt/attendance_web/.venv/bin/gunicorn --bind 0.0.0.0:8080 --workers 3 --timeout 120 run:app
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Reload va start:
+Test local tren server:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable attendance-web
-sudo systemctl restart attendance-web
-sudo systemctl status attendance-web --no-pager
+curl -I http://127.0.0.1:8080/login
 ```
 
-## 8) Mo firewall cong 8080
+Truy cap tu may ngoai:
+- http://IP_SERVER:8080/login
+
+## 6) Mo firewall port 8080 (neu dung UFW)
 
 ```bash
 sudo ufw allow 8080/tcp
@@ -137,55 +109,58 @@ sudo ufw reload
 sudo ufw status
 ```
 
-## 9) Truy cap he thong
+## 7) Auto start sau reboot
 
-- Trong LAN: `http://<server-ip>:8080`
-- Vi du: `http://192.168.1.158:8080`
+Compose file da co:
+- restart: unless-stopped
 
-Dang nhap bang tai khoan trong `.env` (`LOGIN_USERNAME` / `LOGIN_PASSWORD`).
-
-## 10) Lenh van hanh thuong dung
-
-Xem log realtime:
+Chi can dam bao docker service auto start:
 
 ```bash
-sudo journalctl -u attendance-web -f
+sudo systemctl enable docker
+sudo systemctl status docker
 ```
 
-Restart service:
+Sau khi reboot, containers se tu len lai.
+
+## 8) Update code khi da deploy
 
 ```bash
-sudo systemctl restart attendance-web
+cd /opt/CHAMCONG
+git pull
+cd attendance_web
+docker compose up -d --build
 ```
 
-Kiem tra cong dang lang nghe:
+## 9) Lenh quan ly nhanh
+
+Dung app:
 
 ```bash
-ss -lntp | grep 8080
+docker compose stop
 ```
 
-## 11) Cap nhat code (quy trinh nhanh)
+Chay lai:
 
 ```bash
-cd /opt/attendance_web
-sudo -u attendance -H bash -lc 'cd /opt/attendance_web && source .venv/bin/activate && pip install -r requirements.txt'
-sudo systemctl restart attendance-web
-sudo systemctl status attendance-web --no-pager
+docker compose start
 ```
 
-## 12) Loi thuong gap
+Khoi dong lai:
 
-1. Service crash do sai ENV
-- Kiem tra file `.env` co du `DATABASE_URL`, `SECRET_KEY`, `BACKUP_TARGET_DIR`.
-- Xem log: `sudo journalctl -u attendance-web -n 200 --no-pager`
+```bash
+docker compose restart
+```
 
-2. Khong ket noi duoc PostgreSQL
-- Kiem tra DB dang chay: `sudo systemctl status postgresql`
-- Thu ket noi bang user app:
-  ```bash
-  psql "postgresql://attendance_user:StrongPass123!@127.0.0.1:5432/attendance_db" -c "SELECT 1;"
-  ```
+Xem log web:
 
-3. Vao duoc localhost nhung may khac khong vao duoc
-- Kiem tra UFW da mo `8080/tcp`
-- Kiem tra mang LAN/router co chan cong hay khong
+```bash
+docker compose logs -f web
+```
+
+## 10) Luu y backup
+
+App co scheduler backup luc 17:00 moi ngay. Backup duoc ghi vao thu muc:
+- attendance_web/backups
+
+Neu log bao loi "pg_dump: not found" thi can them postgresql-client vao Dockerfile web image.
