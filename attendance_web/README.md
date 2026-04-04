@@ -57,6 +57,9 @@ Mac dinh dang nhap:
 - Username: `admin`
 - Password: `123456`
 
+Huong dan deploy Ubuntu port 8080:
+- Xem file `DEPLOY_UBUNTU_8080.md`
+
 ## 4) Luong nghiep vu da co
 
 1. `Bang ma ca lam`:
