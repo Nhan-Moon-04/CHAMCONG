@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <h2>Import file cham cong</h2>
+    <p class="muted">Tai file 17-31.csv hoac file xlsx tho len he thong. Co the chon xoa du lieu cu cua thang truoc khi import de sua sai nhanh.</p>
+    <form method="post" enctype="multipart/form-data" class="form-grid">
+        <input type="file" name="attendance_file" accept=".csv,.xlsx,.xls" required>
+        <input type="month" name="month_key" placeholder="De trong de tu dong theo file">
+        <label><input type="checkbox" name="replace_existing_month" checked> Xoa du lieu cu cua thang truoc khi import</label>
+        <input name="changed_by" placeholder="Nguoi import" value="admin">
+        <button type="submit">Import va xu ly</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h3>Lich su import gan day</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Thoi gian</th>
+                    <th>Nguoi import</th>
+                    <th>Action</th>
+                    <th>Batch</th>
+                    <th>Thong tin</th>
+                    <th>Xu ly</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in import_logs %}
+                <tr>
+                    <td>{{ row.changed_at }}</td>
+                    <td>{{ row.changed_by }}</td>
+                    <td>{{ row.action }}</td>
+                    <td>{{ row.record_id }}</td>
+                    <td>{{ row.after_data }}</td>
+                    <td>
+                        {% if row.action == "IMPORT" %}
+                        <form method="post" action="{{ url_for('delete_import_batch', batch_id=row.record_id) }}" onsubmit="return confirm('Xoa du lieu cua batch nay?');">
+                            <input type="hidden" name="changed_by" value="admin">
+                            <button type="submit" class="secondary">Xoa batch nay</button>
+                        </form>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">Chua co lan import nao.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

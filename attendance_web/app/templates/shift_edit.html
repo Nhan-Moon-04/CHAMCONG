@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <h2>Chinh sua ma ca: {{ shift.code }}</h2>
+    <p class="muted">Sua thong tin ca tai trang rieng. Sau khi luu, bang chi tiet se duoc tinh theo cau hinh moi.</p>
+
+    <form method="post" class="form-grid">
+        <input value="{{ shift.code }}" readonly>
+        <input name="name" placeholder="Ten ca" value="{{ shift.name }}" required>
+        <input
+            type="time"
+            name="start_time"
+            value="{{ shift.start_time.strftime('%H:%M') if shift.start_time else '' }}"
+            placeholder="Gio vao"
+        >
+        <input
+            type="time"
+            name="end_time"
+            value="{{ shift.end_time.strftime('%H:%M') if shift.end_time else '' }}"
+            placeholder="Gio ra"
+        >
+        <input
+            type="number"
+            step="1"
+            min="0"
+            name="break_minutes"
+            value="{{ shift.break_minutes }}"
+            placeholder="Nghi (phut)"
+        >
+        <input
+            type="number"
+            step="0.5"
+            min="0"
+            name="standard_hours"
+            value="{{ shift.standard_hours }}"
+            placeholder="Gio quy dinh"
+        >
+        <input
+            type="number"
+            step="0.5"
+            min="0"
+            name="default_overtime_hours"
+            value="{{ shift.default_overtime_hours }}"
+            placeholder="OT mac dinh"
+        >
+        <input
+            type="number"
+            step="1000"
+            min="0"
+            name="meal_allowance"
+            value="{{ shift.meal_allowance }}"
+            placeholder="Tien an"
+        >
+        <input name="changed_by" placeholder="Nguoi sua" value="admin">
+        <input name="notes" placeholder="Ghi chu" value="{{ shift.notes or '' }}">
+        <label><input type="checkbox" name="is_leave_code" {% if shift.is_leave_code %}checked{% endif %}> Ma nghi</label>
+        <label><input type="checkbox" name="is_paid_leave" {% if shift.is_paid_leave %}checked{% endif %}> Nghi van tinh luong</label>
+        <button type="submit">Cap nhat ca</button>
+    </form>
+
+    <div class="panel" style="margin-top: 16px;">
+        <h3>Thao tac</h3>
+        <div class="row-actions">
+            <a href="{{ url_for('shifts') }}"><button type="button">Quay lai danh sach ca</button></a>
+            <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=shift.id) }}" onsubmit="return confirm('Xoa ma ca nay?');">
+                <input type="hidden" name="changed_by" value="admin">
+                <button type="submit" class="secondary">Xoa ma ca nay</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

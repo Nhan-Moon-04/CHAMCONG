@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <div class="inline-form">
+        <div>
+            <h2>Lich lam va bang tang ca</h2>
+            <p class="muted">Nhap ma ca theo ngay. He thong tu doi chieu cham cong, tinh N neu co lich lam nhung khong co du lieu vao/ra.</p>
+        </div>
+        <form method="get">
+            <label for="month">Thang</label>
+            <input id="month" type="month" name="month" value="{{ month_key }}">
+            <button type="submit">Xem</button>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Import lich lam tu Excel</h3>
+    <p class="muted">Dinh dang file giong viec.xlsx: cot A la STT, cot B la Ngay, tu cot C tro di la ID <ma> - <ten>, moi o la ma ca (X, XVP, XT...).</p>
+    <form method="post" action="{{ url_for('import_schedules') }}" enctype="multipart/form-data" class="form-grid">
+        <input type="file" name="schedule_file" accept=".xlsx,.xls,.xlsm,.xltx,.xltm" required>
+        <input type="month" name="month_key" value="{{ month_key }}" required>
+        <label><input type="checkbox" name="replace_existing_month" checked> Xoa lich cu cua thang truoc khi import</label>
+        <label><input type="checkbox" name="open_details_after_import" checked> Mo bang chi tiet sau khi import</label>
+        <input name="changed_by" placeholder="Nguoi import" value="admin">
+        <button type="submit" class="secondary">Import lich lam</button>
+    </form>
+</div>
+
+<div class="panel">
+    <form method="post" class="form-grid" id="schedule-form">
+        <select name="employee_id" required>
+            <option value="">Nhan vien</option>
+            {% for row in employees %}
+            <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
+            {% endfor %}
+        </select>
+        <input type="date" name="work_date" required>
+        <input name="shift_code" list="shift-codes" placeholder="Ma ca (go de goi y)" required>
+        <datalist id="shift-codes">
+            {% for row in shift_codes %}
+            <option value="{{ row.code }}">{{ row.name }}</option>
+            {% endfor %}
+        </datalist>
+        <input type="number" name="absence_hours" step="0.5" min="0" max="8" value="0" placeholder="Nghi 1-2h">
+        <input type="number" name="overtime_hours" step="0.5" min="0" placeholder="Tang ca (de trong -> lay mac dinh)">
+        <input name="overtime_reason" placeholder="Ly do tang ca">
+        <input name="notes" placeholder="Ghi chu">
+        <input name="changed_by" placeholder="Nguoi sua" value="admin">
+        <button type="submit">Luu lich</button>
+    </form>
+    <p class="muted">Luu y: Ma X4 mac dinh 8h + 4h tang ca, ma X3 mac dinh 8h + 3h tang ca. Neu co nghi 1-2h thi he thong tru gio tang ca truoc.</p>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ngay</th>
+                    <th>Ma NV</th>
+                    <th>Ho ten</th>
+                    <th>Ma ca</th>
+                    <th>Ten ca</th>
+                    <th>Nghi (gio)</th>
+                    <th>Tang ca</th>
+                    <th>Ghi chu</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in schedules %}
+                <tr>
+                    <td>{{ row.work_date }}</td>
+                    <td>{{ row.employee.employee_code }}</td>
+                    <td><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=month_key) }}">{{ row.employee.full_name }}</a></td>
+                    <td>{{ row.shift.code }}</td>
+                    <td>{{ row.shift.name }}</td>
+                    <td>{{ row.absence_hours }}</td>
+                    <td>{{ row.overtime.hours if row.overtime else 0 }}</td>
+                    <td>{{ row.notes or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">Chua co lich lam cho thang nay.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script id="valid-shift-codes" type="application/json">{{ valid_shift_codes | tojson }}</script>
+
+<script>
+const validShiftCodes = JSON.parse(document.getElementById("valid-shift-codes").textContent);
+const form = document.getElementById("schedule-form");
+
+form.addEventListener("submit", function (event) {
+    const rawCode = form.elements["shift_code"].value.trim().toUpperCase();
+    form.elements["shift_code"].value = rawCode;
+
+    if (!validShiftCodes.includes(rawCode)) {
+        alert("Ma ca khong hop le. Vui long chon ma trong danh sach goi y.");
+        event.preventDefault();
+    }
+});
+</script>
+{% endblock %}

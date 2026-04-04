@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <div class="inline-form">
+        <div>
+            <h2>{{ employee.full_name }} ({{ employee.employee_code }})</h2>
+            <p class="muted">Gioi tinh: {{ employee.gender or "-" }} | Que quan: {{ employee.hometown or "-" }} | Nam sinh: {{ employee.birth_year or "-" }}</p>
+        </div>
+        <form method="get">
+            <label for="month">Thang</label>
+            <input id="month" type="month" name="month" value="{{ month_key }}">
+            <button type="submit">Xem</button>
+        </form>
+    </div>
+</div>
+
+<div class="card-grid">
+    <div class="card">
+        <div class="kpi-title">Tong gio duoc tinh</div>
+        <div class="kpi-value">{{ "%.2f"|format(summary_paid_hours) }}</div>
+    </div>
+    <div class="card">
+        <div class="kpi-title">Tong luong thang</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(summary_wage) }}</div>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Bang phep nam</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nam</th>
+                    <th>Tong phep</th>
+                    <th>Da dung</th>
+                    <th>Con lai</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in balances %}
+                <tr>
+                    <td>{{ row.year }}</td>
+                    <td>{{ "%.1f"|format(row.total_days) }}</td>
+                    <td>{{ "%.1f"|format(row.used_days) }}</td>
+                    <td>{{ "%.1f"|format(row.total_days - row.used_days) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">Chua co du lieu phep nam.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Lich su luong</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Thang</th>
+                    <th>Luong/ngay</th>
+                    <th>He so</th>
+                    <th>Hinh thuc nhan tien</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in salaries %}
+                <tr>
+                    <td>{{ row.month_key }}</td>
+                    <td>{{ "{:,.0f}".format(row.base_daily_wage) }}</td>
+                    <td>{{ row.salary_coefficient }}</td>
+                    <td>{{ row.pay_method or "-" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">Chua co bang luong theo thang.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Chi tiet cham cong thang {{ month_key }}</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ngay</th>
+                    <th>Ma ca</th>
+                    <th>Status</th>
+                    <th>Gio vao</th>
+                    <th>Gio ra</th>
+                    <th>Gio thuc</th>
+                    <th>Tang ca</th>
+                    <th>So gio</th>
+                    <th>Luong ngay</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in details %}
+                <tr>
+                    <td>{{ row.work_date }}</td>
+                    <td>{{ row.shift_code }}</td>
+                    <td>{{ row.status_code }}</td>
+                    <td>{{ row.check_in.strftime('%Y-%m-%d %H:%M') if row.check_in else '-' }}</td>
+                    <td>{{ row.check_out.strftime('%Y-%m-%d %H:%M') if row.check_out else '-' }}</td>
+                    <td>{{ "%.2f"|format(row.actual_work_hours) }}</td>
+                    <td>{{ "%.2f"|format(row.overtime_hours) }}</td>
+                    <td>{{ "%.2f"|format(row.paid_hours) }}</td>
+                    <td>{{ "{:,.0f}".format(row.daily_wage) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9">Chua co du lieu.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

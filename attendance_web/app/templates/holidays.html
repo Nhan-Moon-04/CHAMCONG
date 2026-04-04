@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <h2>Bang ngay OFF, chu nhat, ngay le</h2>
+    <p class="muted">Chu nhat duoc nghi mac dinh. Ngay le trong bang nay se duoc tinh ma L (nghi van tinh 1 cong) neu khong xep ca khac.</p>
+    <form method="post" class="form-grid">
+        <input type="date" name="holiday_date" required>
+        <input name="name" placeholder="Ten ngay le" required>
+        <input name="notes" placeholder="Ghi chu">
+        <label><input type="checkbox" name="is_paid" checked> Co tinh luong</label>
+        <input name="changed_by" placeholder="Nguoi sua" value="admin">
+        <button type="submit">Luu ngay OFF</button>
+    </form>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ngay</th>
+                    <th>Ten</th>
+                    <th>Tinh luong</th>
+                    <th>Ghi chu</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in holidays %}
+                <tr>
+                    <td>{{ row.holiday_date }}</td>
+                    <td>{{ row.name }}</td>
+                    <td>
+                        {% if row.is_paid %}
+                        <span class="badge badge-ok">Co</span>
+                        {% else %}
+                        <span class="badge badge-warn">Khong</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.notes or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">Chua co ngay le.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

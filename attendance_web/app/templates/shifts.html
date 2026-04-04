@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <h2>Bang ma ca lam</h2>
+    <p class="muted">Trang nay dung de tao ma ca moi. Khi can sua, bam "Sua" o bang ben duoi de mo trang chinh sua rieng.</p>
+    <form method="post" class="form-grid">
+        <input
+            name="code"
+            placeholder="Ma ca (VD: X, XVP, XT)"
+            value=""
+            required
+        >
+        <input name="name" placeholder="Ten ca" value="" required>
+        <input
+            type="time"
+            name="start_time"
+            value=""
+            placeholder="Gio vao"
+        >
+        <input
+            type="time"
+            name="end_time"
+            value=""
+            placeholder="Gio ra"
+        >
+        <input
+            type="number"
+            step="1"
+            min="0"
+            name="break_minutes"
+            value="0"
+            placeholder="Nghi (phut)"
+        >
+        <input
+            type="number"
+            step="0.5"
+            min="0"
+            name="standard_hours"
+            value="8"
+            placeholder="Gio quy dinh"
+        >
+        <input
+            type="number"
+            step="0.5"
+            min="0"
+            name="default_overtime_hours"
+            value="0"
+            placeholder="OT mac dinh"
+        >
+        <input
+            type="number"
+            step="1000"
+            min="0"
+            name="meal_allowance"
+            value="0"
+            placeholder="Tien an"
+        >
+        <input name="changed_by" placeholder="Nguoi sua" value="admin">
+        <input name="notes" placeholder="Ghi chu" value="">
+        <label><input type="checkbox" name="is_leave_code"> Ma nghi</label>
+        <label><input type="checkbox" name="is_paid_leave"> Nghi van tinh luong</label>
+        <button type="submit">Luu ma ca</button>
+    </form>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ma</th>
+                    <th>Ten ca</th>
+                    <th>Gio</th>
+                    <th>Nghi (phut)</th>
+                    <th>Gio quy dinh</th>
+                    <th>OT mac dinh</th>
+                    <th>Tien an</th>
+                    <th>Loai</th>
+                    <th>Ghi chu</th>
+                    <th>Thao tac</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in shifts %}
+                <tr>
+                    <td>{{ row.code }}</td>
+                    <td>{{ row.name }}</td>
+                    <td>
+                        {% if row.start_time %}
+                            {{ row.start_time.strftime('%H:%M') }} - {{ row.end_time.strftime('%H:%M') if row.end_time else '-' }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ row.break_minutes }}</td>
+                    <td>{{ row.standard_hours }}</td>
+                    <td>{{ row.default_overtime_hours }}</td>
+                    <td>{{ "{:,.0f}".format(row.meal_allowance) }}</td>
+                    <td>
+                        {% if row.is_leave_code %}
+                            <span class="badge">Nghi</span>
+                        {% else %}
+                            <span class="badge badge-ok">Lam viec</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.notes or '-' }}</td>
+                    <td class="row-actions">
+                        <a href="{{ url_for('edit_shift', shift_id=row.id) }}">Sua</a>
+                        <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=row.id) }}" onsubmit="return confirm('Xoa ma ca nay?');">
+                            <input type="hidden" name="changed_by" value="admin">
+                            <button type="submit" class="secondary">Xoa</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10">Chua co ma ca.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

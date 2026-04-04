@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <h2>Lich su sua doi he thong</h2>
+    <p class="muted">Moi thay doi du lieu quan trong duoc ghi vao audit log, co the trich xuat CSV bat cu luc nao.</p>
+    <div class="form-grid">
+        <a href="{{ url_for('export_audit_csv') }}"><button type="button">Xuat CSV audit</button></a>
+        <form method="post" action="{{ url_for('run_backup_now') }}" class="form-grid">
+            <input name="changed_by" placeholder="Nguoi backup" value="admin">
+            <button type="submit" class="secondary">Backup ngay bay gio</button>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Thoi gian</th>
+                    <th>Nguoi sua</th>
+                    <th>Bang</th>
+                    <th>Action</th>
+                    <th>Record</th>
+                    <th>Before</th>
+                    <th>After</th>
+                    <th>Ghi chu</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in audit_logs %}
+                <tr>
+                    <td>{{ row.changed_at }}</td>
+                    <td>{{ row.changed_by }}</td>
+                    <td>{{ row.table_name }}</td>
+                    <td>{{ row.action }}</td>
+                    <td>{{ row.record_id }}</td>
+                    <td>{{ row.before_data or '-' }}</td>
+                    <td>{{ row.after_data or '-' }}</td>
+                    <td>{{ row.notes or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">Chua co log thay doi.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

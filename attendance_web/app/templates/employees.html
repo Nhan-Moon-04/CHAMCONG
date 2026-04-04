@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <h2>Danh sach nhan vien</h2>
+    <p class="muted">Them nhan vien moi va gan ma ca mac dinh de he thong tinh N cho cac ngay khong cham cong.</p>
+    <form method="post" class="form-grid">
+        <input name="employee_code" placeholder="Ma NV" required>
+        <input name="full_name" placeholder="Ho ten" required>
+        <select name="gender">
+            <option value="">Gioi tinh</option>
+            <option>Nam</option>
+            <option>Nu</option>
+        </select>
+        <input name="hometown" placeholder="Que quan">
+        <input type="number" name="birth_year" placeholder="Nam sinh">
+        <select name="default_shift_code" required>
+            {% for code in shift_codes %}
+            <option value="{{ code }}">{{ code }}</option>
+            {% endfor %}
+        </select>
+        <input name="changed_by" placeholder="Nguoi sua" value="admin">
+        <button type="submit">Them nhan vien</button>
+    </form>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ma NV</th>
+                    <th>Ho ten</th>
+                    <th>Gioi tinh</th>
+                    <th>Que quan</th>
+                    <th>Nam sinh</th>
+                    <th>Ca mac dinh</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in employees %}
+                <tr>
+                    <td>{{ row.employee_code }}</td>
+                    <td><a href="{{ url_for('employee_detail', employee_id=row.id) }}">{{ row.full_name }}</a></td>
+                    <td>{{ row.gender or "-" }}</td>
+                    <td>{{ row.hometown or "-" }}</td>
+                    <td>{{ row.birth_year or "-" }}</td>
+                    <td>{{ row.default_shift_code }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">Chua co nhan vien.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

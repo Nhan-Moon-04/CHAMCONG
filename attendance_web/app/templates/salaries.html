@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <div class="inline-form">
+        <div>
+            <h2>Bang luong theo thang</h2>
+            <p class="muted">Moi nhan vien co luong, he so va hinh thuc nhan tien khac nhau theo tung thang.</p>
+        </div>
+        <form method="get">
+            <label for="month">Thang</label>
+            <input id="month" type="month" name="month" value="{{ month_key }}">
+            <button type="submit">Xem</button>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <form method="post" class="form-grid">
+        <select name="employee_id" required>
+            <option value="">Chon nhan vien</option>
+            {% for row in employees %}
+            <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
+            {% endfor %}
+        </select>
+        <input type="month" name="month_key" value="{{ month_key }}" required>
+        <input type="number" step="1000" min="0" name="base_daily_wage" placeholder="Luong/ngay" required>
+        <input type="number" step="0.01" min="0" name="salary_coefficient" value="1" placeholder="He so luong" required>
+        <input name="pay_method" placeholder="Hinh thuc nhan tien (Tien mat/CK)">
+        <input name="changed_by" placeholder="Nguoi sua" value="admin">
+        <button type="submit">Luu bang luong</button>
+    </form>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Thang</th>
+                    <th>Ma NV</th>
+                    <th>Ho ten</th>
+                    <th>Luong/ngay</th>
+                    <th>He so</th>
+                    <th>Hinh thuc nhan tien</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in salaries %}
+                <tr>
+                    <td>{{ row.month_key }}</td>
+                    <td>{{ row.employee.employee_code }}</td>
+                    <td><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=month_key) }}">{{ row.employee.full_name }}</a></td>
+                    <td>{{ "{:,.0f}".format(row.base_daily_wage) }}</td>
+                    <td>{{ row.salary_coefficient }}</td>
+                    <td>{{ row.pay_method or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">Chua co du lieu luong cho thang nay.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

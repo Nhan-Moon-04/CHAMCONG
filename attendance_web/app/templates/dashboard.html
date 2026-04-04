@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <div class="inline-form">
+        <div>
+            <h2>Tong quan cham cong</h2>
+            <p class="muted">Theo doi nhanh tinh hinh di lam, nghi khong phep, tang ca va tong luong theo thang.</p>
+        </div>
+        <form method="get">
+            <label for="month">Thang</label>
+            <input id="month" type="month" name="month" value="{{ month_key }}">
+            <button type="submit">Xem</button>
+        </form>
+    </div>
+</div>
+
+<div class="card-grid">
+    <div class="card">
+        <div class="kpi-title">Nhan vien dang hoat dong</div>
+        <div class="kpi-value">{{ total_employees }}</div>
+    </div>
+    <div class="card">
+        <div class="kpi-title">So dong chi tiet</div>
+        <div class="kpi-value">{{ total_rows }}</div>
+    </div>
+    <div class="card">
+        <div class="kpi-title">Tong gio duoc tinh</div>
+        <div class="kpi-value">{{ "%.2f"|format(total_paid_hours) }}</div>
+    </div>
+    <div class="card">
+        <div class="kpi-title">Tong luong du kien</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(total_wage) }}</div>
+    </div>
+    <div class="card">
+        <div class="kpi-title">So ngay N (nghi khong phep)</div>
+        <div class="kpi-value">{{ absent_days }}</div>
+    </div>
+</div>
+
+<div class="card-grid">
+    <div class="panel">
+        <h3>Phan bo status</h3>
+        <canvas id="statusChart"></canvas>
+    </div>
+    <div class="panel">
+        <h3>Top tang ca</h3>
+        <canvas id="overtimeChart"></canvas>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Canh bao can xem lai</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ngay</th>
+                    <th>Ma NV</th>
+                    <th>Ho ten</th>
+                    <th>Status</th>
+                    <th>Chenh lech</th>
+                    <th>Ghi chu</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detail, employee in warning_rows %}
+                <tr>
+                    <td>{{ detail.work_date }}</td>
+                    <td>{{ employee.employee_code }}</td>
+                    <td><a href="{{ url_for('employee_detail', employee_id=employee.id, month=month_key) }}">{{ employee.full_name }}</a></td>
+                    <td>
+                        {% if detail.status_code == 'N' %}
+                            <span class="badge badge-warn">N</span>
+                        {% else %}
+                            <span class="badge">{{ detail.status_code }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ "%.2f"|format(detail.deviation_hours) }}</td>
+                    <td>{{ detail.notes or "-" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">Chua co canh bao trong thang nay.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script id="status-labels" type="application/json">{{ status_labels|tojson }}</script>
+<script id="status-values" type="application/json">{{ status_values|tojson }}</script>
+<script id="overtime-labels" type="application/json">{{ overtime_labels|tojson }}</script>
+<script id="overtime-values" type="application/json">{{ overtime_values|tojson }}</script>
+
+<script>
+const statusLabels = JSON.parse(document.getElementById("status-labels").textContent);
+const statusValues = JSON.parse(document.getElementById("status-values").textContent);
+const overtimeLabels = JSON.parse(document.getElementById("overtime-labels").textContent);
+const overtimeValues = JSON.parse(document.getElementById("overtime-values").textContent);
+
+const statusCtx = document.getElementById("statusChart");
+new Chart(statusCtx, {
+    type: "doughnut",
+    data: {
+        labels: statusLabels,
+        datasets: [{
+            data: statusValues,
+            backgroundColor: ["#0f766e", "#f97316", "#fb7185", "#3b82f6", "#a855f7", "#f59e0b", "#84cc16"]
+        }]
+    }
+});
+
+const overtimeCtx = document.getElementById("overtimeChart");
+new Chart(overtimeCtx, {
+    type: "bar",
+    data: {
+        labels: overtimeLabels,
+        datasets: [{
+            label: "Gio tang ca",
+            data: overtimeValues,
+            backgroundColor: "#0f766e"
+        }]
+    },
+    options: {
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

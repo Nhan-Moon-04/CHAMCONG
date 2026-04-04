@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+    <div class="inline-form">
+        <div>
+            <h2>Bang chi tiet toan bo nhan vien</h2>
+            <p class="muted">Bang nay tham chieu live tu cac bang nguon. Mac dinh se sap theo tung nguoi (du 1 thang roi moi sang nguoi tiep theo). Co the bam tieu de cot de sort nhanh.</p>
+            <p class="muted">Dang xem thang: <strong>{{ month_key }}</strong></p>
+        </div>
+        <form method="get" class="form-grid">
+            <input type="month" name="month" value="{{ month_key }}">
+            <select name="employee_id">
+                <option value="">Tat ca nhan vien</option>
+                {% for row in employees %}
+                <option value="{{ row.id }}" {% if selected_employee_id == row.id %}selected{% endif %}>{{ row.employee_code }} - {{ row.full_name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Loc</button>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table id="details-table">
+            <thead>
+                <tr>
+                    <th class="sortable" data-col-index="0" data-sort-type="number">STT</th>
+                    <th class="sortable" data-col-index="1" data-sort-type="string">Ma NV</th>
+                    <th class="sortable" data-col-index="2" data-sort-type="string">Ho Ten</th>
+                    <th class="sortable" data-col-index="3" data-sort-type="date">Ngay</th>
+                    <th class="sortable" data-col-index="4" data-sort-type="string">Ten Ca</th>
+                    <th class="sortable" data-col-index="5" data-sort-type="datetime">Gio Vao</th>
+                    <th class="sortable" data-col-index="6" data-sort-type="datetime">Gio Ra</th>
+                    <th class="sortable" data-col-index="7" data-sort-type="number">Gio Thuc</th>
+                    <th class="sortable" data-col-index="8" data-sort-type="number">Chenh Lech</th>
+                    <th class="sortable" data-col-index="9" data-sort-type="number">Tang Ca</th>
+                    <th class="sortable" data-col-index="10" data-sort-type="number">Tong Gio</th>
+                    <th class="sortable" data-col-index="11" data-sort-type="string">Status Code</th>
+                    <th class="sortable" data-col-index="12" data-sort-type="number">So Gio</th>
+                    <th class="sortable" data-col-index="13" data-sort-type="number">Luong Theo Ngay</th>
+                    <th class="sortable" data-col-index="14" data-sort-type="string">Ghi Chu</th>
+                    <th class="sortable" data-col-index="15" data-sort-type="number">Tien An Theo Ngay</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in details %}
+                <tr>
+                    <td data-sort-value="{{ loop.index }}">{{ loop.index }}</td>
+                    <td data-sort-value="{{ row.employee.employee_code }}">{{ row.employee.employee_code }}</td>
+                    <td data-sort-value="{{ row.employee.full_name|lower }}"><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=month_key) }}">{{ row.employee.full_name }}</a></td>
+                    <td data-sort-value="{{ row.work_date }}">{{ row.work_date }}</td>
+                    <td data-sort-value="{{ (row.shift_code ~ ' ' ~ row.shift_name)|lower }}">{{ row.shift_code }} - {{ row.shift_name }}</td>
+                    <td data-sort-value="{{ row.check_in.isoformat() if row.check_in else '' }}">{{ row.check_in.strftime('%Y-%m-%d %H:%M') if row.check_in else '-' }}</td>
+                    <td data-sort-value="{{ row.check_out.isoformat() if row.check_out else '' }}">{{ row.check_out.strftime('%Y-%m-%d %H:%M') if row.check_out else '-' }}</td>
+                    <td data-sort-value="{{ row.actual_work_hours }}">{{ "%.2f"|format(row.actual_work_hours) }}</td>
+                    <td>
+                        {% if row.deviation_hours < 0 %}
+                            <span class="badge badge-warn" data-sort-value="{{ row.deviation_hours }}">{{ "%.2f"|format(row.deviation_hours) }}</span>
+                        {% else %}
+                            <span data-sort-value="{{ row.deviation_hours }}">{{ "%.2f"|format(row.deviation_hours) }}</span>
+                        {% endif %}
+                    </td>
+                    <td data-sort-value="{{ row.overtime_hours }}">{{ "%.2f"|format(row.overtime_hours) }}</td>
+                    <td data-sort-value="{{ row.total_span_hours }}">{{ "%.2f"|format(row.total_span_hours) }}</td>
+                    <td data-sort-value="{{ row.status_code }}">{{ row.status_code }}</td>
+                    <td data-sort-value="{{ row.paid_hours }}">{{ "%.2f"|format(row.paid_hours) }}</td>
+                    <td data-sort-value="{{ row.daily_wage }}">{{ "{:,.0f}".format(row.daily_wage) }}</td>
+                    <td data-sort-value="{{ (row.notes or '')|lower }}">{{ row.notes or '-' }}</td>
+                    <td data-sort-value="{{ row.meal_allowance_daily }}">{{ "{:,.0f}".format(row.meal_allowance_daily) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="16">Chua co du lieu chi tiet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+(() => {
+    const table = document.getElementById("details-table");
+    if (!table) {
+        return;
+    }
+
+    const tbody = table.querySelector("tbody");
+    const headers = Array.from(table.querySelectorAll("thead th.sortable"));
+    if (!tbody || headers.length === 0) {
+        return;
+    }
+
+    let activeCol = null;
+    let activeDirection = "asc";
+
+    const toNumber = (value) => {
+        const cleaned = String(value || "").replace(/,/g, "").trim();
+        const parsed = Number(cleaned);
+        return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const toDate = (value) => {
+        const parsed = Date.parse(value || "");
+        return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const getCellSortValue = (row, colIndex) => {
+        const cell = row.children[colIndex];
+        if (!cell) {
+            return "";
+        }
+
+        const directValue = cell.getAttribute("data-sort-value");
+        if (directValue !== null) {
+            return directValue;
+        }
+
+        const nested = cell.querySelector("[data-sort-value]");
+        if (nested) {
+            return nested.getAttribute("data-sort-value") || "";
+        }
+
+        return cell.textContent.trim();
+    };
+
+    const sortRows = (colIndex, type, direction) => {
+        const rows = Array.from(tbody.querySelectorAll("tr")).filter((row) => row.children.length > 1);
+        rows.sort((a, b) => {
+            const aRaw = getCellSortValue(a, colIndex);
+            const bRaw = getCellSortValue(b, colIndex);
+
+            let result = 0;
+            if (type === "number") {
+                const aNum = toNumber(aRaw);
+                const bNum = toNumber(bRaw);
+                result = (aNum ?? -Infinity) - (bNum ?? -Infinity);
+            } else if (type === "date" || type === "datetime") {
+                const aDate = toDate(aRaw);
+                const bDate = toDate(bRaw);
+                result = (aDate ?? -Infinity) - (bDate ?? -Infinity);
+            } else {
+                result = String(aRaw).localeCompare(String(bRaw), "vi", { sensitivity: "base" });
+            }
+
+            return direction === "asc" ? result : -result;
+        });
+
+        rows.forEach((row, index) => {
+            const sttCell = row.children[0];
+            if (sttCell) {
+                sttCell.textContent = String(index + 1);
+                sttCell.setAttribute("data-sort-value", String(index + 1));
+            }
+            tbody.appendChild(row);
+        });
+    };
+
+    headers.forEach((header) => {
+        header.addEventListener("click", () => {
+            const colIndex = Number(header.dataset.colIndex || "0");
+            const type = header.dataset.sortType || "string";
+
+            if (activeCol === colIndex) {
+                activeDirection = activeDirection === "asc" ? "desc" : "asc";
+            } else {
+                activeCol = colIndex;
+                activeDirection = "asc";
+            }
+
+            headers.forEach((h) => {
+                h.classList.remove("sort-asc", "sort-desc");
+            });
+            header.classList.add(activeDirection === "asc" ? "sort-asc" : "sort-desc");
+
+            sortRows(colIndex, type, activeDirection);
+        });
+    });
+})();
+</script>
+{% endblock %}
