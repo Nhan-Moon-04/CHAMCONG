@@ -1,14 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <div class="inline-form">
+<div class="panel details-filter-collapsed" id="details-filter-panel">
+    <div class="inline-form details-filter-layout">
         <div>
             <h2>Bang chi tiet toan bo nhan vien</h2>
-            <p class="muted">Bang nay tham chieu live tu cac bang nguon. Mac dinh se sap theo tung nguoi (du 1 thang roi moi sang nguoi tiep theo). Co the bam tieu de cot de sort nhanh.</p>
-            <p class="muted">Dang xem thang: <strong>{{ month_key }}</strong></p>
+            <button type="button" id="details-filter-toggle-btn" class="secondary details-inline-toggle" aria-expanded="false">Mo bo loc v</button>
+            <div id="details-filter-extra">
+                <p class="muted">Bang nay tham chieu live tu cac bang nguon. Mac dinh se sap theo tung nguoi (du 1 thang roi moi sang nguoi tiep theo). Co the bam tieu de cot de sort nhanh.</p>
+                {% if is_range_mode %}
+                <p class="muted">Dang xem khoang ngay: <strong>{{ period_label }}</strong></p>
+                {% else %}
+                <p class="muted">Dang xem thang: <strong>{{ month_key }}</strong></p>
+                {% endif %}
+                <p class="muted">Dong to mau vang nhat la ngay Chu nhat.</p>
+                <p class="muted">Giua moi nhan vien co them gach ngan de de phan biet theo nguoi.</p>
+                <p class="muted">Neu nhap Tu ngay/Den ngay thi he thong uu tien loc theo khoang thoi gian (co the qua nhieu thang).</p>
+            </div>
         </div>
-        <form method="get" class="form-grid">
+        <form method="get" class="form-grid" id="details-filter-form">
             <input type="month" name="month" value="{{ month_key }}">
+            <input type="date" name="start_date" value="{{ start_date_value }}" placeholder="Tu ngay">
+            <input type="date" name="end_date" value="{{ end_date_value }}" placeholder="Den ngay">
             <select name="employee_id">
                 <option value="">Tat ca nhan vien</option>
                 {% for row in employees %}
@@ -16,21 +28,20 @@
                 {% endfor %}
             </select>
             <button type="submit">Loc</button>
-            <button
-                type="submit"
-                formmethod="post"
-                formaction="{{ url_for('holidays') }}"
-                name="action"
-                value="generate_month"
-                class="secondary"
-            >
-                Tao OFF chu nhat + le VN
-            </button>
         </form>
     </div>
 </div>
 
-<div class="panel">
+<div class="panel details-collapsed" id="details-table-panel">
+    <div class="inline-form details-toolbar">
+        <h3>Bang du lieu chi tiet</h3>
+        <div class="details-toolbar-actions">
+            <button type="button" id="details-collapse-btn" class="secondary" aria-expanded="false">Mo bang v</button>
+            <button type="button" id="details-fullscreen-btn" class="secondary">Phong to bang</button>
+        </div>
+    </div>
+    <p id="details-collapsed-note" class="muted">Bang dang thu gon. Bam "Mo bang v" de hien thi du lieu.</p>
+    <button type="button" id="details-exit-fullscreen-btn" class="danger" hidden>X</button>
     <div class="table-wrap">
         <table id="details-table">
             <thead>
@@ -54,11 +65,13 @@
                 </tr>
             </thead>
             <tbody>
+                {% set ns = namespace(prev_employee_id=None) %}
                 {% for row in details %}
-                <tr>
+                {% set is_new_employee = ns.prev_employee_id is not none and ns.prev_employee_id != row.employee.id %}
+                <tr class="{% if row.work_date.weekday() == 6 %}sunday-row{% endif %}{% if is_new_employee %} employee-divider{% endif %}">
                     <td data-sort-value="{{ loop.index }}">{{ loop.index }}</td>
                     <td data-sort-value="{{ row.employee.employee_code }}">{{ row.employee.employee_code }}</td>
-                    <td data-sort-value="{{ row.employee.full_name|lower }}"><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=month_key) }}">{{ row.employee.full_name }}</a></td>
+                    <td data-sort-value="{{ row.employee.full_name|lower }}"><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=row.work_date.strftime('%Y-%m')) }}">{{ row.employee.full_name }}</a></td>
                     <td data-sort-value="{{ row.work_date }}">{{ row.work_date }}</td>
                     <td data-sort-value="{{ (row.shift_code ~ ' ' ~ row.shift_name)|lower }}">{{ row.shift_code }} - {{ row.shift_name }}</td>
                     <td data-sort-value="{{ row.check_in.isoformat() if row.check_in else '' }}">{{ row.check_in.strftime('%Y-%m-%d %H:%M') if row.check_in else '-' }}</td>
@@ -79,6 +92,7 @@
                     <td data-sort-value="{{ (row.notes or '')|lower }}">{{ row.notes or '-' }}</td>
                     <td data-sort-value="{{ row.meal_allowance_daily }}">{{ "{:,.0f}".format(row.meal_allowance_daily) }}</td>
                 </tr>
+                {% set ns.prev_employee_id = row.employee.id %}
                 {% else %}
                 <tr>
                     <td colspan="16">Chua co du lieu chi tiet.</td>
@@ -104,6 +118,13 @@
 
     let activeCol = null;
     let activeDirection = "asc";
+    const filterPanel = document.getElementById("details-filter-panel");
+    const filterToggleButton = document.getElementById("details-filter-toggle-btn");
+    const tablePanel = document.getElementById("details-table-panel");
+    const collapseButton = document.getElementById("details-collapse-btn");
+    const collapsedNote = document.getElementById("details-collapsed-note");
+    const fullscreenButton = document.getElementById("details-fullscreen-btn");
+    const fullscreenExitButton = document.getElementById("details-exit-fullscreen-btn");
 
     const toNumber = (value) => {
         const cleaned = String(value || "").replace(/,/g, "").trim();
@@ -165,6 +186,21 @@
             }
             tbody.appendChild(row);
         });
+
+        applyEmployeeDividers();
+    };
+
+    const applyEmployeeDividers = () => {
+        const rows = Array.from(tbody.querySelectorAll("tr")).filter((row) => row.children.length > 1);
+        let prevEmployeeCode = null;
+
+        rows.forEach((row) => {
+            const currentEmployeeCode = getCellSortValue(row, 1);
+            const shouldShowDivider = prevEmployeeCode !== null && currentEmployeeCode !== prevEmployeeCode;
+
+            row.classList.toggle("employee-divider", shouldShowDivider);
+            prevEmployeeCode = currentEmployeeCode;
+        });
     };
 
     headers.forEach((header) => {
@@ -187,6 +223,114 @@
             sortRows(colIndex, type, activeDirection);
         });
     });
+
+    const setFullscreenState = () => {
+        const isNativeFullscreen = document.fullscreenElement === tablePanel;
+        const isPseudoFullscreen = document.body.classList.contains("details-pseudo-fullscreen");
+        const isActive = isNativeFullscreen || isPseudoFullscreen;
+
+        document.body.classList.toggle("details-focus-mode", isActive);
+        if (fullscreenExitButton) {
+            fullscreenExitButton.hidden = !isActive;
+        }
+    };
+
+    const enterFullscreen = async () => {
+        if (!tablePanel) {
+            return;
+        }
+
+        if (tablePanel.requestFullscreen) {
+            try {
+                await tablePanel.requestFullscreen();
+                document.body.classList.remove("details-pseudo-fullscreen");
+            } catch (error) {
+                document.body.classList.add("details-pseudo-fullscreen");
+            }
+        } else {
+            document.body.classList.add("details-pseudo-fullscreen");
+        }
+
+        setFullscreenState();
+    };
+
+    const exitFullscreen = async () => {
+        if (document.fullscreenElement) {
+            await document.exitFullscreen();
+        }
+        document.body.classList.remove("details-pseudo-fullscreen");
+        setFullscreenState();
+    };
+
+    const setCollapsedState = (collapsed) => {
+        if (!tablePanel) {
+            return;
+        }
+
+        tablePanel.classList.toggle("details-collapsed", collapsed);
+
+        if (collapseButton) {
+            collapseButton.textContent = collapsed ? "Mo bang v" : "Thu gon ^";
+            collapseButton.setAttribute("aria-expanded", String(!collapsed));
+        }
+
+        if (collapsedNote) {
+            collapsedNote.hidden = !collapsed;
+        }
+    };
+
+    const setFilterCollapsedState = (collapsed) => {
+        if (!filterPanel) {
+            return;
+        }
+
+        filterPanel.classList.toggle("details-filter-collapsed", collapsed);
+
+        if (filterToggleButton) {
+            filterToggleButton.textContent = collapsed ? "Mo bo loc v" : "Thu gon ^";
+            filterToggleButton.setAttribute("aria-expanded", String(!collapsed));
+        }
+    };
+
+    if (fullscreenButton) {
+        fullscreenButton.addEventListener("click", () => {
+            setCollapsedState(false);
+            enterFullscreen();
+        });
+    }
+
+    if (fullscreenExitButton) {
+        fullscreenExitButton.addEventListener("click", () => {
+            exitFullscreen();
+        });
+    }
+
+    if (collapseButton) {
+        collapseButton.addEventListener("click", () => {
+            const isCollapsed = tablePanel ? tablePanel.classList.contains("details-collapsed") : false;
+            setCollapsedState(!isCollapsed);
+        });
+    }
+
+    if (filterToggleButton) {
+        filterToggleButton.addEventListener("click", () => {
+            const isCollapsed = filterPanel ? filterPanel.classList.contains("details-filter-collapsed") : false;
+            setFilterCollapsedState(!isCollapsed);
+        });
+    }
+
+    document.addEventListener("fullscreenchange", setFullscreenState);
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && document.body.classList.contains("details-pseudo-fullscreen")) {
+            event.preventDefault();
+            exitFullscreen();
+        }
+    });
+
+    applyEmployeeDividers();
+    setFilterCollapsedState(true);
+    setCollapsedState(true);
+    setFullscreenState();
 })();
 </script>
 {% endblock %}

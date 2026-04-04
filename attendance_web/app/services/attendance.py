@@ -515,7 +515,8 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
             current += timedelta(days=1)
 
     def _employee_sort_key(employee):
-        code = (employee.employee_code or "").strip()
+        raw_code = (employee.employee_code or "").strip()
+        code = raw_code.replace("'", "").strip()
         if code.isdigit():
             return (0, int(code))
         return (1, code.lower())
@@ -523,8 +524,8 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
     payload_rows.sort(
         key=lambda row: (
             _employee_sort_key(row["_employee"]),
-            (row["_employee"].full_name or "").strip().lower(),
             row["work_date"],
+            row["_employee"].id,
         )
     )
     return payload_rows

@@ -76,6 +76,18 @@ def _to_float(value, default=0.0):
         return default
 
 
+def _iter_month_keys(start_date, end_date):
+    current = date(start_date.year, start_date.month, 1)
+    end_month = date(end_date.year, end_date.month, 1)
+
+    while current <= end_month:
+        yield current.strftime("%Y-%m")
+        if current.month == 12:
+            current = date(current.year + 1, 1, 1)
+        else:
+            current = date(current.year, current.month + 1, 1)
+
+
 def _get_holiday_library():
     global _holiday_lib
     global _holiday_lib_checked
@@ -926,8 +938,64 @@ def register_routes(app):
         month_key = _safe_month_key(request.args.get("month"))
         employee_id = request.args.get("employee_id", "").strip()
         selected_employee_id = int(employee_id) if employee_id else None
+        start_date_raw = request.args.get("start_date", "").strip()
+        end_date_raw = request.args.get("end_date", "").strip()
 
-        rows = build_live_month_details(month_key, employee_id=selected_employee_id)
+        parsed_start_date = None
+        parsed_end_date = None
+        has_date_parse_error = False
+
+        if start_date_raw:
+            try:
+                parsed_start_date = _parse_date(start_date_raw)
+            except (TypeError, ValueError):
+                flash("Tu ngay khong hop le", "error")
+                has_date_parse_error = True
+
+        if end_date_raw:
+            try:
+                parsed_end_date = _parse_date(end_date_raw)
+            except (TypeError, ValueError):
+                flash("Den ngay khong hop le", "error")
+
+                has_date_parse_error = True
+
+        if has_date_parse_error:
+            parsed_start_date = None
+            parsed_end_date = None
+
+        if parsed_start_date and not parsed_end_date:
+            parsed_end_date = parsed_start_date
+        if parsed_end_date and not parsed_start_date:
+            parsed_start_date = parsed_end_date
+
+        is_range_mode = bool(parsed_start_date and parsed_end_date)
+
+        if is_range_mode and parsed_start_date > parsed_end_date:
+            parsed_start_date, parsed_end_date = parsed_end_date, parsed_start_date
+
+        if is_range_mode:
+            rows = []
+            for item_month in _iter_month_keys(parsed_start_date, parsed_end_date):
+                month_rows = build_live_month_details(item_month, employee_id=selected_employee_id)
+                rows.extend(
+                    row for row in month_rows if parsed_start_date <= row.work_date <= parsed_end_date
+                )
+
+            def _sort_key(detail_row):
+                raw_code = (detail_row.employee.employee_code or "").replace("'", "").strip()
+                if raw_code.isdigit():
+                    code_key = (0, int(raw_code))
+                else:
+                    code_key = (1, raw_code.lower())
+
+                return code_key, detail_row.work_date, detail_row.employee.id
+
+            rows.sort(key=_sort_key)
+            period_label = f"{parsed_start_date} den {parsed_end_date}"
+        else:
+            rows = build_live_month_details(month_key, employee_id=selected_employee_id)
+            period_label = month_key
 
         employees = Employee.query.order_by(Employee.employee_code.asc()).all()
         return render_template(
@@ -936,6 +1004,10 @@ def register_routes(app):
             details=rows,
             employees=employees,
             selected_employee_id=selected_employee_id,
+            start_date_value=parsed_start_date.isoformat() if parsed_start_date else "",
+            end_date_value=parsed_end_date.isoformat() if parsed_end_date else "",
+            is_range_mode=is_range_mode,
+            period_label=period_label,
         )
 
     @app.route("/audit")
