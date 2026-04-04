@@ -425,15 +425,8 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             actual_work_hours = 0.0
             if check_in and check_out:
-                if shift and shift.start_time:
-                    scheduled_start = datetime.combine(current, shift.start_time)
-                    late_hours = max((check_in - scheduled_start).total_seconds() / 3600, 0.0)
-                    actual_work_hours = max(
-                        (check_out - scheduled_start).total_seconds() / 3600 - late_hours,
-                        0.0,
-                    )
-                else:
-                    actual_work_hours = _hours_between(check_in, check_out)
+                # Match VBA ModChamCong2: Gio Thuc = Gio Ra - Gio Vao.
+                actual_work_hours = _hours_between(check_in, check_out)
 
             deviation_hours = actual_work_hours - standard_hours if standard_hours else actual_work_hours
 

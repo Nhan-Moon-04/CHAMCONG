@@ -1,14 +1,19 @@
 import os
+import re
 import uuid
 from datetime import datetime, timedelta
 
 import pandas as pd
 
 from ..database import db
-from ..models import AttendanceDaily, AttendanceDetail, AttendanceLog, Employee
+from ..models import (
+    AttendanceDaily,
+    AttendanceDetail,
+    AttendanceLog,
+    Employee,
+)
 from .attendance import parse_month_key
 from .audit import log_action
-
 
 def _read_csv_with_fallback(file_path):
     encodings = ["utf-8-sig", "cp1258", "latin1"]
@@ -23,7 +28,39 @@ def _read_csv_with_fallback(file_path):
     raise ValueError(f"Khong doc duoc file CSV: {last_error}")
 
 
-def _read_dataframe(file_path):
+def _normalize_employee_code(value):
+    text = str(value or "").replace("'", "").strip()
+    if re.fullmatch(r"\d+\.0+", text):
+        text = text.split(".", 1)[0]
+    return text
+
+
+def _pick_event_time_series(raw_values, month_key=None):
+    parsed_dayfirst = pd.to_datetime(raw_values, dayfirst=True, errors="coerce", format="mixed")
+    parsed_monthfirst = pd.to_datetime(
+        raw_values,
+        dayfirst=False,
+        errors="coerce",
+        format="mixed",
+    )
+
+    if month_key:
+        dayfirst_match_count = (parsed_dayfirst.dt.strftime("%Y-%m") == month_key).sum()
+        monthfirst_match_count = (parsed_monthfirst.dt.strftime("%Y-%m") == month_key).sum()
+
+        if monthfirst_match_count > dayfirst_match_count:
+            return parsed_monthfirst
+        if dayfirst_match_count > monthfirst_match_count:
+            return parsed_dayfirst
+
+    dayfirst_valid_count = parsed_dayfirst.notna().sum()
+    monthfirst_valid_count = parsed_monthfirst.notna().sum()
+    if monthfirst_valid_count > dayfirst_valid_count:
+        return parsed_monthfirst
+    return parsed_dayfirst
+
+
+def _read_dataframe(file_path, month_key=None):
     extension = os.path.splitext(file_path)[1].lower()
 
     if extension == ".csv":
@@ -39,12 +76,10 @@ def _read_dataframe(file_path):
     frame = frame.iloc[:, :4].copy()
     frame.columns = ["employee_code", "employee_name", "department", "event_time"]
 
-    frame["employee_code"] = (
-        frame["employee_code"].astype(str).str.replace("'", "", regex=False).str.strip()
-    )
+    frame["employee_code"] = frame["employee_code"].apply(_normalize_employee_code)
     frame["employee_name"] = frame["employee_name"].astype(str).str.strip()
     frame["department"] = frame["department"].astype(str).str.strip()
-    frame["event_time"] = pd.to_datetime(frame["event_time"], dayfirst=True, errors="coerce")
+    frame["event_time"] = _pick_event_time_series(frame["event_time"], month_key=month_key)
 
     frame = frame.dropna(subset=["employee_code", "event_time"])
     frame = frame[frame["employee_code"] != ""]
@@ -54,6 +89,34 @@ def _read_dataframe(file_path):
 
     frame = frame.sort_values(by=["employee_code", "event_time"]).reset_index(drop=True)
     return frame
+
+
+def _aggregate_attendance_daily(frame):
+    daily_map = {}
+
+    for row in frame.itertuples(index=False):
+        work_date = row.event_time.date()
+        event_dt = row.event_time.to_pydatetime()
+        key = (row.employee_code, work_date)
+
+        daily = daily_map.get(key)
+        if not daily:
+            daily = {
+                "employee_code": row.employee_code,
+                "employee_name": row.employee_name,
+                "department": row.department,
+                "work_date": work_date,
+                "first_check_in": event_dt,
+                "last_check_out": event_dt,
+            }
+            daily_map[key] = daily
+
+        if event_dt < daily["first_check_in"]:
+            daily["first_check_in"] = event_dt
+        if event_dt > daily["last_check_out"]:
+            daily["last_check_out"] = event_dt
+
+    return daily_map
 
 
 def _purge_month_attendance(month_key):
@@ -92,7 +155,7 @@ def import_attendance_file(
     month_key=None,
     replace_existing=False,
 ):
-    frame = _read_dataframe(file_path)
+    frame = _read_dataframe(file_path, month_key=month_key)
 
     if month_key:
         frame = frame[frame["event_time"].dt.strftime("%Y-%m") == month_key].copy()
@@ -103,11 +166,11 @@ def import_attendance_file(
 
     batch_id = str(uuid.uuid4())
 
-    touched_months = sorted(frame["event_time"].dt.strftime("%Y-%m").unique().tolist())
+    imported_months = sorted(frame["event_time"].dt.strftime("%Y-%m").unique().tolist())
     replaced_months = []
 
     if replace_existing:
-        for item in touched_months:
+        for item in imported_months:
             purge_info = _purge_month_attendance(item)
             replaced_months.append(purge_info)
 
@@ -145,25 +208,25 @@ def import_attendance_file(
         )
         db.session.add(log_row)
 
-    grouped = (
-        frame.groupby(["employee_code", frame["event_time"].dt.date])
-        .agg(
-            first_check_in=("event_time", "min"),
-            last_check_out=("event_time", "max"),
-            employee_name=("employee_name", "first"),
-        )
-        .reset_index()
+    daily_map = _aggregate_attendance_daily(frame)
+    grouped_days = sorted(
+        daily_map.values(),
+        key=lambda item: (item["employee_code"], item["work_date"]),
     )
 
-    for row in grouped.itertuples(index=False):
-        employee = employee_map.get(row.employee_code)
+    touched_months = sorted({item["work_date"].strftime("%Y-%m") for item in grouped_days})
+    if not touched_months:
+        touched_months = imported_months
+
+    for item in grouped_days:
+        employee = employee_map.get(item["employee_code"])
         if not employee:
             continue
 
-        work_date = row.event_time
+        work_date = item["work_date"]
 
-        first_check_in = row.first_check_in.to_pydatetime()
-        last_check_out = row.last_check_out.to_pydatetime()
+        first_check_in = item["first_check_in"]
+        last_check_out = item["last_check_out"]
         total_hours = max((last_check_out - first_check_in).total_seconds() / 3600, 0.0)
 
         daily = AttendanceDaily.query.filter_by(employee_id=employee.id, work_date=work_date).first()
@@ -191,7 +254,7 @@ def import_attendance_file(
         after_data={
             "source_file": source_name,
             "rows": int(len(frame)),
-            "grouped_days": int(len(grouped)),
+            "grouped_days": int(len(grouped_days)),
             "months": touched_months,
             "replace_existing": bool(replace_existing),
             "replaced_months": replaced_months,
@@ -203,7 +266,7 @@ def import_attendance_file(
     return {
         "batch_id": batch_id,
         "rows": int(len(frame)),
-        "grouped_days": int(len(grouped)),
+        "grouped_days": int(len(grouped_days)),
         "months": touched_months,
         "replace_existing": bool(replace_existing),
         "replaced_months": replaced_months,

@@ -2,36 +2,6 @@
 Attribute VB_Name = "ModChamCong"
 Sub XuLyChamCong()
     
-    ' Thu thap Thang Nam tu nguoi dung
-    Dim inputStr As String
-    inputStr = InputBox("Nhap thang va nam can tao (MM-YYYY):" & vbCrLf & "Vi du: 04-2026", "Chon Thang Cham Cong", Format(Date, "mm-yyyy"))
-    If inputStr = "" Then Exit Sub
-    
-    Dim targetMonth As Integer, targetYear As Integer
-    Dim parts() As String
-    If InStr(inputStr, "-") > 0 Then
-        parts = Split(inputStr, "-")
-    ElseIf InStr(inputStr, "/") > 0 Then
-        parts = Split(inputStr, "/")
-    Else
-        MsgBox "Dinh dang khong hop le. Vi du: 04-2026", vbExclamation
-        Exit Sub
-    End If
-    
-    On Error Resume Next
-    targetMonth = Val(parts(0))
-    targetYear = Val(parts(1))
-    On Error GoTo 0
-    
-    If targetMonth < 1 Or targetMonth > 12 Or targetYear < 2000 Then
-        MsgBox "Thang hoac nam khong hop le!", vbExclamation
-        Exit Sub
-    End If
-    
-    Dim startDate As Date, endDate As Date
-    startDate = DateSerial(targetYear, targetMonth, 1)
-    endDate = DateSerial(targetYear, targetMonth + 1, 0)
-
     Application.ScreenUpdating = False
     Application.DisplayAlerts = False
     
@@ -86,23 +56,9 @@ Sub XuLyChamCong()
     Dim dict As Object
     Set dict = CreateObject("Scripting.Dictionary")
     
-    Dim dictUniquePersons As Object
-    Set dictUniquePersons = CreateObject("Scripting.Dictionary")
-    
     For i = 1 To dataCount
-        Dim eID As String, eName As String, eDept As String
-        eID = personID(i)
-        eName = personName(i)
-        eDept = dept(i)
-        
-        Dim uKey As String
-        uKey = eID & "|" & eName
-        If Not dictUniquePersons.Exists(uKey) Then
-            dictUniquePersons.Add uKey, Array(eID, eName, eDept)
-        End If
-        
         Dim key As String
-        key = eID & "|" & eName & "|" & Format(dateOnly(i), "yyyy-mm-dd")
+        key = personID(i) & "|" & personName(i) & "|" & Format(dateOnly(i), "yyyy-mm-dd")
         
         If Not dict.Exists(key) Then
             dict.Add key, Array(timeStamp(i), timeStamp(i), personID(i), personName(i), dept(i), dateOnly(i))
@@ -149,20 +105,21 @@ Sub XuLyChamCong()
     
     ' Sort keys
     Dim keys As Variant
-    keys = dictUniquePersons.keys
+    keys = dict.keys
     
-    ' Sort unique persons by employee code
+    ' Simple bubble sort by employee code then date
     Dim tempKey As String
     Dim j As Long
     For i = 0 To UBound(keys) - 1
         For j = i + 1 To UBound(keys)
             Dim arrI As Variant, arrJ As Variant
-            arrI = dictUniquePersons(keys(i))
-            arrJ = dictUniquePersons(keys(j))
+            arrI = dict(keys(i))
+            arrJ = dict(keys(j))
             Dim idI As Long, idJ As Long
-            idI = CLng(Val(Replace(CStr(arrI(0)), "'", "")))
-            idJ = CLng(Val(Replace(CStr(arrJ(0)), "'", "")))
-            If idI > idJ Then
+            idI = CLng(Val(Replace(CStr(arrI(2)), "'", "")))
+            idJ = CLng(Val(Replace(CStr(arrJ(2)), "'", "")))
+            If idI > idJ Or _
+               (idI = idJ And CDate(arrI(5)) > CDate(arrJ(5))) Then
                 tempKey = keys(i)
                 keys(i) = keys(j)
                 keys(j) = tempKey
@@ -173,85 +130,60 @@ Sub XuLyChamCong()
     ' Write data
     Dim r As Long
     r = 2
-    Dim sttCount As Long
-    sttCount = 1
-    
     For i = 0 To UBound(keys)
-        Dim empArr As Variant
-        empArr = dictUniquePersons(keys(i))
-        eID = CStr(empArr(0))
-        eName = CStr(empArr(1))
+        arr = dict(keys(i))
+        wsChamCong.Cells(r, 1).Value = i + 1
+        wsChamCong.Cells(r, 2).Value = CLng(Val(Replace(CStr(arr(2)), "'", "")))
+        wsChamCong.Cells(r, 3).Value = CStr(arr(3))
+        wsChamCong.Cells(r, 4).Value = CDate(arr(5))
+        wsChamCong.Cells(r, 4).NumberFormat = "dd/mm/yyyy"
+        wsChamCong.Cells(r, 5).Value = CDate(arr(0))
+        wsChamCong.Cells(r, 5).NumberFormat = "hh:mm"
+        wsChamCong.Cells(r, 6).Value = CDate(arr(1))
+        wsChamCong.Cells(r, 6).NumberFormat = "hh:mm"
         
-        Dim d As Date
-        For d = startDate To endDate
-            wsChamCong.Cells(r, 1).Value = sttCount
-            sttCount = sttCount + 1
-            wsChamCong.Cells(r, 2).Value = CLng(Val(Replace(eID, "'", "")))
-            wsChamCong.Cells(r, 3).Value = eName
-            wsChamCong.Cells(r, 4).Value = d
-            wsChamCong.Cells(r, 4).NumberFormat = "dd/mm/yyyy"
-            
-            Dim wkDay As Integer
-            wkDay = Weekday(d, vbSunday)
-            Dim isSunday As Boolean
-            isSunday = (wkDay = 1)
-            
-            Dim searchKey As String
-            searchKey = eID & "|" & eName & "|" & Format(d, "yyyy-mm-dd")
-            
-            If dict.Exists(searchKey) Then
-                ' Worked
-                Dim dataArr As Variant
-                dataArr = dict(searchKey)
-                
-                wsChamCong.Cells(r, 5).Value = CDate(dataArr(0))
-                wsChamCong.Cells(r, 5).NumberFormat = "hh:mm"
-                wsChamCong.Cells(r, 6).Value = CDate(dataArr(1))
-                wsChamCong.Cells(r, 6).NumberFormat = "hh:mm"
-                
-                Dim hoursWorked As Double
-                hoursWorked = (CDate(dataArr(1)) - CDate(dataArr(0))) * 24
-                If hoursWorked < 0 Then hoursWorked = 0
-                wsChamCong.Cells(r, 7).Value = Round(hoursWorked, 1)
-                wsChamCong.Cells(r, 7).NumberFormat = "0.0"
-                
-                ' Light red if Sunday
-                If isSunday Then
-                    wsChamCong.Range("A" & r & ":G" & r).Interior.Color = RGB(255, 204, 204)
-                End If
-                
-            Else
-                ' Absent
-                If isSunday Then
-                    ' Chu nhat dc nghi, van de trong thoi gian
-                    wsChamCong.Range("A" & r & ":G" & r).Interior.Color = RGB(255, 204, 204)
-                    wsChamCong.Cells(r, 5).Value = ""
-                    wsChamCong.Cells(r, 6).Value = ""
-                    wsChamCong.Cells(r, 7).Value = ""
-                Else
-                    ' Mon-Sat absent -> to do, ghi ngay vao cot ranh
-                    wsChamCong.Range("A" & r & ":G" & r).Interior.Color = RGB(255, 0, 0)
-                    wsChamCong.Range("A" & r & ":G" & r).Font.Color = RGB(255, 255, 255)
-                    wsChamCong.Cells(r, 5).Value = "'" & Format(d, "dd/mm/yyyy") ' "ghi ngày trong ô đó luôn"
-                    wsChamCong.Cells(r, 5).HorizontalAlignment = xlCenter
-                    wsChamCong.Cells(r, 6).Value = "'" & Format(d, "dd/mm/yyyy")
-                    wsChamCong.Cells(r, 6).HorizontalAlignment = xlCenter
-                    wsChamCong.Cells(r, 7).Value = ""
-                End If
-            End If
-            
-            r = r + 1
-        Next d
+        ' So gio lam = Gio Ra - Gio Vao (in hours)
+        Dim hoursWorked As Double
+        hoursWorked = (CDate(arr(1)) - CDate(arr(0))) * 24
+        If hoursWorked < 0 Then hoursWorked = 0
+        wsChamCong.Cells(r, 7).Value = Round(hoursWorked, 1)
+        wsChamCong.Cells(r, 7).NumberFormat = "0.0"
         
-        ' Them dong trong giua moi nguoi
-        If i < UBound(keys) Then
-            r = r + 1
-        End If
+        r = r + 1
     Next i
     
     Dim totalRows As Long
     totalRows = r - 1
 
+    ' Force final output order: Ma NV tang dan, trong tung Ma NV thi sort theo Thang -> Ngay -> Nam
+    If totalRows >= 2 Then
+        wsChamCong.Range("H1").Value = "_SortMonth"
+        wsChamCong.Range("I1").Value = "_SortDay"
+        wsChamCong.Range("J1").Value = "_SortYear"
+        wsChamCong.Range("H2:H" & totalRows).FormulaR1C1 = "=MONTH(RC[-4])"
+        wsChamCong.Range("I2:I" & totalRows).FormulaR1C1 = "=DAY(RC[-5])"
+        wsChamCong.Range("J2:J" & totalRows).FormulaR1C1 = "=YEAR(RC[-6])"
+
+        With wsChamCong.Sort
+            .SortFields.Clear
+            .SortFields.Add Key:=wsChamCong.Range("B2:B" & totalRows), SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+            .SortFields.Add Key:=wsChamCong.Range("H2:H" & totalRows), SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+            .SortFields.Add Key:=wsChamCong.Range("I2:I" & totalRows), SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+            .SortFields.Add Key:=wsChamCong.Range("J2:J" & totalRows), SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+            .SetRange wsChamCong.Range("A1:J" & totalRows)
+            .Header = xlYes
+            .MatchCase = False
+            .Orientation = xlTopToBottom
+            .Apply
+        End With
+
+        wsChamCong.Range("H2:J" & totalRows).ClearContents
+        wsChamCong.Columns("H:J").Hidden = True
+
+        wsChamCong.Range("A2:A" & totalRows).FormulaR1C1 = "=ROW()-1"
+        wsChamCong.Range("A2:A" & totalRows).Value = wsChamCong.Range("A2:A" & totalRows).Value
+    End If
+    
     ' Format data area
     With wsChamCong.Range("A2:G" & totalRows)
         .Font.Name = "Arial"
@@ -269,27 +201,18 @@ Sub XuLyChamCong()
         .Weight = xlThin
     End With
     
-    ' Alternating row colors by person and clear blank row borders
+    ' Alternating row colors by person
     Dim prevName As String
     Dim colorToggle As Boolean
     prevName = ""
     colorToggle = False
     For i = 2 To totalRows
-        If wsChamCong.Cells(i, 3).Value <> "" Then
-            If wsChamCong.Cells(i, 3).Value <> prevName Then
-                colorToggle = Not colorToggle
-                prevName = wsChamCong.Cells(i, 3).Value
-            End If
-            If colorToggle Then
-                ' Only color if it has no specific background color yet (not Sunday or Absent)
-                If wsChamCong.Range("A" & i).Interior.ColorIndex = xlNone Or wsChamCong.Range("A" & i).Interior.Color = 16777215 Then
-                    wsChamCong.Range("A" & i & ":G" & i).Interior.Color = RGB(221, 235, 247)
-                End If
-            End If
-        Else
-            ' Remove borders and background color from the blank spacer rows
-            wsChamCong.Range("A" & i & ":G" & i).Interior.ColorIndex = xlNone
-            wsChamCong.Range("A" & i & ":G" & i).Borders.LineStyle = xlNone
+        If wsChamCong.Cells(i, 3).Value <> prevName Then
+            colorToggle = Not colorToggle
+            prevName = wsChamCong.Cells(i, 3).Value
+        End If
+        If colorToggle Then
+            wsChamCong.Range("A" & i & ":G" & i).Interior.Color = RGB(221, 235, 247)
         End If
     Next i
     
@@ -325,22 +248,18 @@ Sub XuLyChamCong()
     Dim dictPerson As Object
     Set dictPerson = CreateObject("Scripting.Dictionary")
     
-    Dim dKeys As Variant
-    dKeys = dict.keys
-    
-    For i = 0 To UBound(dKeys)
-        Dim dArr As Variant
-        dArr = dict(dKeys(i))
+    For i = 0 To UBound(keys)
+        arr = dict(keys(i))
         Dim pKey As String
-        pKey = CStr(dArr(2)) & "|" & CStr(dArr(3))
+        pKey = CStr(arr(2)) & "|" & CStr(arr(3))
         If Not dictPerson.Exists(pKey) Then
-            dictPerson.Add pKey, Array(CStr(dArr(2)), CStr(dArr(3)), 0, 0#)
+            dictPerson.Add pKey, Array(CStr(arr(2)), CStr(arr(3)), 0, 0#)
         End If
         Dim pArr As Variant
         pArr = dictPerson(pKey)
         pArr(2) = CLng(pArr(2)) + 1
         Dim hrs As Double
-        hrs = (CDate(dArr(1)) - CDate(dArr(0))) * 24
+        hrs = (CDate(arr(1)) - CDate(arr(0))) * 24
         If hrs < 0 Then hrs = 0
         pArr(3) = CDbl(pArr(3)) + hrs
         dictPerson(pKey) = pArr
