@@ -4,6 +4,7 @@ import io
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 from flask import (
     Response,
@@ -12,6 +13,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
 from sqlalchemy import desc, func, or_
@@ -76,6 +78,20 @@ def _to_float(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _sanitize_next_path(value):
+    if not value:
+        return None
+
+    parsed = urlparse(value)
+    if parsed.scheme or parsed.netloc:
+        return None
+
+    if not value.startswith("/") or value.startswith("//"):
+        return None
+
+    return value
 
 
 def _iter_month_keys(start_date, end_date):
@@ -146,6 +162,59 @@ def _get_vietnam_holiday_map(start_date, end_date):
 
 
 def register_routes(app):
+    @app.context_processor
+    def inject_auth_state():
+        return {
+            "is_authenticated": bool(session.get("is_authenticated")),
+            "current_user": session.get("username", ""),
+        }
+
+    @app.before_request
+    def require_login():
+        endpoint = request.endpoint or ""
+        if endpoint == "login" or endpoint == "static" or endpoint.startswith("static."):
+            return None
+
+        if not session.get("is_authenticated"):
+            next_path = request.full_path if request.query_string else request.path
+            return redirect(url_for("login", next=next_path))
+
+        return None
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        if session.get("is_authenticated"):
+            return redirect(url_for("dashboard"))
+
+        query_next = _sanitize_next_path((request.args.get("next") or "").strip())
+
+        if request.method == "POST":
+            username = (request.form.get("username") or "").strip()
+            password = request.form.get("password") or ""
+            expected_username = current_app.config.get("LOGIN_USERNAME", "admin")
+            expected_password = current_app.config.get("LOGIN_PASSWORD", "123456")
+
+            if username == expected_username and password == expected_password:
+                session.clear()
+                session["is_authenticated"] = True
+                session["username"] = username
+                session.permanent = True
+                flash("Dang nhap thanh cong", "success")
+
+                form_next = _sanitize_next_path((request.form.get("next") or "").strip())
+                target = form_next or query_next or url_for("dashboard")
+                return redirect(target)
+
+            flash("Sai tai khoan hoac mat khau", "error")
+
+        return render_template("login.html", title="Dang nhap", next_url=query_next or "")
+
+    @app.route("/logout", methods=["POST"])
+    def logout():
+        session.clear()
+        flash("Da dang xuat", "success")
+        return redirect(url_for("login"))
+
     @app.route("/")
     def dashboard():
         month_key = _safe_month_key(request.args.get("month"))
@@ -205,14 +274,37 @@ def register_routes(app):
             .all()
         )
 
+        warning_total = (
+            db.session.query(func.count(AttendanceDetail.id))
+            .filter(AttendanceDetail.month_key == month_key)
+            .filter(
+                or_(
+                    AttendanceDetail.status_code == "N",
+                    AttendanceDetail.deviation_hours < 0,
+                )
+            )
+            .scalar()
+        )
+
+        attendance_rate = (
+            ((total_rows - absent_days) / total_rows * 100.0) if total_rows > 0 else 0.0
+        )
+        average_paid_hours = (float(total_paid_hours or 0) / total_rows) if total_rows > 0 else 0.0
+        average_daily_wage = (float(total_wage or 0) / total_rows) if total_rows > 0 else 0.0
+
         return render_template(
             "dashboard.html",
+            title="Dashboard",
             month_key=month_key,
             total_employees=total_employees,
             total_rows=total_rows,
             total_paid_hours=float(total_paid_hours or 0),
             total_wage=float(total_wage or 0),
             absent_days=absent_days,
+            warning_total=int(warning_total or 0),
+            attendance_rate=attendance_rate,
+            average_paid_hours=average_paid_hours,
+            average_daily_wage=average_daily_wage,
             status_labels=[row[0] for row in status_rows],
             status_values=[int(row[1]) for row in status_rows],
             overtime_labels=[row[0] for row in overtime_rows],

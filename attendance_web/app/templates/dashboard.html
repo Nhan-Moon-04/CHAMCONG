@@ -1,55 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <div class="inline-form">
-        <div>
-            <h2>Tong quan cham cong</h2>
-            <p class="muted">Theo doi nhanh tinh hinh di lam, nghi khong phep, tang ca va tong luong theo thang.</p>
+<section class="panel dashboard-hero">
+    <div class="dashboard-hero-copy">
+        <p class="dashboard-eyebrow">Executive Overview</p>
+        <h2>Tong quan cham cong thang {{ month_key }}</h2>
+        <p class="muted">Theo doi nhanh muc do hien dien, khung canh bao va xu huong tang ca de quan ly van hanh nhan su theo ngay.</p>
+    </div>
+    <form method="get" class="dashboard-month-form">
+        <label for="month">Chon thang</label>
+        <input id="month" type="month" name="month" value="{{ month_key }}">
+        <button type="submit">Cap nhat dashboard</button>
+    </form>
+</section>
+
+<section class="dashboard-kpi-grid">
+    <article class="metric-card metric-card-highlight">
+        <span class="metric-label">Tong nhan su hoat dong</span>
+        <strong class="metric-value">{{ total_employees }}</strong>
+        <p class="metric-subtext">Nguon du lieu nhan vien dang active</p>
+    </article>
+    <article class="metric-card">
+        <span class="metric-label">Tong dong cham cong</span>
+        <strong class="metric-value">{{ total_rows }}</strong>
+        <p class="metric-subtext">Ban ghi da tong hop trong thang</p>
+    </article>
+    <article class="metric-card">
+        <span class="metric-label">Tong gio duoc tinh</span>
+        <strong class="metric-value">{{ "%.2f"|format(total_paid_hours) }}</strong>
+        <p class="metric-subtext">Binh quan {{ "%.2f"|format(average_paid_hours) }} gio/ban ghi</p>
+    </article>
+    <article class="metric-card">
+        <span class="metric-label">Tong luong du kien</span>
+        <strong class="metric-value">{{ "{:,.0f}".format(total_wage) }}</strong>
+        <p class="metric-subtext">Binh quan {{ "{:,.0f}".format(average_daily_wage) }}/ban ghi</p>
+    </article>
+    <article class="metric-card">
+        <span class="metric-label">Ti le hien dien</span>
+        <strong class="metric-value">{{ "%.1f"|format(attendance_rate) }}%</strong>
+        <p class="metric-subtext">Vang mat N: {{ absent_days }} ngay</p>
+    </article>
+    <article class="metric-card metric-card-alert">
+        <span class="metric-label">Tong canh bao</span>
+        <strong class="metric-value">{{ warning_total }}</strong>
+        <p class="metric-subtext">Bao gom N va thieu gio</p>
+    </article>
+</section>
+
+<section class="dashboard-chart-grid">
+    <div class="panel dashboard-chart-panel">
+        <div class="dashboard-panel-head">
+            <h3>Phan bo status cham cong</h3>
+            <span class="panel-caption">Theo tong so dong trong thang</span>
         </div>
-        <form method="get">
-            <label for="month">Thang</label>
-            <input id="month" type="month" name="month" value="{{ month_key }}">
-            <button type="submit">Xem</button>
-        </form>
-    </div>
-</div>
-
-<div class="card-grid">
-    <div class="card">
-        <div class="kpi-title">Nhan vien dang hoat dong</div>
-        <div class="kpi-value">{{ total_employees }}</div>
-    </div>
-    <div class="card">
-        <div class="kpi-title">So dong chi tiet</div>
-        <div class="kpi-value">{{ total_rows }}</div>
-    </div>
-    <div class="card">
-        <div class="kpi-title">Tong gio duoc tinh</div>
-        <div class="kpi-value">{{ "%.2f"|format(total_paid_hours) }}</div>
-    </div>
-    <div class="card">
-        <div class="kpi-title">Tong luong du kien</div>
-        <div class="kpi-value">{{ "{:,.0f}".format(total_wage) }}</div>
-    </div>
-    <div class="card">
-        <div class="kpi-title">So ngay N (nghi khong phep)</div>
-        <div class="kpi-value">{{ absent_days }}</div>
-    </div>
-</div>
-
-<div class="card-grid">
-    <div class="panel">
-        <h3>Phan bo status</h3>
         <canvas id="statusChart"></canvas>
     </div>
-    <div class="panel">
-        <h3>Top tang ca</h3>
+    <div class="panel dashboard-chart-panel">
+        <div class="dashboard-panel-head">
+            <h3>Top 10 nhan vien tang ca</h3>
+            <span class="panel-caption">Don vi: gio</span>
+        </div>
         <canvas id="overtimeChart"></canvas>
     </div>
-</div>
+</section>
 
-<div class="panel">
-    <h3>Canh bao can xem lai</h3>
+<section class="panel dashboard-warning-panel">
+    <div class="dashboard-panel-head">
+        <h3>Canh bao can xem lai</h3>
+        <span class="panel-caption">Hien thi 20 dong moi nhat</span>
+    </div>
     <div class="table-wrap">
         <table>
             <thead>
@@ -57,8 +75,9 @@
                     <th>Ngay</th>
                     <th>Ma NV</th>
                     <th>Ho ten</th>
+                    <th>Muc do</th>
                     <th>Status</th>
-                    <th>Chenh lech</th>
+                    <th>Chenh lech gio</th>
                     <th>Ghi chu</th>
                 </tr>
             </thead>
@@ -70,7 +89,16 @@
                     <td><a href="{{ url_for('employee_detail', employee_id=employee.id, month=month_key) }}">{{ employee.full_name }}</a></td>
                     <td>
                         {% if detail.status_code == 'N' %}
-                            <span class="badge badge-warn">N</span>
+                            <span class="badge badge-critical">Cao</span>
+                        {% elif detail.deviation_hours < -1 %}
+                            <span class="badge badge-warn">Trung binh</span>
+                        {% else %}
+                            <span class="badge">Nhe</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if detail.status_code == 'N' %}
+                            <span class="badge badge-critical">N</span>
                         {% else %}
                             <span class="badge">{{ detail.status_code }}</span>
                         {% endif %}
@@ -80,13 +108,13 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6">Chua co canh bao trong thang nay.</td>
+                    <td colspan="7">Khong co canh bao trong thang nay.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
+</section>
 
 <script id="status-labels" type="application/json">{{ status_labels|tojson }}</script>
 <script id="status-values" type="application/json">{{ status_values|tojson }}</script>
@@ -100,35 +128,62 @@ const overtimeLabels = JSON.parse(document.getElementById("overtime-labels").tex
 const overtimeValues = JSON.parse(document.getElementById("overtime-values").textContent);
 
 const statusCtx = document.getElementById("statusChart");
-new Chart(statusCtx, {
-    type: "doughnut",
-    data: {
-        labels: statusLabels,
-        datasets: [{
-            data: statusValues,
-            backgroundColor: ["#0f766e", "#f97316", "#fb7185", "#3b82f6", "#a855f7", "#f59e0b", "#84cc16"]
-        }]
-    }
-});
+if (statusCtx && typeof Chart !== "undefined") {
+    new Chart(statusCtx, {
+        type: "doughnut",
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                data: statusValues,
+                borderWidth: 0,
+                backgroundColor: ["#1c8f7a", "#d46b08", "#be123c", "#1f6feb", "#14532d", "#0f766e", "#64748b"]
+            }]
+        },
+        options: {
+            plugins: {
+                legend: {
+                    position: "bottom"
+                }
+            },
+            cutout: "68%"
+        }
+    });
+}
 
 const overtimeCtx = document.getElementById("overtimeChart");
-new Chart(overtimeCtx, {
-    type: "bar",
-    data: {
-        labels: overtimeLabels,
-        datasets: [{
-            label: "Gio tang ca",
-            data: overtimeValues,
-            backgroundColor: "#0f766e"
-        }]
-    },
-    options: {
-        scales: {
-            y: {
-                beginAtZero: true
+if (overtimeCtx && typeof Chart !== "undefined") {
+    new Chart(overtimeCtx, {
+        type: "bar",
+        data: {
+            labels: overtimeLabels,
+            datasets: [{
+                label: "Gio tang ca",
+                data: overtimeValues,
+                borderRadius: 8,
+                backgroundColor: "#1f6feb"
+            }]
+        },
+        options: {
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: "rgba(15, 23, 42, 0.08)"
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
             }
         }
-    }
-});
+    });
+}
 </script>
 {% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="login-shell">
+    <div class="login-branding">
+        <p class="login-eyebrow">Hiep Loi Group</p>
+        <h1>Workforce Attendance Portal</h1>
+        <p>Cong cu noi bo cho khoi van hanh nhan su, cham cong, luong va audit du lieu theo thang.</p>
+        <ul class="login-points">
+            <li>Dieu phoi 500+ nhan su theo don vi</li>
+            <li>Quan sat KPI cham cong theo thoi gian thuc</li>
+            <li>Luu vet audit cho moi thay doi du lieu</li>
+        </ul>
+    </div>
+
+    <div class="login-card panel">
+        <h2>Dang nhap he thong</h2>
+        <p class="muted">Chi cap tai khoan noi bo, khong ho tro dang ky tai day.</p>
+        <form method="post" class="form-grid login-form">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <label for="username">Tai khoan</label>
+            <input id="username" name="username" autocomplete="username" placeholder="Nhap tai khoan" required>
+
+            <label for="password">Mat khau</label>
+            <input id="password" type="password" name="password" autocomplete="current-password" placeholder="Nhap mat khau" required>
+
+            <button type="submit">Dang nhap</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

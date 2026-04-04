@@ -16,6 +16,7 @@ Ung dung nay duoc dung de:
 3. Tao file `.env` tu `.env.example` va cap nhat:
    - `DATABASE_URL`
    - `BACKUP_TARGET_DIR` (tro den thu muc trong OneDrive neu muon dong bo len cloud)
+   - `LOGIN_USERNAME`, `LOGIN_PASSWORD` (tai khoan dang nhap noi bo)
 
 ## 2) Chay tren Windows
 
@@ -34,6 +35,11 @@ Ung dung nay duoc dung de:
 6. Mo trinh duyet:
    - `http://127.0.0.1:5000`
 
+Mac dinh dang nhap:
+- Username: `admin`
+- Password: `123456`
+- Co the doi trong file `.env` bang `LOGIN_USERNAME` va `LOGIN_PASSWORD`.
+
 Luu y quan trong:
 - PowerShell KHONG dung cu phap `KEY=value` nhu Linux; phai dung `$env:KEY="value"`.
 - App da tu dong nhan ca `postgresql://...` va doi sang driver `psycopg`.
@@ -46,6 +52,10 @@ Luu y quan trong:
    - `docker compose up -d --build`
 3. Truy cap:
    - `http://127.0.0.1:5000`
+
+Mac dinh dang nhap:
+- Username: `admin`
+- Password: `123456`
 
 ## 4) Luong nghiep vu da co
 
