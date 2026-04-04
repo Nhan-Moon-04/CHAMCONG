@@ -16,6 +16,16 @@
                 {% endfor %}
             </select>
             <button type="submit">Loc</button>
+            <button
+                type="submit"
+                formmethod="post"
+                formaction="{{ url_for('holidays') }}"
+                name="action"
+                value="generate_month"
+                class="secondary"
+            >
+                Tao OFF chu nhat + le VN
+            </button>
         </form>
     </div>
 </div>

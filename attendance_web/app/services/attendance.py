@@ -317,13 +317,12 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
     shift_rows = ShiftTemplate.query.all()
     shift_by_code = {row.code.upper(): row for row in shift_rows}
 
-    holidays = {
-        row.holiday_date
-        for row in Holiday.query.filter(
-            Holiday.holiday_date >= start_date,
-            Holiday.holiday_date <= end_date,
-        ).all()
-    }
+    holiday_rows = Holiday.query.filter(
+        Holiday.holiday_date >= start_date,
+        Holiday.holiday_date <= end_date,
+    ).all()
+    # is_paid is used by UI as a "tick nghi" flag: checked dates are treated as OFF/le.
+    holidays = {row.holiday_date for row in holiday_rows if row.is_paid}
 
     salary_map = {
         row.employee_id: row

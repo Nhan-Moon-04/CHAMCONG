@@ -1,13 +1,37 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="panel">
-    <h2>Bang ngay OFF, chu nhat, ngay le</h2>
-    <p class="muted">Chu nhat duoc nghi mac dinh. Ngay le trong bang nay se duoc tinh ma L (nghi van tinh 1 cong) neu khong xep ca khac.</p>
+    <div class="inline-form">
+        <div>
+            <h2>Bang ngay OFF, chu nhat, ngay le</h2>
+            <p class="muted">Tick nghi = he thong xem la OFF/le. Bo tick = ngay lam binh thuong. Chu nhat van mac dinh OFF neu khong co ca de tranh bi N.</p>
+        </div>
+        <form method="get" class="form-grid">
+            <input type="month" name="month" value="{{ month_key }}" required>
+            <button type="submit">Xem thang</button>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Tao nhanh chu nhat OFF + ngay le Viet Nam theo thang</h3>
     <form method="post" class="form-grid">
+        <input type="hidden" name="action" value="generate_month">
+        <input type="month" name="month_key" value="{{ month_key }}" required>
+        <input name="changed_by" placeholder="Nguoi sua" value="admin">
+        <button type="submit" class="secondary">Tao OFF chu nhat + le VN</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h3>Them/sua ngay OFF, le</h3>
+    <form method="post" class="form-grid">
+        <input type="hidden" name="action" value="save_single">
+        <input type="hidden" name="month_key" value="{{ month_key }}">
         <input type="date" name="holiday_date" required>
         <input name="name" placeholder="Ten ngay le" required>
         <input name="notes" placeholder="Ghi chu">
-        <label><input type="checkbox" name="is_paid" checked> Co tinh luong</label>
+        <label><input type="checkbox" name="is_paid" checked> Tick nghi</label>
         <input name="changed_by" placeholder="Nguoi sua" value="admin">
         <button type="submit">Luu ngay OFF</button>
     </form>
@@ -19,28 +43,72 @@
             <thead>
                 <tr>
                     <th>Ngay</th>
+                    <th>Thu</th>
                     <th>Ten</th>
-                    <th>Tinh luong</th>
+                    <th>Tick nghi</th>
                     <th>Ghi chu</th>
+                    <th>Nguoi sua</th>
+                    <th>Hanh dong</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in holidays %}
                 <tr>
                     <td>{{ row.holiday_date }}</td>
-                    <td>{{ row.name }}</td>
                     <td>
-                        {% if row.is_paid %}
-                        <span class="badge badge-ok">Co</span>
+                        {% if row.holiday_date.weekday() == 6 %}
+                        Chu nhat
                         {% else %}
-                        <span class="badge badge-warn">Khong</span>
+                        Thu {{ row.holiday_date.weekday() + 2 }}
                         {% endif %}
                     </td>
-                    <td>{{ row.notes or '-' }}</td>
+                    <td>
+                        <input
+                            name="name"
+                            value="{{ row.name }}"
+                            form="holiday-edit-{{ row.id }}"
+                            required
+                        >
+                    </td>
+                    <td>
+                        <label>
+                            <input
+                                type="checkbox"
+                                name="is_paid"
+                                form="holiday-edit-{{ row.id }}"
+                                {% if row.is_paid %}checked{% endif %}
+                            >
+                            Nghi
+                        </label>
+                    </td>
+                    <td>
+                        <input
+                            name="notes"
+                            value="{{ row.notes or '' }}"
+                            form="holiday-edit-{{ row.id }}"
+                            placeholder="Ghi chu"
+                        >
+                    </td>
+                    <td>
+                        <input
+                            name="changed_by"
+                            value="admin"
+                            form="holiday-edit-{{ row.id }}"
+                            placeholder="Nguoi sua"
+                        >
+                    </td>
+                    <td>
+                        <form id="holiday-edit-{{ row.id }}" method="post">
+                            <input type="hidden" name="action" value="update_row">
+                            <input type="hidden" name="month_key" value="{{ month_key }}">
+                            <input type="hidden" name="holiday_id" value="{{ row.id }}">
+                        </form>
+                        <button type="submit" form="holiday-edit-{{ row.id }}">Luu</button>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4">Chua co ngay le.</td>
+                    <td colspan="7">Chua co ngay OFF/le trong thang nay.</td>
                 </tr>
                 {% endfor %}
             </tbody>

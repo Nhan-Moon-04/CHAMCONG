@@ -1,7 +1,8 @@
 import csv
+import importlib
 import io
 import os
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from flask import (
@@ -35,12 +36,17 @@ from .services.attendance import (
     build_live_month_details,
     current_month_key,
     month_key_for_date,
+    parse_month_key,
     rebuild_month_details,
 )
 from .services.audit import log_action
 from .services.backup import run_pg_dump
 from .services.importer import import_attendance_file
 from .services.schedule_importer import import_schedule_file
+
+
+_holiday_lib = None
+_holiday_lib_checked = False
 
 
 def _safe_month_key(value):
@@ -68,6 +74,47 @@ def _to_float(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _get_holiday_library():
+    global _holiday_lib
+    global _holiday_lib_checked
+
+    if not _holiday_lib_checked:
+        try:
+            _holiday_lib = importlib.import_module("holidays")
+        except ImportError:
+            _holiday_lib = None
+        _holiday_lib_checked = True
+
+    return _holiday_lib
+
+
+def _get_vietnam_holiday_map(start_date, end_date):
+    holiday_map = {}
+    years = list(range(start_date.year, end_date.year + 1))
+    holiday_library = _get_holiday_library()
+
+    if holiday_library:
+        vn_calendar = holiday_library.country_holidays("VN", years=years)
+        for holiday_date, holiday_name in vn_calendar.items():
+            if start_date <= holiday_date <= end_date:
+                holiday_map[holiday_date] = str(holiday_name)
+
+    if not holiday_map:
+        fixed_holidays = {
+            (1, 1): "Tet Duong lich",
+            (4, 30): "Ngay giai phong mien Nam",
+            (5, 1): "Ngay Quoc te Lao dong",
+            (9, 2): "Quoc khanh",
+        }
+        for year in years:
+            for (month, day), holiday_name in fixed_holidays.items():
+                holiday_date = date(year, month, day)
+                if start_date <= holiday_date <= end_date:
+                    holiday_map[holiday_date] = holiday_name
+
+    return holiday_map
 
 
 def register_routes(app):
@@ -415,16 +462,154 @@ def register_routes(app):
 
     @app.route("/holidays", methods=["GET", "POST"])
     def holidays():
+        month_key = _safe_month_key(
+            request.args.get("month") or request.form.get("month_key") or request.form.get("month")
+        )
+        start_date, end_date = parse_month_key(month_key)
+
         if request.method == "POST":
-            actor = request.form.get("changed_by", "admin")
-            holiday_date = _parse_date(request.form.get("holiday_date"))
+            actor = request.form.get("changed_by", "admin").strip() or "admin"
+            action = request.form.get("action", "save_single").strip()
+
+            if action == "generate_month":
+                created_count = 0
+                updated_count = 0
+                sunday_total = 0
+                sunday_created_count = 0
+                vn_created_count = 0
+                vn_holidays = _get_vietnam_holiday_map(start_date, end_date)
+
+                current_day = start_date
+                while current_day <= end_date:
+                    if current_day.weekday() == 6:
+                        sunday_total += 1
+                        row = Holiday.query.filter_by(holiday_date=current_day).first()
+                        if not row:
+                            row = Holiday(
+                                holiday_date=current_day,
+                                name="Chu nhat",
+                                is_paid=True,
+                                notes="Tao tu dong theo thang",
+                            )
+                            db.session.add(row)
+                            db.session.flush()
+                            log_action(
+                                "holidays",
+                                row.id,
+                                "INSERT",
+                                changed_by=actor,
+                                after_data=row.to_dict(),
+                                notes="Tao nhanh chu nhat OFF theo thang",
+                            )
+                            created_count += 1
+                            sunday_created_count += 1
+                    current_day += timedelta(days=1)
+
+                for holiday_date, holiday_name in sorted(vn_holidays.items()):
+                    row = Holiday.query.filter_by(holiday_date=holiday_date).first()
+                    if row:
+                        before = row.to_dict()
+                        changed = False
+
+                        current_name = (row.name or "").strip()
+                        if holiday_name and holiday_name.lower() not in current_name.lower():
+                            row.name = f"{current_name} + {holiday_name}" if current_name else holiday_name
+                            changed = True
+
+                        if changed:
+                            log_action(
+                                "holidays",
+                                row.id,
+                                "UPDATE",
+                                changed_by=actor,
+                                before_data=before,
+                                after_data=row.to_dict(),
+                                notes="Bo sung ten ngay le Viet Nam tu dong",
+                            )
+                            updated_count += 1
+                    else:
+                        row = Holiday(
+                            holiday_date=holiday_date,
+                            name=holiday_name,
+                            is_paid=True,
+                            notes="Ngay le Viet Nam (tu dong theo thang)",
+                        )
+                        db.session.add(row)
+                        db.session.flush()
+                        log_action(
+                            "holidays",
+                            row.id,
+                            "INSERT",
+                            changed_by=actor,
+                            after_data=row.to_dict(),
+                            notes="Tao tu dong ngay le Viet Nam",
+                        )
+                        created_count += 1
+                        vn_created_count += 1
+
+                db.session.commit()
+                rebuild_month_details(month_key, actor)
+                library_note = ""
+                if not _get_holiday_library():
+                    library_note = " (Dang dung fallback ngay le co dinh do chua cai goi holidays)"
+
+                flash(
+                    f"Da tao moi {created_count} ngay OFF/le (Chu nhat moi: {sunday_created_count}/{sunday_total}, Le VN moi: {vn_created_count}), cap nhat {updated_count} ngay cho thang {month_key}{library_note}",
+                    "success",
+                )
+                return redirect(url_for("holidays", month=month_key))
+
+            if action == "update_row":
+                row_id_raw = (request.form.get("holiday_id") or "").strip()
+                if not row_id_raw.isdigit():
+                    flash("Khong tim thay dong ngay OFF/le de cap nhat", "error")
+                    return redirect(url_for("holidays", month=month_key))
+
+                row = Holiday.query.get(int(row_id_raw))
+                if not row:
+                    flash("Dong ngay OFF/le khong ton tai", "error")
+                    return redirect(url_for("holidays", month=month_key))
+
+                name = request.form.get("name", "").strip()
+                notes = request.form.get("notes", "").strip() or None
+                is_paid = request.form.get("is_paid") == "on"
+
+                if not name:
+                    flash("Can nhap ten ngay OFF/le", "error")
+                    return redirect(url_for("holidays", month=month_key_for_date(row.holiday_date)))
+
+                before = row.to_dict()
+                row.name = name
+                row.is_paid = is_paid
+                row.notes = notes
+
+                log_action(
+                    "holidays",
+                    row.id,
+                    "UPDATE",
+                    changed_by=actor,
+                    before_data=before,
+                    after_data=row.to_dict(),
+                )
+
+                db.session.commit()
+                rebuild_month_details(month_key_for_date(row.holiday_date), actor)
+                flash("Da cap nhat tick nghi/ngay le", "success")
+                return redirect(url_for("holidays", month=month_key_for_date(row.holiday_date)))
+
+            try:
+                holiday_date = _parse_date(request.form.get("holiday_date", "").strip())
+            except (TypeError, ValueError):
+                flash("Ngay OFF khong hop le", "error")
+                return redirect(url_for("holidays", month=month_key))
+
             name = request.form.get("name", "").strip()
             is_paid = request.form.get("is_paid") == "on"
             notes = request.form.get("notes", "").strip() or None
 
             if not name:
-                flash("Can nhap ten ngay le", "error")
-                return redirect(url_for("holidays"))
+                flash("Can nhap ten ngay OFF/le", "error")
+                return redirect(url_for("holidays", month=month_key_for_date(holiday_date)))
 
             row = Holiday.query.filter_by(holiday_date=holiday_date).first()
             if row:
@@ -454,11 +639,18 @@ def register_routes(app):
 
             db.session.commit()
             rebuild_month_details(month_key_for_date(holiday_date), actor)
-            flash("Da luu ngay le", "success")
-            return redirect(url_for("holidays"))
+            flash("Da luu ngay OFF/le", "success")
+            return redirect(url_for("holidays", month=month_key_for_date(holiday_date)))
 
-        rows = Holiday.query.order_by(Holiday.holiday_date.asc()).all()
-        return render_template("holidays.html", holidays=rows)
+        rows = (
+            Holiday.query.filter(
+                Holiday.holiday_date >= start_date,
+                Holiday.holiday_date <= end_date,
+            )
+            .order_by(Holiday.holiday_date.asc())
+            .all()
+        )
+        return render_template("holidays.html", holidays=rows, month_key=month_key)
 
     @app.route("/schedules", methods=["GET", "POST"])
     def schedules():
