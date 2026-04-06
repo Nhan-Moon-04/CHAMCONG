@@ -339,12 +339,12 @@ def _reset_postgres_sequences():
 
         if max_value and int(max_value) > 0:
             db.session.execute(
-                text("SELECT setval(:sequence_name::regclass, :value, true)"),
+                text("SELECT setval(to_regclass(:sequence_name), :value, true)"),
                 {"sequence_name": sequence_name, "value": int(max_value)},
             )
         else:
             db.session.execute(
-                text("SELECT setval(:sequence_name::regclass, 1, false)"),
+                text("SELECT setval(to_regclass(:sequence_name), 1, false)"),
                 {"sequence_name": sequence_name},
             )
 
