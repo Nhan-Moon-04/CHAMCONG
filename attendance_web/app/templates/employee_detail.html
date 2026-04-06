@@ -106,15 +106,34 @@
             </thead>
             <tbody>
                 {% for row in details %}
-                <tr>
+                {% set status_code = (row.status_code or '')|upper %}
+                {% set row_class = '' %}
+                {% if status_code == 'N' %}
+                    {% set row_class = 'details-status-unexcused' %}
+                {% elif status_code in ['P', 'S', 'C', 'L'] %}
+                    {% set row_class = 'details-status-paid-leave' %}
+                {% elif row.work_date.weekday() == 6 or status_code == 'OFF' %}
+                    {% set row_class = 'sunday-row' %}
+                {% endif %}
+                <tr class="{{ row_class }}">
                     <td>{{ row.work_date }}</td>
-                    <td>{{ row.shift_code }}</td>
+                    <td>{% if status_code == 'OFF' %}OFF{% else %}{{ row.shift_code }}{% endif %}</td>
                     <td>{{ row.check_in.strftime('%Y-%m-%d %H:%M') if row.check_in else '-' }}</td>
                     <td>{{ row.check_out.strftime('%Y-%m-%d %H:%M') if row.check_out else '-' }}</td>
                     <td>{{ "%.2f"|format(row.actual_work_hours) }}</td>
                     <td>{{ "%.2f"|format(row.overtime_hours) }}</td>
                     <td>{{ "%.2f"|format(row.paid_hours) }}</td>
-                    <td>{{ row.notes or '-' }}</td>
+                    <td>
+                        {% if status_code == 'OFF' %}
+                            OFF{% if row.notes %} - {{ row.notes }}{% endif %}
+                        {% elif status_code == 'N' %}
+                            Nghỉ không phép{% if row.notes %} - {{ row.notes }}{% endif %}
+                        {% elif status_code in ['P', 'S', 'C'] %}
+                            Có phép{% if row.notes %} - {{ row.notes }}{% endif %}
+                        {% else %}
+                            {{ row.notes or '-' }}
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>

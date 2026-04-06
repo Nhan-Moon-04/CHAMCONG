@@ -650,6 +650,17 @@ a:hover {
     align-items: end;
 }
 
+.meal-period-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.meal-period-actions button {
+    width: auto;
+}
+
 .advances-search-form {
     display: grid;
     grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr) auto minmax(220px, 260px) auto auto;
@@ -742,6 +753,10 @@ a:hover {
     max-height: calc(100dvh - 270px);
 }
 
+.meal-period-panel[hidden] {
+    display: none;
+}
+
 .salary-mask-cell {
     white-space: nowrap;
 }
@@ -757,6 +772,35 @@ a:hover {
 .salary-mask-toggle {
     width: auto;
     padding: 6px 10px;
+}
+
+.meal-name-toggle {
+    border: none;
+    background: transparent;
+    color: #1d4ed8;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.meal-name-toggle:hover,
+.meal-name-toggle.expanded {
+    color: #1f6feb;
+}
+
+.meal-detail-row td {
+    background: #f8fafc;
+}
+
+.meal-inner-wrap {
+    margin-top: 6px;
+    max-height: 320px;
+}
+
+.meal-inner-table {
+    min-width: 1080px;
 }
 
 #schedules-table-panel .table-wrap {
@@ -1308,6 +1352,15 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
     .advances-search-form,
     .advance-inline-edit-form {
         grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .meal-period-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .meal-period-actions button {
         width: 100%;
     }
 
