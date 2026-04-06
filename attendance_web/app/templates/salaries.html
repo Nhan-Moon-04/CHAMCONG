@@ -2,58 +2,58 @@
 {% block content %}
 <section class="panel page-toolbar">
     <div>
-        <h2>Bang luong theo thang</h2>
-        <p class="muted">Cong chuan thang {{ month_key }}: <strong>{{ company_work_days }}</strong></p>
+        <h2>Bảng lương theo tháng</h2>
+        <p class="muted">Công chuẩn tháng {{ month_key }}: <strong>{{ company_work_days }}</strong></p>
     </div>
     <div class="toolbar-actions">
         <form method="get" class="toolbar-month-form">
-            <label for="month">Thang</label>
+            <label for="month">Tháng</label>
             <input id="month" type="month" name="month" value="{{ month_key }}">
             <button type="submit">Xem</button>
         </form>
-        <button type="button" id="salary-tools-toggle-btn" class="secondary" aria-expanded="false">Mo cong cu</button>
+        <button type="button" id="salary-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
     </div>
 </section>
 
 <section id="salary-tools-container" class="page-tools tools-collapsed">
     <div class="panel soft-panel">
-        <h3>Cau hinh cong chuan thang (dung cho tat ca nhan vien)</h3>
+        <h3>Cấu hình công chuẩn tháng (dùng cho tất cả nhân viên)</h3>
         <form method="post" class="form-grid">
             <input type="hidden" name="action" value="save_month_workdays">
             <input type="month" name="month_key" value="{{ month_key }}" required>
-            <input type="number" step="0.5" min="1" name="company_work_days" value="{{ company_work_days }}" placeholder="Cong chuan thang" required>
-            <input name="notes" placeholder="Ghi chu cong chuan" value="{{ workday_config.notes if workday_config else '' }}">
-            <input name="changed_by" placeholder="Nguoi sua" value="admin">
-            <button type="submit" class="secondary">Luu cong chuan thang</button>
+            <input type="number" step="0.5" min="1" name="company_work_days" value="{{ company_work_days }}" placeholder="Công chuẩn tháng" required>
+            <input name="notes" placeholder="Ghi chú công chuẩn" value="{{ workday_config.notes if workday_config else '' }}">
+            <input name="changed_by" placeholder="Người sửa" value="admin">
+            <button type="submit" class="secondary">Lưu công chuẩn tháng</button>
         </form>
     </div>
 
     <div class="panel soft-panel">
-        <h3>Import he luong theo thang</h3>
+        <h3>Import hệ lương theo tháng</h3>
         <form method="post" action="{{ url_for('import_salaries') }}" enctype="multipart/form-data" class="form-grid">
             <input type="file" name="salary_file" accept=".csv,.xlsx,.xls,.xlsm,.xltx,.xltm" required>
             <input type="month" name="month_key" value="{{ month_key }}" required>
-            <label><input type="checkbox" name="replace_existing_month"> Xoa luong cu cua thang truoc khi import</label>
-            <input name="changed_by" placeholder="Nguoi import" value="admin">
-            <button type="submit" class="secondary">Import he luong</button>
+            <label><input type="checkbox" name="replace_existing_month"> Xóa lương cũ của tháng trước khi import</label>
+            <input name="changed_by" placeholder="Người import" value="admin">
+            <button type="submit" class="secondary">Import hệ lương</button>
         </form>
     </div>
 
     <div class="panel soft-panel">
-        <h3>Nhap luong thang cho tung nhan vien</h3>
+        <h3>Nhập lương tháng cho từng nhân viên</h3>
         <form method="post" class="form-grid">
             <input type="hidden" name="action" value="save_employee_salary">
             <select name="employee_id" required>
-                <option value="">Chon nhan vien</option>
+                <option value="">Chọn nhân viên</option>
                 {% for row in employees %}
                 <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
                 {% endfor %}
             </select>
             <input type="month" name="month_key" value="{{ month_key }}" required>
-            <input type="number" step="1000" min="0" name="base_monthly_wage" placeholder="Luong thang" required>
-            <input name="pay_method" placeholder="Hinh thuc nhan tien (Tien mat/CK)">
-            <input name="changed_by" placeholder="Nguoi sua" value="admin">
-            <button type="submit">Luu luong thang</button>
+            <input type="number" step="1000" min="0" name="base_monthly_wage" placeholder="Lương tháng" required>
+            <input name="pay_method" placeholder="Hình thức nhận tiền (Tiền mặt/CK)">
+            <input name="changed_by" placeholder="Người sửa" value="admin">
+            <button type="submit">Lưu lương tháng</button>
         </form>
     </div>
 </section>
@@ -63,13 +63,13 @@
         <table>
             <thead>
                 <tr>
-                    <th>Thang</th>
-                    <th>Cong chuan thang</th>
-                    <th>Ma NV</th>
-                    <th>Ho ten</th>
-                    <th>Luong thang</th>
-                    <th>Luong ngay quy doi</th>
-                    <th>Hinh thuc nhan tien</th>
+                    <th>Tháng</th>
+                    <th>Công chuẩn tháng</th>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th>Lương tháng</th>
+                    <th>Lương ngày quy đổi</th>
+                    <th>Hình thức nhận tiền</th>
                 </tr>
             </thead>
             <tbody>
@@ -86,7 +86,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7">Chua co du lieu luong cho thang nay.</td>
+                    <td colspan="7">Chưa có dữ liệu lương cho tháng này.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -105,7 +105,7 @@
 
     const setToolsState = (collapsed) => {
         toolsContainer.classList.toggle("tools-collapsed", collapsed);
-        toggleButton.textContent = collapsed ? "Mo cong cu" : "Thu gon";
+        toggleButton.textContent = collapsed ? "Mở công cụ" : "Thu gọn";
         toggleButton.setAttribute("aria-expanded", String(!collapsed));
     };
 

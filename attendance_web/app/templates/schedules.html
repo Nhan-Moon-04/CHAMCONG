@@ -2,56 +2,56 @@
 {% block content %}
 <section class="panel page-toolbar">
     <div>
-        <h2>Lich lam va bang tang ca</h2>
-        <p class="muted">Thang dang xem: <strong>{{ month_key }}</strong></p>
+        <h2>Lịch làm và bảng tăng ca</h2>
+        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong></p>
     </div>
     <div class="toolbar-actions">
         <form method="get" class="toolbar-month-form">
-            <label for="month">Thang</label>
+            <label for="month">Tháng</label>
             <input id="month" type="month" name="month" value="{{ month_key }}">
             <button type="submit">Xem</button>
         </form>
-        <button type="button" id="schedule-tools-toggle-btn" class="secondary" aria-expanded="false">Mo cong cu</button>
+        <button type="button" id="schedule-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
     </div>
 </section>
 
 <section id="schedule-tools-container" class="page-tools tools-collapsed">
     <div class="panel soft-panel">
-        <h3>Import lich lam tu Excel</h3>
+        <h3>Import lịch làm từ Excel</h3>
         <form method="post" action="{{ url_for('import_schedules') }}" enctype="multipart/form-data" class="form-grid">
             <input type="file" name="schedule_file" accept=".xlsx,.xls,.xlsm,.xltx,.xltm" required>
             <input type="month" name="month_key" value="{{ month_key }}" required>
-            <label><input type="checkbox" name="replace_existing_month" checked> Xoa lich cu cua thang truoc khi import</label>
-            <label><input type="checkbox" name="open_details_after_import" checked> Mo bang chi tiet sau khi import</label>
-            <input name="changed_by" placeholder="Nguoi import" value="admin">
-            <button type="submit" class="secondary">Import lich lam</button>
+            <label><input type="checkbox" name="replace_existing_month" checked> Xóa lịch cũ của tháng trước khi import</label>
+            <label><input type="checkbox" name="open_details_after_import" checked> Mở bảng chi tiết sau khi import</label>
+            <input name="changed_by" placeholder="Người import" value="admin">
+            <button type="submit" class="secondary">Import lịch làm</button>
         </form>
     </div>
 
     <div class="panel soft-panel">
-        <h3>Nhap nhanh lich lam</h3>
+        <h3>Nhập nhanh lịch làm</h3>
         <form method="post" class="form-grid" id="schedule-form">
             <select name="employee_id" required>
-                <option value="">Nhan vien</option>
+                <option value="">Nhân viên</option>
                 {% for row in employees %}
                 <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
                 {% endfor %}
             </select>
             <input type="date" name="work_date" required>
-            <input name="shift_code" list="shift-codes" placeholder="Ma ca (go de goi y)" required>
+            <input name="shift_code" list="shift-codes" placeholder="Mã ca (gõ để gợi ý)" required>
             <datalist id="shift-codes">
                 {% for row in shift_codes %}
                 <option value="{{ row.code }}">{{ row.name }}</option>
                 {% endfor %}
             </datalist>
-            <input type="number" name="absence_hours" step="0.5" min="0" max="8" value="0" placeholder="Nghi 1-2h">
-            <input type="number" name="overtime_hours" step="0.5" min="0" placeholder="Tang ca (de trong -> lay mac dinh)">
-            <input name="overtime_reason" placeholder="Ly do tang ca">
-            <input name="notes" placeholder="Ghi chu">
-            <input name="changed_by" placeholder="Nguoi sua" value="admin">
-            <button type="submit">Luu lich</button>
+            <input type="number" name="absence_hours" step="0.5" min="0" max="8" value="0" placeholder="Nghỉ 1-2h">
+            <input type="number" name="overtime_hours" step="0.5" min="0" placeholder="Tăng ca (để trống -> lấy mặc định)">
+            <input name="overtime_reason" placeholder="Lý do tăng ca">
+            <input name="notes" placeholder="Ghi chú">
+            <input name="changed_by" placeholder="Người sửa" value="admin">
+            <button type="submit">Lưu lịch</button>
         </form>
-        <p class="muted">Ma X4 mac dinh 8h + 4h tang ca, ma X3 mac dinh 8h + 3h tang ca.</p>
+        <p class="muted">Mã X4 mặc định 8h + 4h tăng ca, mã X3 mặc định 8h + 3h tăng ca.</p>
     </div>
 </section>
 
@@ -60,14 +60,14 @@
         <table>
             <thead>
                 <tr>
-                    <th>Ngay</th>
-                    <th>Ma NV</th>
-                    <th>Ho ten</th>
-                    <th>Ma ca</th>
-                    <th>Ten ca</th>
-                    <th>Nghi (gio)</th>
-                    <th>Tang ca</th>
-                    <th>Ghi chu</th>
+                    <th>Ngày</th>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th>Mã ca</th>
+                    <th>Tên ca</th>
+                    <th>Nghỉ (giờ)</th>
+                    <th>Tăng ca</th>
+                    <th>Ghi chú</th>
                 </tr>
             </thead>
             <tbody>
@@ -84,7 +84,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8">Chua co lich lam cho thang nay.</td>
+                    <td colspan="8">Chưa có lịch làm cho tháng này.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -103,7 +103,7 @@ form.addEventListener("submit", function (event) {
     form.elements["shift_code"].value = rawCode;
 
     if (!validShiftCodes.includes(rawCode)) {
-        alert("Ma ca khong hop le. Vui long chon ma trong danh sach goi y.");
+        alert("Mã ca không hợp lệ. Vui lòng chọn mã trong danh sách gợi ý.");
         event.preventDefault();
     }
 });
@@ -114,7 +114,7 @@ const scheduleToggleButton = document.getElementById("schedule-tools-toggle-btn"
 if (scheduleToolsContainer && scheduleToggleButton) {
     const setToolsState = (collapsed) => {
         scheduleToolsContainer.classList.toggle("tools-collapsed", collapsed);
-        scheduleToggleButton.textContent = collapsed ? "Mo cong cu" : "Thu gon";
+        scheduleToggleButton.textContent = collapsed ? "Mở công cụ" : "Thu gọn";
         scheduleToggleButton.setAttribute("aria-expanded", String(!collapsed));
     };
 

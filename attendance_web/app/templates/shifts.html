@@ -2,36 +2,36 @@
 {% block content %}
 <section class="panel page-toolbar">
     <div>
-        <h2>Bang ma ca lam</h2>
-        <p class="muted">Danh sach ma ca chuan cua he thong.</p>
+        <h2>Bảng mã ca làm</h2>
+        <p class="muted">Danh sách mã ca chuẩn của hệ thống.</p>
     </div>
     <div class="toolbar-actions">
-        <button type="button" id="shift-tools-toggle-btn" class="secondary" aria-expanded="false">Mo form tao ca</button>
+        <button type="button" id="shift-tools-toggle-btn" class="secondary" aria-expanded="false">Mở form tạo ca</button>
     </div>
 </section>
 
 <section id="shift-tools-container" class="page-tools tools-collapsed">
     <div class="panel soft-panel">
-        <h3>Tao ma ca moi</h3>
+        <h3>Tạo mã ca mới</h3>
         <form method="post" class="form-grid">
             <input
                 name="code"
-                placeholder="Ma ca (VD: X, XVP, XT)"
+                placeholder="Mã ca (VD: X, XVP, XT)"
                 value=""
                 required
             >
-            <input name="name" placeholder="Ten ca" value="" required>
+            <input name="name" placeholder="Tên ca" value="" required>
             <input
                 type="time"
                 name="start_time"
                 value=""
-                placeholder="Gio vao"
+                placeholder="Giờ vào"
             >
             <input
                 type="time"
                 name="end_time"
                 value=""
-                placeholder="Gio ra"
+                placeholder="Giờ ra"
             >
             <input
                 type="number"
@@ -39,7 +39,7 @@
                 min="0"
                 name="break_minutes"
                 value="0"
-                placeholder="Nghi (phut)"
+                placeholder="Nghỉ (phút)"
             >
             <input
                 type="number"
@@ -47,7 +47,7 @@
                 min="0"
                 name="standard_hours"
                 value="8"
-                placeholder="Gio quy dinh"
+                placeholder="Giờ quy định"
             >
             <input
                 type="number"
@@ -55,7 +55,7 @@
                 min="0"
                 name="default_overtime_hours"
                 value="0"
-                placeholder="OT mac dinh"
+                placeholder="OT mặc định"
             >
             <input
                 type="number"
@@ -63,13 +63,13 @@
                 min="0"
                 name="meal_allowance"
                 value="0"
-                placeholder="Tien an"
+                placeholder="Tiền ăn"
             >
-            <input name="changed_by" placeholder="Nguoi sua" value="admin">
-            <input name="notes" placeholder="Ghi chu" value="">
-            <label><input type="checkbox" name="is_leave_code"> Ma nghi</label>
-            <label><input type="checkbox" name="is_paid_leave"> Nghi van tinh luong</label>
-            <button type="submit">Luu ma ca</button>
+            <input name="changed_by" placeholder="Người sửa" value="admin">
+            <input name="notes" placeholder="Ghi chú" value="">
+            <label><input type="checkbox" name="is_leave_code"> Mã nghỉ</label>
+            <label><input type="checkbox" name="is_paid_leave"> Nghỉ vẫn tính lương</label>
+            <button type="submit">Lưu mã ca</button>
         </form>
     </div>
 </section>
@@ -79,16 +79,16 @@
         <table>
             <thead>
                 <tr>
-                    <th>Ma</th>
-                    <th>Ten ca</th>
-                    <th>Gio</th>
-                    <th>Nghi (phut)</th>
-                    <th>Gio quy dinh</th>
-                    <th>OT mac dinh</th>
-                    <th>Tien an</th>
-                    <th>Loai</th>
-                    <th>Ghi chu</th>
-                    <th>Thao tac</th>
+                    <th>Mã</th>
+                    <th>Tên ca</th>
+                    <th>Giờ</th>
+                    <th>Nghỉ (phút)</th>
+                    <th>Giờ quy định</th>
+                    <th>OT mặc định</th>
+                    <th>Tiền ăn</th>
+                    <th>Loại</th>
+                    <th>Ghi chú</th>
+                    <th>Thao tác</th>
                 </tr>
             </thead>
             <tbody>
@@ -109,23 +109,23 @@
                     <td>{{ "{:,.0f}".format(row.meal_allowance) }}</td>
                     <td>
                         {% if row.is_leave_code %}
-                            <span class="badge">Nghi</span>
+                            <span class="badge">Nghỉ</span>
                         {% else %}
-                            <span class="badge badge-ok">Lam viec</span>
+                            <span class="badge badge-ok">Làm việc</span>
                         {% endif %}
                     </td>
                     <td>{{ row.notes or '-' }}</td>
                     <td class="row-actions">
-                        <a href="{{ url_for('edit_shift', shift_id=row.id) }}">Sua</a>
-                        <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=row.id) }}" onsubmit="return confirm('Xoa ma ca nay?');">
+                        <a href="{{ url_for('edit_shift', shift_id=row.id) }}">Sửa</a>
+                        <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=row.id) }}" onsubmit="return confirm('Xóa mã ca này?');">
                             <input type="hidden" name="changed_by" value="admin">
-                            <button type="submit" class="secondary">Xoa</button>
+                            <button type="submit" class="secondary">Xóa</button>
                         </form>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="10">Chua co ma ca.</td>
+                    <td colspan="10">Chưa có mã ca.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -144,7 +144,7 @@
 
     const setToolsState = (collapsed) => {
         toolsContainer.classList.toggle("tools-collapsed", collapsed);
-        toggleButton.textContent = collapsed ? "Mo form tao ca" : "Thu gon form";
+        toggleButton.textContent = collapsed ? "Mở form tạo ca" : "Thu gọn form";
         toggleButton.setAttribute("aria-expanded", String(!collapsed));
     };
 

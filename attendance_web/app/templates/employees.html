@@ -2,24 +2,24 @@
 {% block content %}
 <section class="panel employees-header">
     <div>
-        <p class="dashboard-eyebrow">Workforce Directory</p>
-        <h2>Danh sach nhan vien</h2>
-        <p class="muted">Quan ly ho so nhan su va ca mac dinh theo tung nhan vien. Trang nay chi hien danh sach; thao tac them moi va sua du lieu duoc tach sang trang rieng.</p>
+        <p class="dashboard-eyebrow">Danh mục nhân sự</p>
+        <h2>Danh sách nhân viên</h2>
+        <p class="muted">Quản lý hồ sơ nhân sự và ca mặc định theo từng nhân viên. Trang này chỉ hiện danh sách; thao tác thêm mới và sửa dữ liệu được tách sang trang riêng.</p>
     </div>
-    <a class="button-link" href="{{ url_for('create_employee') }}">Them nhan vien</a>
+    <a class="button-link" href="{{ url_for('create_employee') }}">Thêm nhân viên</a>
 </section>
 
 <section class="card-grid employees-summary-grid">
     <article class="card">
-        <div class="kpi-title">Tong nhan vien</div>
+        <div class="kpi-title">Tổng nhân viên</div>
         <div class="kpi-value">{{ total_employees }}</div>
     </article>
     <article class="card">
-        <div class="kpi-title">Dang hoat dong</div>
+        <div class="kpi-title">Đang hoạt động</div>
         <div class="kpi-value">{{ active_employees }}</div>
     </article>
     <article class="card">
-        <div class="kpi-title">Tam ngung</div>
+        <div class="kpi-title">Tạm ngưng</div>
         <div class="kpi-value">{{ total_employees - active_employees }}</div>
     </article>
 </section>
@@ -29,14 +29,14 @@
         <table>
             <thead>
                 <tr>
-                    <th>Ma NV</th>
-                    <th>Ho ten</th>
-                    <th>Gioi tinh</th>
-                    <th>Que quan</th>
-                    <th>Nam sinh</th>
-                    <th>Ca mac dinh</th>
-                    <th>Trang thai</th>
-                    <th>Hanh dong</th>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th>Giới tính</th>
+                    <th>Quê quán</th>
+                    <th>Năm sinh</th>
+                    <th>Ca mặc định</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
                 </tr>
             </thead>
             <tbody>
@@ -50,19 +50,19 @@
                     <td><span class="badge">{{ row.default_shift_code }}</span></td>
                     <td>
                         {% if row.is_active %}
-                            <span class="badge badge-ok">Hoat dong</span>
+                            <span class="badge badge-ok">Hoạt động</span>
                         {% else %}
-                            <span class="badge badge-warn">Tam ngung</span>
+                            <span class="badge badge-warn">Tạm ngưng</span>
                         {% endif %}
                     </td>
                     <td class="employees-actions-cell">
-                        <a class="link-pill" href="{{ url_for('edit_employee', employee_id=row.id) }}">Sua thong tin</a>
-                        <a class="link-pill link-pill-secondary" href="{{ url_for('employee_detail', employee_id=row.id) }}">Xem chi tiet</a>
+                        <a class="link-pill" href="{{ url_for('edit_employee', employee_id=row.id) }}">Sửa thông tin</a>
+                        <a class="link-pill link-pill-secondary" href="{{ url_for('employee_detail', employee_id=row.id) }}">Xem chi tiết</a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8">Chua co nhan vien.</td>
+                    <td colspan="8">Chưa có nhân viên.</td>
                 </tr>
                 {% endfor %}
             </tbody>

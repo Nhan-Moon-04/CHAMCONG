@@ -1,23 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="panel">
-    <h2>Chinh sua ma ca: {{ shift.code }}</h2>
-    <p class="muted">Sua thong tin ca tai trang rieng. Sau khi luu, bang chi tiet se duoc tinh theo cau hinh moi.</p>
+    <h2>Chỉnh sửa mã ca: {{ shift.code }}</h2>
+    <p class="muted">Sửa thông tin ca tại trang riêng. Sau khi lưu, bảng chi tiết sẽ được tính theo cấu hình mới.</p>
 
     <form method="post" class="form-grid">
         <input value="{{ shift.code }}" readonly>
-        <input name="name" placeholder="Ten ca" value="{{ shift.name }}" required>
+        <input name="name" placeholder="Tên ca" value="{{ shift.name }}" required>
         <input
             type="time"
             name="start_time"
             value="{{ shift.start_time.strftime('%H:%M') if shift.start_time else '' }}"
-            placeholder="Gio vao"
+            placeholder="Giờ vào"
         >
         <input
             type="time"
             name="end_time"
             value="{{ shift.end_time.strftime('%H:%M') if shift.end_time else '' }}"
-            placeholder="Gio ra"
+            placeholder="Giờ ra"
         >
         <input
             type="number"
@@ -25,7 +25,7 @@
             min="0"
             name="break_minutes"
             value="{{ shift.break_minutes }}"
-            placeholder="Nghi (phut)"
+            placeholder="Nghỉ (phút)"
         >
         <input
             type="number"
@@ -33,7 +33,7 @@
             min="0"
             name="standard_hours"
             value="{{ shift.standard_hours }}"
-            placeholder="Gio quy dinh"
+            placeholder="Giờ quy định"
         >
         <input
             type="number"
@@ -41,7 +41,7 @@
             min="0"
             name="default_overtime_hours"
             value="{{ shift.default_overtime_hours }}"
-            placeholder="OT mac dinh"
+            placeholder="OT mặc định"
         >
         <input
             type="number"
@@ -49,22 +49,22 @@
             min="0"
             name="meal_allowance"
             value="{{ shift.meal_allowance }}"
-            placeholder="Tien an"
+            placeholder="Tiền ăn"
         >
-        <input name="changed_by" placeholder="Nguoi sua" value="admin">
-        <input name="notes" placeholder="Ghi chu" value="{{ shift.notes or '' }}">
-        <label><input type="checkbox" name="is_leave_code" {% if shift.is_leave_code %}checked{% endif %}> Ma nghi</label>
-        <label><input type="checkbox" name="is_paid_leave" {% if shift.is_paid_leave %}checked{% endif %}> Nghi van tinh luong</label>
-        <button type="submit">Cap nhat ca</button>
+        <input name="changed_by" placeholder="Người sửa" value="admin">
+        <input name="notes" placeholder="Ghi chú" value="{{ shift.notes or '' }}">
+        <label><input type="checkbox" name="is_leave_code" {% if shift.is_leave_code %}checked{% endif %}> Mã nghỉ</label>
+        <label><input type="checkbox" name="is_paid_leave" {% if shift.is_paid_leave %}checked{% endif %}> Nghỉ vẫn tính lương</label>
+        <button type="submit">Cập nhật ca</button>
     </form>
 
     <div class="panel" style="margin-top: 16px;">
-        <h3>Thao tac</h3>
+        <h3>Thao tác</h3>
         <div class="row-actions">
-            <a href="{{ url_for('shifts') }}"><button type="button">Quay lai danh sach ca</button></a>
-            <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=shift.id) }}" onsubmit="return confirm('Xoa ma ca nay?');">
+            <a href="{{ url_for('shifts') }}"><button type="button">Quay lại danh sách ca</button></a>
+            <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=shift.id) }}" onsubmit="return confirm('Xóa mã ca này?');">
                 <input type="hidden" name="changed_by" value="admin">
-                <button type="submit" class="secondary">Xoa ma ca nay</button>
+                <button type="submit" class="secondary">Xóa mã ca này</button>
             </form>
         </div>
     </div>

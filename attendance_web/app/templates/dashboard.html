@@ -2,62 +2,62 @@
 {% block content %}
 <section class="panel dashboard-hero">
     <div class="dashboard-hero-copy">
-        <p class="dashboard-eyebrow">Executive Overview</p>
-        <h2>Tong quan cham cong thang {{ month_key }}</h2>
-        <p class="muted">Theo doi nhanh muc do hien dien, khung canh bao va xu huong tang ca de quan ly van hanh nhan su theo ngay.</p>
+        <p class="dashboard-eyebrow">Tổng quan điều hành</p>
+        <h2>Tổng quan chấm công tháng {{ month_key }}</h2>
+        <p class="muted">Theo dõi nhanh mức độ hiện diện, khung cảnh báo và xu hướng tăng ca để quản lý vận hành nhân sự theo ngày.</p>
     </div>
     <form method="get" class="dashboard-month-form">
-        <label for="month">Chon thang</label>
+        <label for="month">Chọn tháng</label>
         <input id="month" type="month" name="month" value="{{ month_key }}">
-        <button type="submit">Cap nhat dashboard</button>
+        <button type="submit">Cập nhật dashboard</button>
     </form>
 </section>
 
 <section class="dashboard-kpi-grid">
     <article class="metric-card metric-card-highlight">
-        <span class="metric-label">Tong nhan su hoat dong</span>
+        <span class="metric-label">Tổng nhân sự hoạt động</span>
         <strong class="metric-value">{{ total_employees }}</strong>
-        <p class="metric-subtext">Nguon du lieu nhan vien dang active</p>
+        <p class="metric-subtext">Nguồn dữ liệu nhân viên đang active</p>
     </article>
     <article class="metric-card">
-        <span class="metric-label">Tong dong cham cong</span>
+        <span class="metric-label">Tổng dòng chấm công</span>
         <strong class="metric-value">{{ total_rows }}</strong>
-        <p class="metric-subtext">Ban ghi da tong hop trong thang</p>
+        <p class="metric-subtext">Bản ghi đã tổng hợp trong tháng</p>
     </article>
     <article class="metric-card">
-        <span class="metric-label">Tong gio duoc tinh</span>
+        <span class="metric-label">Tổng giờ được tính</span>
         <strong class="metric-value">{{ "%.2f"|format(total_paid_hours) }}</strong>
-        <p class="metric-subtext">Binh quan {{ "%.2f"|format(average_paid_hours) }} gio/ban ghi</p>
+        <p class="metric-subtext">Bình quân {{ "%.2f"|format(average_paid_hours) }} giờ/bản ghi</p>
     </article>
     <article class="metric-card">
-        <span class="metric-label">Tong luong du kien</span>
+        <span class="metric-label">Tổng lương dự kiến</span>
         <strong class="metric-value">{{ "{:,.0f}".format(total_wage) }}</strong>
-        <p class="metric-subtext">Binh quan {{ "{:,.0f}".format(average_daily_wage) }}/ban ghi</p>
+        <p class="metric-subtext">Bình quân {{ "{:,.0f}".format(average_daily_wage) }}/bản ghi</p>
     </article>
     <article class="metric-card">
-        <span class="metric-label">Ti le hien dien</span>
+        <span class="metric-label">Tỉ lệ hiện diện</span>
         <strong class="metric-value">{{ "%.1f"|format(attendance_rate) }}%</strong>
-        <p class="metric-subtext">Vang mat N: {{ absent_days }} ngay</p>
+        <p class="metric-subtext">Vắng mặt N: {{ absent_days }} ngày</p>
     </article>
     <article class="metric-card metric-card-alert">
-        <span class="metric-label">Tong canh bao</span>
+        <span class="metric-label">Tổng cảnh báo</span>
         <strong class="metric-value">{{ warning_total }}</strong>
-        <p class="metric-subtext">Bao gom N va thieu gio</p>
+        <p class="metric-subtext">Bao gồm N và thiếu giờ</p>
     </article>
 </section>
 
 <section class="dashboard-chart-grid">
     <div class="panel dashboard-chart-panel">
         <div class="dashboard-panel-head">
-            <h3>Phan bo status cham cong</h3>
-            <span class="panel-caption">Theo tong so dong trong thang</span>
+            <h3>Phân bố status chấm công</h3>
+            <span class="panel-caption">Theo tổng số dòng trong tháng</span>
         </div>
         <canvas id="statusChart"></canvas>
     </div>
     <div class="panel dashboard-chart-panel">
         <div class="dashboard-panel-head">
-            <h3>Top 10 nhan vien tang ca</h3>
-            <span class="panel-caption">Don vi: gio</span>
+            <h3>Top 10 nhân viên tăng ca</h3>
+            <span class="panel-caption">Đơn vị: giờ</span>
         </div>
         <canvas id="overtimeChart"></canvas>
     </div>
@@ -65,20 +65,20 @@
 
 <section class="panel dashboard-warning-panel">
     <div class="dashboard-panel-head">
-        <h3>Canh bao can xem lai</h3>
-        <span class="panel-caption">Hien thi 20 dong moi nhat</span>
+        <h3>Cảnh báo cần xem lại</h3>
+        <span class="panel-caption">Hiển thị 20 dòng mới nhất</span>
     </div>
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Ngay</th>
-                    <th>Ma NV</th>
-                    <th>Ho ten</th>
-                    <th>Muc do</th>
-                    <th>Status</th>
-                    <th>Chenh lech gio</th>
-                    <th>Ghi chu</th>
+                    <th>Ngày</th>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th>Mức độ</th>
+                    <th>Trạng thái</th>
+                    <th>Chênh lệch giờ</th>
+                    <th>Ghi chú</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,9 +91,9 @@
                         {% if detail.status_code == 'N' %}
                             <span class="badge badge-critical">Cao</span>
                         {% elif detail.deviation_hours < -1 %}
-                            <span class="badge badge-warn">Trung binh</span>
+                            <span class="badge badge-warn">Trung bình</span>
                         {% else %}
-                            <span class="badge">Nhe</span>
+                            <span class="badge">Nhẹ</span>
                         {% endif %}
                     </td>
                     <td>
@@ -108,7 +108,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7">Khong co canh bao trong thang nay.</td>
+                    <td colspan="7">Không có cảnh báo trong tháng này.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -157,7 +157,7 @@ if (overtimeCtx && typeof Chart !== "undefined") {
         data: {
             labels: overtimeLabels,
             datasets: [{
-                label: "Gio tang ca",
+                label: "Giờ tăng ca",
                 data: overtimeValues,
                 borderRadius: 8,
                 backgroundColor: "#1f6feb"

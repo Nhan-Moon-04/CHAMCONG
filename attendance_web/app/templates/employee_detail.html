@@ -4,10 +4,10 @@
     <div class="inline-form">
         <div>
             <h2>{{ employee.full_name }} ({{ employee.employee_code }})</h2>
-            <p class="muted">Gioi tinh: {{ employee.gender or "-" }} | Que quan: {{ employee.hometown or "-" }} | Nam sinh: {{ employee.birth_year or "-" }}</p>
+            <p class="muted">Giới tính: {{ employee.gender or "-" }} | Quê quán: {{ employee.hometown or "-" }} | Năm sinh: {{ employee.birth_year or "-" }}</p>
         </div>
         <form method="get">
-            <label for="month">Thang</label>
+            <label for="month">Tháng</label>
             <input id="month" type="month" name="month" value="{{ month_key }}">
             <button type="submit">Xem</button>
         </form>
@@ -16,25 +16,25 @@
 
 <div class="card-grid">
     <div class="card">
-        <div class="kpi-title">Tong gio duoc tinh</div>
+        <div class="kpi-title">Tổng giờ được tính</div>
         <div class="kpi-value">{{ "%.2f"|format(summary_paid_hours) }}</div>
     </div>
     <div class="card">
-        <div class="kpi-title">Tong luong thang</div>
+        <div class="kpi-title">Tổng lương tháng</div>
         <div class="kpi-value">{{ "{:,.0f}".format(summary_wage) }}</div>
     </div>
 </div>
 
 <div class="panel">
-    <h3>Bang phep nam</h3>
+    <h3>Bảng phép năm</h3>
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Nam</th>
-                    <th>Tong phep</th>
-                    <th>Da dung</th>
-                    <th>Con lai</th>
+                    <th>Năm</th>
+                    <th>Tổng phép</th>
+                    <th>Đã dùng</th>
+                    <th>Còn lại</th>
                 </tr>
             </thead>
             <tbody>
@@ -47,7 +47,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4">Chua co du lieu phep nam.</td>
+                    <td colspan="4">Chưa có dữ liệu phép năm.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -56,16 +56,16 @@
 </div>
 
 <div class="panel">
-    <h3>Lich su luong</h3>
+    <h3>Lịch sử lương</h3>
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Thang</th>
-                    <th>Luong thang</th>
-                    <th>Cong chuan thang</th>
-                    <th>Luong ngay quy doi</th>
-                    <th>Hinh thuc nhan tien</th>
+                    <th>Tháng</th>
+                    <th>Lương tháng</th>
+                    <th>Công chuẩn tháng</th>
+                    <th>Lương ngày quy đổi</th>
+                    <th>Hình thức nhận tiền</th>
                 </tr>
             </thead>
             <tbody>
@@ -80,7 +80,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5">Chua co bang luong theo thang.</td>
+                    <td colspan="5">Chưa có bảng lương theo tháng.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -89,20 +89,20 @@
 </div>
 
 <div class="panel">
-    <h3>Chi tiet cham cong thang {{ month_key }}</h3>
+    <h3>Chi tiết chấm công tháng {{ month_key }}</h3>
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Ngay</th>
-                    <th>Ma ca</th>
-                    <th>Status</th>
-                    <th>Gio vao</th>
-                    <th>Gio ra</th>
-                    <th>Gio thuc</th>
-                    <th>Tang ca</th>
-                    <th>So gio</th>
-                    <th>Luong ngay</th>
+                    <th>Ngày</th>
+                    <th>Mã ca</th>
+                    <th>Trạng thái</th>
+                    <th>Giờ vào</th>
+                    <th>Giờ ra</th>
+                    <th>Giờ thực</th>
+                    <th>Tăng ca</th>
+                    <th>Số giờ</th>
+                    <th>Lương ngày</th>
                 </tr>
             </thead>
             <tbody>
@@ -120,7 +120,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9">Chua co du lieu.</td>
+                    <td colspan="9">Chưa có dữ liệu.</td>
                 </tr>
                 {% endfor %}
             </tbody>

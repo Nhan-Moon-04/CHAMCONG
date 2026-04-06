@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="panel">
-    <h2>Lich su sua doi he thong</h2>
-    <p class="muted">Moi thay doi du lieu quan trong duoc ghi vao audit log, co the trich xuat CSV bat cu luc nao.</p>
+    <h2>Lịch sử sửa đổi hệ thống</h2>
+    <p class="muted">Mọi thay đổi dữ liệu quan trọng được ghi vào audit log, có thể trích xuất CSV bất cứ lúc nào.</p>
     <div class="form-grid">
-        <a href="{{ url_for('export_audit_csv') }}"><button type="button">Xuat CSV audit</button></a>
+        <a href="{{ url_for('export_audit_csv') }}"><button type="button">Xuất CSV audit</button></a>
         <form method="post" action="{{ url_for('run_backup_now') }}" class="form-grid">
-            <input name="changed_by" placeholder="Nguoi backup" value="admin">
-            <button type="submit" class="secondary">Backup ngay bay gio</button>
+            <input name="changed_by" placeholder="Người backup" value="admin">
+            <button type="submit" class="secondary">Backup ngay bây giờ</button>
         </form>
     </div>
 </div>
@@ -17,14 +17,14 @@
         <table>
             <thead>
                 <tr>
-                    <th>Thoi gian</th>
-                    <th>Nguoi sua</th>
-                    <th>Bang</th>
-                    <th>Action</th>
-                    <th>Record</th>
-                    <th>Before</th>
-                    <th>After</th>
-                    <th>Ghi chu</th>
+                    <th>Thời gian</th>
+                    <th>Người sửa</th>
+                    <th>Bảng</th>
+                    <th>Hành động</th>
+                    <th>Bản ghi</th>
+                    <th>Trước</th>
+                    <th>Sau</th>
+                    <th>Ghi chú</th>
                 </tr>
             </thead>
             <tbody>
@@ -41,7 +41,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8">Chua co log thay doi.</td>
+                    <td colspan="8">Chưa có log thay đổi.</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -159,10 +159,10 @@ def _get_vietnam_holiday_map(start_date, end_date):
 
     if not holiday_map:
         fixed_holidays = {
-            (1, 1): "Tet Duong lich",
-            (4, 30): "Ngay giai phong mien Nam",
-            (5, 1): "Ngay Quoc te Lao dong",
-            (9, 2): "Quoc khanh",
+            (1, 1): "Tết Dương lịch",
+            (4, 30): "Ngày giải phóng miền Nam",
+            (5, 1): "Ngày Quốc tế Lao động",
+            (9, 2): "Quốc khánh",
         }
         for year in years:
             for (month, day), holiday_name in fixed_holidays.items():
@@ -206,7 +206,7 @@ def _collect_details_view_data(query_args, emit_flash=True):
             selected_employee_id = int(employee_id_raw)
         except ValueError:
             if emit_flash:
-                flash("Nhan vien khong hop le", "error")
+                flash("Nhân viên không hợp lệ", "error")
 
     start_date_raw = (query_args.get("start_date", "") or "").strip()
     end_date_raw = (query_args.get("end_date", "") or "").strip()
@@ -220,7 +220,7 @@ def _collect_details_view_data(query_args, emit_flash=True):
             parsed_start_date = _parse_date(start_date_raw)
         except (TypeError, ValueError):
             if emit_flash:
-                flash("Tu ngay khong hop le", "error")
+                flash("Từ ngày không hợp lệ", "error")
             has_date_parse_error = True
 
     if end_date_raw:
@@ -228,7 +228,7 @@ def _collect_details_view_data(query_args, emit_flash=True):
             parsed_end_date = _parse_date(end_date_raw)
         except (TypeError, ValueError):
             if emit_flash:
-                flash("Den ngay khong hop le", "error")
+                flash("Đến ngày không hợp lệ", "error")
             has_date_parse_error = True
 
     if has_date_parse_error:
@@ -263,7 +263,7 @@ def _collect_details_view_data(query_args, emit_flash=True):
             return code_key, detail_row.work_date, detail_row.employee.id
 
         rows.sort(key=_sort_key)
-        period_label = f"{parsed_start_date} den {parsed_end_date}"
+        period_label = f"{parsed_start_date} đến {parsed_end_date}"
     else:
         rows = build_live_month_details(month_key, employee_id=selected_employee_id)
         period_label = month_key
@@ -321,7 +321,7 @@ def register_routes(app):
         if session.get("is_admin"):
             return None
 
-        flash("Ban khong co quyen truy cap chuc nang nay", "error")
+        flash("Bạn không có quyền truy cập chức năng này", "error")
         return redirect(url_for("dashboard"))
 
     @app.context_processor
@@ -356,7 +356,7 @@ def register_routes(app):
 
         if current_user is None or not current_user.is_active:
             session.clear()
-            flash("Tai khoan khong hop le hoac da bi khoa", "error")
+            flash("Tài khoản không hợp lệ hoặc đã bị khóa", "error")
             next_path = request.full_path if request.query_string else request.path
             return redirect(url_for("login", next=next_path))
 
@@ -383,23 +383,23 @@ def register_routes(app):
                 session.clear()
                 _set_auth_session(user)
                 session.permanent = True
-                flash("Dang nhap thanh cong", "success")
+                flash("Đăng nhập thành công", "success")
 
                 form_next = _sanitize_next_path((request.form.get("next") or "").strip())
                 target = form_next or query_next or url_for("dashboard")
                 return redirect(target)
 
             if user and not user.is_active:
-                flash("Tai khoan da bi khoa", "error")
+                flash("Tài khoản đã bị khóa", "error")
             else:
-                flash("Sai tai khoan hoac mat khau", "error")
+                flash("Sai tài khoản hoặc mật khẩu", "error")
 
-        return render_template("login.html", title="Dang nhap", next_url=query_next or "")
+        return render_template("login.html", title="Đăng nhập", next_url=query_next or "")
 
     @app.route("/logout", methods=["POST"])
     def logout():
         session.clear()
-        flash("Da dang xuat", "success")
+        flash("Đã đăng xuất", "success")
         return redirect(url_for("login"))
 
     @app.route("/users", methods=["GET"])
@@ -414,7 +414,7 @@ def register_routes(app):
 
         return render_template(
             "users.html",
-            title="Quan ly user",
+            title="Quản lý user",
             users=rows,
             total_users=len(rows),
             active_users=len(active_users),
@@ -453,26 +453,26 @@ def register_routes(app):
             )
 
             if not username:
-                flash("Can nhap ten dang nhap", "error")
+                flash("Cần nhập tên đăng nhập", "error")
                 return render_template(
                     "user_form.html",
-                    title="Them user",
-                    form_title="Them user moi",
-                    form_subtitle="Tao tai khoan dang nhap moi cho he thong.",
-                    submit_label="Tao user",
+                    title="Thêm user",
+                    form_title="Thêm user mới",
+                    form_subtitle="Tạo tài khoản đăng nhập mới cho hệ thống.",
+                    submit_label="Tạo user",
                     back_url=url_for("users"),
                     form_values=form_values,
                     is_edit=False,
                 )
 
             if len(password) < 4:
-                flash("Mat khau toi thieu 4 ky tu", "error")
+                flash("Mật khẩu tối thiểu 4 ký tự", "error")
                 return render_template(
                     "user_form.html",
-                    title="Them user",
-                    form_title="Them user moi",
-                    form_subtitle="Tao tai khoan dang nhap moi cho he thong.",
-                    submit_label="Tao user",
+                    title="Thêm user",
+                    form_title="Thêm user mới",
+                    form_subtitle="Tạo tài khoản đăng nhập mới cho hệ thống.",
+                    submit_label="Tạo user",
                     back_url=url_for("users"),
                     form_values=form_values,
                     is_edit=False,
@@ -480,13 +480,13 @@ def register_routes(app):
 
             existing = AppUser.query.filter(func.lower(AppUser.username) == username).first()
             if existing:
-                flash("Ten dang nhap da ton tai", "error")
+                flash("Tên đăng nhập đã tồn tại", "error")
                 return render_template(
                     "user_form.html",
-                    title="Them user",
-                    form_title="Them user moi",
-                    form_subtitle="Tao tai khoan dang nhap moi cho he thong.",
-                    submit_label="Tao user",
+                    title="Thêm user",
+                    form_title="Thêm user mới",
+                    form_subtitle="Tạo tài khoản đăng nhập mới cho hệ thống.",
+                    submit_label="Tạo user",
                     back_url=url_for("users"),
                     form_values=form_values,
                     is_edit=False,
@@ -510,15 +510,15 @@ def register_routes(app):
                 after_data=_user_audit_payload(user),
             )
             db.session.commit()
-            flash("Da them user", "success")
+            flash("Đã thêm user", "success")
             return redirect(url_for("users"))
 
         return render_template(
             "user_form.html",
-            title="Them user",
-            form_title="Them user moi",
-            form_subtitle="Tao tai khoan dang nhap moi cho he thong.",
-            submit_label="Tao user",
+            title="Thêm user",
+            form_title="Thêm user mới",
+            form_subtitle="Tạo tài khoản đăng nhập mới cho hệ thống.",
+            submit_label="Tạo user",
             back_url=url_for("users"),
             form_values=form_values,
             is_edit=False,
@@ -556,13 +556,13 @@ def register_routes(app):
             )
 
             if not username:
-                flash("Can nhap ten dang nhap", "error")
+                flash("Cần nhập tên đăng nhập", "error")
                 return render_template(
                     "user_form.html",
-                    title="Sua user",
-                    form_title="Cap nhat user",
-                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
-                    submit_label="Luu cap nhat",
+                    title="Sửa user",
+                    form_title="Cập nhật user",
+                    form_subtitle="Cập nhật quyền và thông tin tài khoản.",
+                    submit_label="Lưu cập nhật",
                     back_url=url_for("users"),
                     form_values=form_values,
                     is_edit=True,
@@ -570,13 +570,13 @@ def register_routes(app):
                 )
 
             if password and len(password) < 4:
-                flash("Mat khau moi toi thieu 4 ky tu", "error")
+                flash("Mật khẩu mới tối thiểu 4 ký tự", "error")
                 return render_template(
                     "user_form.html",
-                    title="Sua user",
-                    form_title="Cap nhat user",
-                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
-                    submit_label="Luu cap nhat",
+                    title="Sửa user",
+                    form_title="Cập nhật user",
+                    form_subtitle="Cập nhật quyền và thông tin tài khoản.",
+                    submit_label="Lưu cập nhật",
                     back_url=url_for("users"),
                     form_values=form_values,
                     is_edit=True,
@@ -588,13 +588,13 @@ def register_routes(app):
                 .first()
             )
             if duplicate:
-                flash("Ten dang nhap da ton tai", "error")
+                flash("Tên đăng nhập đã tồn tại", "error")
                 return render_template(
                     "user_form.html",
-                    title="Sua user",
-                    form_title="Cap nhat user",
-                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
-                    submit_label="Luu cap nhat",
+                    title="Sửa user",
+                    form_title="Cập nhật user",
+                    form_subtitle="Cập nhật quyền và thông tin tài khoản.",
+                    submit_label="Lưu cập nhật",
                     back_url=url_for("users"),
                     form_values=form_values,
                     is_edit=True,
@@ -605,13 +605,13 @@ def register_routes(app):
             is_last_active_admin = user.is_admin and user.is_active and _active_admin_count() <= 1
 
             if is_last_active_admin and (not is_admin or not is_active):
-                flash("Khong the ha quyen user admin cuoi cung", "error")
+                flash("Không thể hạ quyền user admin cuối cùng", "error")
                 return render_template(
                     "user_form.html",
-                    title="Sua user",
-                    form_title="Cap nhat user",
-                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
-                    submit_label="Luu cap nhat",
+                    title="Sửa user",
+                    form_title="Cập nhật user",
+                    form_subtitle="Cập nhật quyền và thông tin tài khoản.",
+                    submit_label="Lưu cập nhật",
                     back_url=url_for("users"),
                     form_values=form_values,
                     is_edit=True,
@@ -619,13 +619,13 @@ def register_routes(app):
                 )
 
             if user.id == current_user_id and (not is_admin or not is_active):
-                flash("Khong the tu khoa hoac bo quyen admin cua tai khoan dang dang nhap", "error")
+                flash("Không thể tự khóa hoặc bỏ quyền admin của tài khoản đang đăng nhập", "error")
                 return render_template(
                     "user_form.html",
-                    title="Sua user",
-                    form_title="Cap nhat user",
-                    form_subtitle="Cap nhat quyen va thong tin tai khoan.",
-                    submit_label="Luu cap nhat",
+                    title="Sửa user",
+                    form_title="Cập nhật user",
+                    form_subtitle="Cập nhật quyền và thông tin tài khoản.",
+                    submit_label="Lưu cập nhật",
                     back_url=url_for("users"),
                     form_values=form_values,
                     is_edit=True,
@@ -655,15 +655,15 @@ def register_routes(app):
             if user.id == current_user_id:
                 _set_auth_session(user)
 
-            flash("Da cap nhat user", "success")
+            flash("Đã cập nhật user", "success")
             return redirect(url_for("users"))
 
         return render_template(
             "user_form.html",
-            title="Sua user",
-            form_title="Cap nhat user",
-            form_subtitle="Cap nhat quyen va thong tin tai khoan.",
-            submit_label="Luu cap nhat",
+            title="Sửa user",
+            form_title="Cập nhật user",
+            form_subtitle="Cập nhật quyền và thông tin tài khoản.",
+            submit_label="Lưu cập nhật",
             back_url=url_for("users"),
             form_values=form_values,
             is_edit=True,
@@ -679,11 +679,11 @@ def register_routes(app):
         user = AppUser.query.get_or_404(user_id)
         current_user_id = session.get("user_id")
         if user.id == current_user_id:
-            flash("Khong the xoa tai khoan dang dang nhap", "error")
+            flash("Không thể xóa tài khoản đang đăng nhập", "error")
             return redirect(url_for("users"))
 
         if user.is_admin and user.is_active and _active_admin_count() <= 1:
-            flash("Khong the xoa user admin cuoi cung", "error")
+            flash("Không thể xóa user admin cuối cùng", "error")
             return redirect(url_for("users"))
 
         actor = session.get("username") or "admin"
@@ -698,7 +698,7 @@ def register_routes(app):
             before_data=before_data,
         )
         db.session.commit()
-        flash("Da xoa user", "success")
+        flash("Đã xóa user", "success")
         return redirect(url_for("users"))
 
     @app.route("/")
@@ -780,7 +780,7 @@ def register_routes(app):
 
         return render_template(
             "dashboard.html",
-            title="Dashboard",
+            title="Bảng điều khiển",
             month_key=month_key,
             total_employees=total_employees,
             total_rows=total_rows,
@@ -804,7 +804,7 @@ def register_routes(app):
         active_rows = [row for row in rows if row.is_active]
         return render_template(
             "employees.html",
-            title="Nhan vien",
+            title="Nhân viên",
             employees=rows,
             total_employees=len(rows),
             active_employees=len(active_rows),
@@ -849,26 +849,26 @@ def register_routes(app):
             )
 
             if not employee_code or not full_name:
-                flash("Can nhap Ma NV va Ho ten", "error")
+                flash("Cần nhập Mã NV và Họ tên", "error")
                 return render_template(
                     "employee_form.html",
-                    title="Them nhan vien",
-                    form_title="Them nhan vien moi",
-                    form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
-                    submit_label="Tao nhan vien",
+                    title="Thêm nhân viên",
+                    form_title="Thêm nhân viên mới",
+                    form_subtitle="Tạo hồ sơ nhân viên và gán ca mặc định.",
+                    submit_label="Tạo nhân viên",
                     form_values=form_values,
                     shift_codes=shift_codes,
                     is_edit=False,
                 )
 
             if default_shift_code not in shift_codes:
-                flash("Ma ca mac dinh khong hop le", "error")
+                flash("Mã ca mặc định không hợp lệ", "error")
                 return render_template(
                     "employee_form.html",
-                    title="Them nhan vien",
-                    form_title="Them nhan vien moi",
-                    form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
-                    submit_label="Tao nhan vien",
+                    title="Thêm nhân viên",
+                    form_title="Thêm nhân viên mới",
+                    form_subtitle="Tạo hồ sơ nhân viên và gán ca mặc định.",
+                    submit_label="Tạo nhân viên",
                     form_values=form_values,
                     shift_codes=shift_codes,
                     is_edit=False,
@@ -876,13 +876,13 @@ def register_routes(app):
 
             existing = Employee.query.filter_by(employee_code=employee_code).first()
             if existing:
-                flash("Ma nhan vien da ton tai", "error")
+                flash("Mã nhân viên đã tồn tại", "error")
                 return render_template(
                     "employee_form.html",
-                    title="Them nhan vien",
-                    form_title="Them nhan vien moi",
-                    form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
-                    submit_label="Tao nhan vien",
+                    title="Thêm nhân viên",
+                    form_title="Thêm nhân viên mới",
+                    form_subtitle="Tạo hồ sơ nhân viên và gán ca mặc định.",
+                    submit_label="Tạo nhân viên",
                     form_values=form_values,
                     shift_codes=shift_codes,
                     is_edit=False,
@@ -891,13 +891,13 @@ def register_routes(app):
             birth_year = None
             if birth_year_raw:
                 if not birth_year_raw.isdigit():
-                    flash("Nam sinh khong hop le", "error")
+                    flash("Năm sinh không hợp lệ", "error")
                     return render_template(
                         "employee_form.html",
-                        title="Them nhan vien",
-                        form_title="Them nhan vien moi",
-                        form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
-                        submit_label="Tao nhan vien",
+                        title="Thêm nhân viên",
+                        form_title="Thêm nhân viên mới",
+                        form_subtitle="Tạo hồ sơ nhân viên và gán ca mặc định.",
+                        submit_label="Tạo nhân viên",
                         form_values=form_values,
                         shift_codes=shift_codes,
                         is_edit=False,
@@ -924,15 +924,15 @@ def register_routes(app):
                 after_data=employee.to_dict(),
             )
             db.session.commit()
-            flash("Da them nhan vien", "success")
+            flash("Đã thêm nhân viên", "success")
             return redirect(url_for("employees"))
 
         return render_template(
             "employee_form.html",
-            title="Them nhan vien",
-            form_title="Them nhan vien moi",
-            form_subtitle="Tao ho so nhan vien va gan ca mac dinh.",
-            submit_label="Tao nhan vien",
+            title="Thêm nhân viên",
+            form_title="Thêm nhân viên mới",
+            form_subtitle="Tạo hồ sơ nhân viên và gán ca mặc định.",
+            submit_label="Tạo nhân viên",
             form_values=form_values,
             shift_codes=shift_codes,
             is_edit=False,
@@ -978,13 +978,13 @@ def register_routes(app):
             )
 
             if not employee_code or not full_name:
-                flash("Can nhap Ma NV va Ho ten", "error")
+                flash("Cần nhập Mã NV và Họ tên", "error")
                 return render_template(
                     "employee_form.html",
-                    title="Sua nhan vien",
-                    form_title="Cap nhat thong tin nhan vien",
-                    form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
-                    submit_label="Luu cap nhat",
+                    title="Sửa nhân viên",
+                    form_title="Cập nhật thông tin nhân viên",
+                    form_subtitle="Có thể sửa thông tin ca mặc định và trạng thái hoạt động.",
+                    submit_label="Lưu cập nhật",
                     form_values=form_values,
                     shift_codes=shift_codes,
                     is_edit=True,
@@ -992,13 +992,13 @@ def register_routes(app):
                 )
 
             if default_shift_code not in shift_codes:
-                flash("Ma ca mac dinh khong hop le", "error")
+                flash("Mã ca mặc định không hợp lệ", "error")
                 return render_template(
                     "employee_form.html",
-                    title="Sua nhan vien",
-                    form_title="Cap nhat thong tin nhan vien",
-                    form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
-                    submit_label="Luu cap nhat",
+                    title="Sửa nhân viên",
+                    form_title="Cập nhật thông tin nhân viên",
+                    form_subtitle="Có thể sửa thông tin ca mặc định và trạng thái hoạt động.",
+                    submit_label="Lưu cập nhật",
                     form_values=form_values,
                     shift_codes=shift_codes,
                     is_edit=True,
@@ -1012,13 +1012,13 @@ def register_routes(app):
                 ).first()
             )
             if duplicated:
-                flash("Ma nhan vien da ton tai", "error")
+                flash("Mã nhân viên đã tồn tại", "error")
                 return render_template(
                     "employee_form.html",
-                    title="Sua nhan vien",
-                    form_title="Cap nhat thong tin nhan vien",
-                    form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
-                    submit_label="Luu cap nhat",
+                    title="Sửa nhân viên",
+                    form_title="Cập nhật thông tin nhân viên",
+                    form_subtitle="Có thể sửa thông tin ca mặc định và trạng thái hoạt động.",
+                    submit_label="Lưu cập nhật",
                     form_values=form_values,
                     shift_codes=shift_codes,
                     is_edit=True,
@@ -1028,13 +1028,13 @@ def register_routes(app):
             birth_year = None
             if birth_year_raw:
                 if not birth_year_raw.isdigit():
-                    flash("Nam sinh khong hop le", "error")
+                    flash("Năm sinh không hợp lệ", "error")
                     return render_template(
                         "employee_form.html",
-                        title="Sua nhan vien",
-                        form_title="Cap nhat thong tin nhan vien",
-                        form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
-                        submit_label="Luu cap nhat",
+                        title="Sửa nhân viên",
+                        form_title="Cập nhật thông tin nhân viên",
+                        form_subtitle="Có thể sửa thông tin ca mặc định và trạng thái hoạt động.",
+                        submit_label="Lưu cập nhật",
                         form_values=form_values,
                         shift_codes=shift_codes,
                         is_edit=True,
@@ -1060,15 +1060,15 @@ def register_routes(app):
                 after_data=employee.to_dict(),
             )
             db.session.commit()
-            flash("Da cap nhat nhan vien", "success")
+            flash("Đã cập nhật nhân viên", "success")
             return redirect(url_for("employees"))
 
         return render_template(
             "employee_form.html",
-            title="Sua nhan vien",
-            form_title="Cap nhat thong tin nhan vien",
-            form_subtitle="Co the sua thong tin ca mac dinh va trang thai hoat dong.",
-            submit_label="Luu cap nhat",
+            title="Sửa nhân viên",
+            form_title="Cập nhật thông tin nhân viên",
+            form_subtitle="Có thể sửa thông tin ca mặc định và trạng thái hoạt động.",
+            submit_label="Lưu cập nhật",
             form_values=form_values,
             shift_codes=shift_codes,
             is_edit=True,
@@ -1154,12 +1154,12 @@ def register_routes(app):
             }
 
             if not code or not name:
-                flash("Can nhap ma ca va ten ca", "error")
+                flash("Cần nhập mã ca và tên ca", "error")
                 return redirect(url_for("shifts"))
 
             existing = ShiftTemplate.query.filter_by(code=code).first()
             if existing:
-                flash("Ma ca da ton tai, vui long bam Sua tren dong can cap nhat", "error")
+                flash("Mã ca đã tồn tại, vui lòng bấm Sửa trên dòng cần cập nhật", "error")
                 return redirect(url_for("edit_shift", shift_id=existing.id))
 
             shift = ShiftTemplate(code=code, **payload)
@@ -1174,7 +1174,7 @@ def register_routes(app):
             )
 
             db.session.commit()
-            flash("Da tao ca moi", "success")
+            flash("Đã tạo ca mới", "success")
             return redirect(url_for("shifts"))
 
         rows = ShiftTemplate.query.order_by(ShiftTemplate.code.asc()).all()
@@ -1189,7 +1189,7 @@ def register_routes(app):
             name = request.form.get("name", "").strip()
 
             if not name:
-                flash("Can nhap ten ca", "error")
+                flash("Cần nhập tên ca", "error")
                 return redirect(url_for("edit_shift", shift_id=shift.id))
 
             payload = {
@@ -1220,7 +1220,7 @@ def register_routes(app):
                 after_data=shift.to_dict(),
             )
             db.session.commit()
-            flash("Da cap nhat ca", "success")
+            flash("Đã cập nhật ca", "success")
             return redirect(url_for("edit_shift", shift_id=shift.id))
 
         return render_template("shift_edit.html", shift=shift)
@@ -1235,8 +1235,8 @@ def register_routes(app):
 
         if schedule_count > 0 or employee_count > 0:
             flash(
-                "Khong the xoa ca nay vi dang duoc su dung "
-                f"({schedule_count} lich lam, {employee_count} nhan vien mac dinh).",
+                "Không thể xóa ca này vì đang được sử dụng "
+                f"({schedule_count} lịch làm, {employee_count} nhân viên mặc định).",
                 "error",
             )
             return redirect(url_for("edit_shift", shift_id=shift.id))
@@ -1249,10 +1249,10 @@ def register_routes(app):
             "DELETE",
             changed_by=actor,
             before_data=before,
-            notes="Xoa ma ca lam",
+            notes="Xóa mã ca làm",
         )
         db.session.commit()
-        flash("Da xoa ma ca", "success")
+        flash("Đã xóa mã ca", "success")
         return redirect(url_for("shifts"))
 
     @app.route("/salaries", methods=["GET", "POST"])
@@ -1269,7 +1269,7 @@ def register_routes(app):
                 notes = request.form.get("notes", "").strip() or None
 
                 if company_work_days <= 0:
-                    flash("Cong chuan thang phai lon hon 0", "error")
+                    flash("Công chuẩn tháng phải lớn hơn 0", "error")
                     return redirect(url_for("salaries", month=target_month))
 
                 config = MonthlyWorkdayConfig.query.filter_by(month_key=target_month).first()
@@ -1307,12 +1307,12 @@ def register_routes(app):
 
                 db.session.commit()
                 rebuild_month_details(target_month, actor)
-                flash("Da luu cong chuan thang (ap dung toan bo nhan vien)", "success")
+                flash("Đã lưu công chuẩn tháng (áp dụng toàn bộ nhân viên)", "success")
                 return redirect(url_for("salaries", month=target_month))
 
             employee_id_raw = request.form.get("employee_id", "").strip()
             if not employee_id_raw.isdigit():
-                flash("Can chon nhan vien", "error")
+                flash("Cần chọn nhân viên", "error")
                 return redirect(url_for("salaries", month=target_month))
 
             employee_id = int(employee_id_raw)
@@ -1323,7 +1323,7 @@ def register_routes(app):
             pay_method = request.form.get("pay_method", "").strip() or None
 
             if base_monthly_wage < 0:
-                flash("Luong thang khong hop le", "error")
+                flash("Lương tháng không hợp lệ", "error")
                 return redirect(url_for("salaries", month=target_month))
 
             company_work_days, _ = _resolve_company_work_days(target_month)
@@ -1341,7 +1341,7 @@ def register_routes(app):
                     changed_by=actor,
                     before_data=before,
                     after_data=row.to_dict(),
-                    notes="Luong thang theo nhan vien",
+                    notes="Lương tháng theo nhân viên",
                 )
             else:
                 row = MonthlySalary(
@@ -1359,12 +1359,12 @@ def register_routes(app):
                     "INSERT",
                     changed_by=actor,
                     after_data=row.to_dict(),
-                    notes="Luong thang theo nhan vien",
+                    notes="Lương tháng theo nhân viên",
                 )
 
             db.session.commit()
             rebuild_month_details(target_month, actor)
-            flash("Da luu luong thang nhan vien", "success")
+            flash("Đã lưu lương tháng nhân viên", "success")
             return redirect(url_for("salaries", month=target_month))
 
         employees = Employee.query.order_by(Employee.employee_code.asc()).all()
@@ -1405,12 +1405,12 @@ def register_routes(app):
 
         upload = request.files.get("salary_file")
         if not upload or upload.filename == "":
-            flash("Can chon file he luong de import", "error")
+            flash("Cần chọn file hệ lương để import", "error")
             return redirect(url_for("salaries", month=month_key))
 
         extension = Path(upload.filename).suffix.lower()
         if extension not in {".xlsx", ".xlsm", ".xltx", ".xltm", ".xls", ".csv"}:
-            flash("File he luong chi ho tro CSV/XLSX", "error")
+            flash("File hệ lương chỉ hỗ trợ CSV/XLSX", "error")
             return redirect(url_for("salaries", month=month_key))
 
         upload_folder = Path(current_app.config["UPLOAD_FOLDER"])
@@ -1436,25 +1436,25 @@ def register_routes(app):
 
             replaced_info = ""
             if result["replace_existing"]:
-                replaced_info = f" Da xoa truoc {result['deleted_rows']} dong luong cu."
+                replaced_info = f" Đã xóa trước {result['deleted_rows']} dòng lương cũ."
 
             unknown_info = ""
             if result["skipped_unknown"] > 0:
                 unknown_preview = ", ".join(result["unknown_codes"][:10])
                 unknown_info = (
-                    f" Bo qua {result['skipped_unknown']} dong do khong tim thay Ma NV"
+                    f" Bỏ qua {result['skipped_unknown']} dòng do không tìm thấy Mã NV"
                     f" ({unknown_preview})."
                 )
 
             flash(
-                f"Import he luong thang {month_key} xong: tao moi {result['created']}, "
-                f"cap nhat {result['updated']}, cong chuan {result['company_work_days']}.{replaced_info}{unknown_info}",
+                f"Import hệ lương tháng {month_key} xong: tạo mới {result['created']}, "
+                f"cập nhật {result['updated']}, công chuẩn {result['company_work_days']}.{replaced_info}{unknown_info}",
                 "success",
             )
             return redirect(url_for("salaries", month=month_key))
         except Exception as exc:
             db.session.rollback()
-            flash(f"Import he luong that bai: {exc}", "error")
+            flash(f"Import hệ lương thất bại: {exc}", "error")
             return redirect(url_for("salaries", month=month_key))
         finally:
             if temp_path.exists():
@@ -1487,9 +1487,9 @@ def register_routes(app):
                         if not row:
                             row = Holiday(
                                 holiday_date=current_day,
-                                name="Chu nhat",
+                                name="Chủ nhật",
                                 is_paid=True,
-                                notes="Tao tu dong theo thang",
+                                notes="Tạo tự động theo tháng",
                             )
                             db.session.add(row)
                             db.session.flush()
@@ -1499,7 +1499,7 @@ def register_routes(app):
                                 "INSERT",
                                 changed_by=actor,
                                 after_data=row.to_dict(),
-                                notes="Tao nhanh chu nhat OFF theo thang",
+                                notes="Tạo nhanh Chủ nhật OFF theo tháng",
                             )
                             created_count += 1
                             sunday_created_count += 1
@@ -1524,7 +1524,7 @@ def register_routes(app):
                                 changed_by=actor,
                                 before_data=before,
                                 after_data=row.to_dict(),
-                                notes="Bo sung ten ngay le Viet Nam tu dong",
+                                notes="Bổ sung tên ngày lễ Việt Nam tự động",
                             )
                             updated_count += 1
                     else:
@@ -1532,7 +1532,7 @@ def register_routes(app):
                             holiday_date=holiday_date,
                             name=holiday_name,
                             is_paid=True,
-                            notes="Ngay le Viet Nam (tu dong theo thang)",
+                            notes="Ngày lễ Việt Nam (tự động theo tháng)",
                         )
                         db.session.add(row)
                         db.session.flush()
@@ -1542,7 +1542,7 @@ def register_routes(app):
                             "INSERT",
                             changed_by=actor,
                             after_data=row.to_dict(),
-                            notes="Tao tu dong ngay le Viet Nam",
+                            notes="Tạo tự động ngày lễ Việt Nam",
                         )
                         created_count += 1
                         vn_created_count += 1
@@ -1551,10 +1551,10 @@ def register_routes(app):
                 rebuild_month_details(month_key, actor)
                 library_note = ""
                 if not _get_holiday_library():
-                    library_note = " (Dang dung fallback ngay le co dinh do chua cai goi holidays)"
+                    library_note = " (Đang dùng fallback ngày lễ cố định do chưa cài gói holidays)"
 
                 flash(
-                    f"Da tao moi {created_count} ngay OFF/le (Chu nhat moi: {sunday_created_count}/{sunday_total}, Le VN moi: {vn_created_count}), cap nhat {updated_count} ngay cho thang {month_key}{library_note}",
+                    f"Đã tạo mới {created_count} ngày OFF/lễ (Chủ nhật mới: {sunday_created_count}/{sunday_total}, Lễ VN mới: {vn_created_count}), cập nhật {updated_count} ngày cho tháng {month_key}{library_note}",
                     "success",
                 )
                 return redirect(url_for("holidays", month=month_key))
@@ -1562,12 +1562,12 @@ def register_routes(app):
             if action == "update_row":
                 row_id_raw = (request.form.get("holiday_id") or "").strip()
                 if not row_id_raw.isdigit():
-                    flash("Khong tim thay dong ngay OFF/le de cap nhat", "error")
+                    flash("Không tìm thấy dòng ngày OFF/lễ để cập nhật", "error")
                     return redirect(url_for("holidays", month=month_key))
 
                 row = Holiday.query.get(int(row_id_raw))
                 if not row:
-                    flash("Dong ngay OFF/le khong ton tai", "error")
+                    flash("Dòng ngày OFF/lễ không tồn tại", "error")
                     return redirect(url_for("holidays", month=month_key))
 
                 name = request.form.get("name", "").strip()
@@ -1575,7 +1575,7 @@ def register_routes(app):
                 is_paid = request.form.get("is_paid") == "on"
 
                 if not name:
-                    flash("Can nhap ten ngay OFF/le", "error")
+                    flash("Cần nhập tên ngày OFF/lễ", "error")
                     return redirect(url_for("holidays", month=month_key_for_date(row.holiday_date)))
 
                 before = row.to_dict()
@@ -1594,13 +1594,13 @@ def register_routes(app):
 
                 db.session.commit()
                 rebuild_month_details(month_key_for_date(row.holiday_date), actor)
-                flash("Da cap nhat tick nghi/ngay le", "success")
+                flash("Đã cập nhật tick nghỉ/ngày lễ", "success")
                 return redirect(url_for("holidays", month=month_key_for_date(row.holiday_date)))
 
             try:
                 holiday_date = _parse_date(request.form.get("holiday_date", "").strip())
             except (TypeError, ValueError):
-                flash("Ngay OFF khong hop le", "error")
+                flash("Ngày OFF không hợp lệ", "error")
                 return redirect(url_for("holidays", month=month_key))
 
             name = request.form.get("name", "").strip()
@@ -1608,7 +1608,7 @@ def register_routes(app):
             notes = request.form.get("notes", "").strip() or None
 
             if not name:
-                flash("Can nhap ten ngay OFF/le", "error")
+                flash("Cần nhập tên ngày OFF/lễ", "error")
                 return redirect(url_for("holidays", month=month_key_for_date(holiday_date)))
 
             row = Holiday.query.filter_by(holiday_date=holiday_date).first()
@@ -1639,7 +1639,7 @@ def register_routes(app):
 
             db.session.commit()
             rebuild_month_details(month_key_for_date(holiday_date), actor)
-            flash("Da luu ngay OFF/le", "success")
+            flash("Đã lưu ngày OFF/lễ", "success")
             return redirect(url_for("holidays", month=month_key_for_date(holiday_date)))
 
         rows = (
@@ -1668,7 +1668,7 @@ def register_routes(app):
 
             shift = ShiftTemplate.query.filter_by(code=shift_code).first()
             if not shift:
-                flash("Ma ca khong hop le", "error")
+                flash("Mã ca không hợp lệ", "error")
                 return redirect(url_for("schedules", month=month_key_for_date(work_date)))
 
             row = WorkSchedule.query.filter_by(employee_id=employee_id, work_date=work_date).first()
@@ -1720,12 +1720,12 @@ def register_routes(app):
                 changed_by=actor,
                 before_data=before,
                 after_data=row.to_dict(),
-                notes="Lich lam + tang ca",
+                notes="Lịch làm + tăng ca",
             )
 
             db.session.commit()
             rebuild_month_details(target_month, actor)
-            flash("Da luu lich lam", "success")
+            flash("Đã lưu lịch làm", "success")
             return redirect(url_for("schedules", month=target_month))
 
         employees = Employee.query.order_by(Employee.employee_code.asc()).all()
@@ -1761,12 +1761,12 @@ def register_routes(app):
 
         upload = request.files.get("schedule_file")
         if not upload or upload.filename == "":
-            flash("Can chon file lich lam .xlsx", "error")
+            flash("Cần chọn file lịch làm .xlsx", "error")
             return redirect(url_for("schedules", month=month_key or current_month_key()))
 
         extension = Path(upload.filename).suffix.lower()
         if extension not in {".xlsx", ".xlsm", ".xltx", ".xltm", ".xls"}:
-            flash("File lich lam chi ho tro dinh dang Excel", "error")
+            flash("File lịch làm chỉ hỗ trợ định dạng Excel", "error")
             return redirect(url_for("schedules", month=month_key or current_month_key()))
 
         upload_folder = Path(current_app.config["UPLOAD_FOLDER"])
@@ -1793,13 +1793,13 @@ def register_routes(app):
             replaced_info = ""
             if result["replace_existing"] and result["replaced_months"]:
                 replaced_info = (
-                    f" Da xoa lich cu truoc khi import: {result['replaced_months']}."
+                    f" Đã xóa lịch cũ trước khi import: {result['replaced_months']}."
                 )
 
             flash(
-                f"Import lich xong {result['rows_imported']} dong ca "
-                f"(tao moi {result['created']}, cap nhat {result['updated']}). "
-                f"Da tai tao chi tiet: {rebuilt}.{replaced_info}",
+                f"Import lịch xong {result['rows_imported']} dòng ca "
+                f"(tạo mới {result['created']}, cập nhật {result['updated']}). "
+                f"Đã tái tạo chi tiết: {rebuilt}.{replaced_info}",
                 "success",
             )
 
@@ -1809,7 +1809,7 @@ def register_routes(app):
             return redirect(url_for("schedules", month=redirect_month))
         except Exception as exc:
             db.session.rollback()
-            flash(f"Import lich that bai: {exc}", "error")
+            flash(f"Import lịch thất bại: {exc}", "error")
             return redirect(url_for("schedules", month=month_key or current_month_key()))
         finally:
             if temp_path.exists():
@@ -1825,7 +1825,7 @@ def register_routes(app):
 
             upload = request.files.get("attendance_file")
             if not upload or upload.filename == "":
-                flash("Can chon file CSV/XLSX", "error")
+                flash("Cần chọn file CSV/XLSX", "error")
                 return redirect(url_for("imports"))
 
             upload_folder = Path(current_app.config["UPLOAD_FOLDER"])
@@ -1852,17 +1852,17 @@ def register_routes(app):
                 replaced_info = ""
                 if result["replace_existing"] and result["replaced_months"]:
                     replaced_info = (
-                        f" Da xoa du lieu cu truoc khi import: {result['replaced_months']}."
+                        f" Đã xóa dữ liệu cũ trước khi import: {result['replaced_months']}."
                     )
 
                 flash(
-                    f"Import xong {result['rows']} dong, tao {result['grouped_days']} ban ghi ngay. "
-                    f"Da tai tao chi tiet: {rebuilt}.{replaced_info}",
+                    f"Import xong {result['rows']} dòng, tạo {result['grouped_days']} bản ghi ngày. "
+                    f"Đã tái tạo chi tiết: {rebuilt}.{replaced_info}",
                     "success",
                 )
             except Exception as exc:
                 db.session.rollback()
-                flash(f"Import that bai: {exc}", "error")
+                flash(f"Import thất bại: {exc}", "error")
             finally:
                 if temp_path.exists():
                     os.remove(temp_path)
@@ -1883,7 +1883,7 @@ def register_routes(app):
 
         log_rows = AttendanceLog.query.filter_by(import_batch=batch_id).all()
         if not log_rows:
-            flash("Khong tim thay batch import de xoa", "error")
+            flash("Không tìm thấy batch import để xóa", "error")
             return redirect(url_for("imports"))
 
         affected_months = sorted(
@@ -1907,7 +1907,7 @@ def register_routes(app):
                 "removed_daily": int(removed_daily),
                 "affected_months": affected_months,
             },
-            notes="Xoa du lieu cua mot lan import",
+            notes="Xóa dữ liệu của một lần import",
         )
         db.session.commit()
 
@@ -1916,7 +1916,7 @@ def register_routes(app):
             rebuilt[item] = rebuild_month_details(item, actor)
 
         flash(
-            f"Da xoa batch {batch_id}. Logs: {removed_logs}, Daily: {removed_daily}, Tai tao: {rebuilt}",
+            f"Đã xóa batch {batch_id}. Logs: {removed_logs}, Daily: {removed_daily}, Tái tạo: {rebuilt}",
             "success",
         )
         return redirect(url_for("imports"))
@@ -1954,25 +1954,25 @@ def register_routes(app):
 
         workbook = Workbook()
         sheet = workbook.active
-        sheet.title = "Bang chi tiet"
+        sheet.title = "Bảng chi tiết"
 
         headers = [
             "STT",
-            "Ma NV",
-            "Ho Ten",
-            "Ngay",
-            "Ten Ca",
-            "Gio Vao",
-            "Gio Ra",
-            "Gio Thuc",
-            "Chenh Lech",
-            "Tang Ca",
-            "Tong Gio",
-            "Status Code",
-            "So Gio",
-            "Luong Theo Ngay",
-            "Ghi Chu",
-            "Tien An Theo Ngay",
+            "Mã NV",
+            "Họ tên",
+            "Ngày",
+            "Tên ca",
+            "Giờ vào",
+            "Giờ ra",
+            "Giờ thực",
+            "Chênh lệch",
+            "Tăng ca",
+            "Tổng giờ",
+            "Mã trạng thái",
+            "Số giờ",
+            "Lương theo ngày",
+            "Ghi chú",
+            "Tiền ăn theo ngày",
         ]
         sheet.append(headers)
 
@@ -2043,14 +2043,14 @@ def register_routes(app):
         writer.writerow(
             [
                 "ID",
-                "Thoi gian",
-                "Nguoi sua",
-                "Bang",
-                "Action",
-                "Record",
-                "Before",
-                "After",
-                "Ghi chu",
+                "Thời gian",
+                "Người sửa",
+                "Bảng",
+                "Hành động",
+                "Bản ghi",
+                "Trước",
+                "Sau",
+                "Ghi chú",
             ]
         )
 
@@ -2095,12 +2095,12 @@ def register_routes(app):
                 "BACKUP",
                 changed_by=actor,
                 after_data={"backup_file": backup_file, "removed_files": removed},
-                notes="Backup thu cong",
+                notes="Backup thủ công",
             )
             db.session.commit()
-            flash(f"Backup thanh cong: {backup_file}", "success")
+            flash(f"Backup thành công: {backup_file}", "success")
         except Exception as exc:
             db.session.rollback()
-            flash(f"Backup that bai: {exc}", "error")
+            flash(f"Backup thất bại: {exc}", "error")
 
         return redirect(url_for("audit_logs"))

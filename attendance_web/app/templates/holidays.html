@@ -2,41 +2,41 @@
 {% block content %}
 <section class="panel page-toolbar">
     <div>
-        <h2>Bang ngay OFF, chu nhat, ngay le</h2>
-        <p class="muted">Thang dang xem: <strong>{{ month_key }}</strong></p>
+        <h2>Bảng ngày OFF, Chủ nhật, ngày lễ</h2>
+        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong></p>
     </div>
     <div class="toolbar-actions">
         <form method="get" class="toolbar-month-form">
-            <label for="holiday-month">Thang</label>
+            <label for="holiday-month">Tháng</label>
             <input id="holiday-month" type="month" name="month" value="{{ month_key }}" required>
             <button type="submit">Xem</button>
         </form>
-        <button type="button" id="holiday-tools-toggle-btn" class="secondary" aria-expanded="false">Mo cong cu</button>
+        <button type="button" id="holiday-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
     </div>
 </section>
 
 <section id="holiday-tools-container" class="page-tools tools-collapsed">
     <div class="panel soft-panel">
-        <h3>Tao nhanh OFF va ngay le theo thang</h3>
+        <h3>Tạo nhanh OFF và ngày lễ theo tháng</h3>
         <form method="post" class="form-grid">
             <input type="hidden" name="action" value="generate_month">
             <input type="month" name="month_key" value="{{ month_key }}" required>
-            <input name="changed_by" placeholder="Nguoi sua" value="admin">
-            <button type="submit" class="secondary">Tao OFF chu nhat + le VN</button>
+            <input name="changed_by" placeholder="Người sửa" value="admin">
+            <button type="submit" class="secondary">Tạo OFF Chủ nhật + lễ VN</button>
         </form>
     </div>
 
     <div class="panel soft-panel">
-        <h3>Them nhanh ngay OFF, le</h3>
+        <h3>Thêm nhanh ngày OFF, lễ</h3>
         <form method="post" class="form-grid">
             <input type="hidden" name="action" value="save_single">
             <input type="hidden" name="month_key" value="{{ month_key }}">
             <input type="date" name="holiday_date" required>
-            <input name="name" placeholder="Ten ngay le" required>
-            <input name="notes" placeholder="Ghi chu">
-            <label><input type="checkbox" name="is_paid" checked> Tick nghi</label>
-            <input name="changed_by" placeholder="Nguoi sua" value="admin">
-            <button type="submit">Luu ngay OFF</button>
+            <input name="name" placeholder="Tên ngày lễ" required>
+            <input name="notes" placeholder="Ghi chú">
+            <label><input type="checkbox" name="is_paid" checked> Tick nghỉ</label>
+            <input name="changed_by" placeholder="Người sửa" value="admin">
+            <button type="submit">Lưu ngày OFF</button>
         </form>
     </div>
 </section>
@@ -46,13 +46,13 @@
         <table>
             <thead>
                 <tr>
-                    <th>Ngay</th>
-                    <th>Thu</th>
-                    <th>Ten</th>
-                    <th>Tick nghi</th>
-                    <th>Ghi chu</th>
-                    <th>Nguoi sua</th>
-                    <th>Hanh dong</th>
+                    <th>Ngày</th>
+                    <th>Thứ</th>
+                    <th>Tên</th>
+                    <th>Tick nghỉ</th>
+                    <th>Ghi chú</th>
+                    <th>Người sửa</th>
+                    <th>Hành động</th>
                 </tr>
             </thead>
             <tbody>
@@ -61,9 +61,9 @@
                     <td>{{ row.holiday_date }}</td>
                     <td>
                         {% if row.holiday_date.weekday() == 6 %}
-                        Chu nhat
+                        Chủ nhật
                         {% else %}
-                        Thu {{ row.holiday_date.weekday() + 2 }}
+                        Thứ {{ row.holiday_date.weekday() + 2 }}
                         {% endif %}
                     </td>
                     <td>
@@ -82,7 +82,7 @@
                                 form="holiday-edit-{{ row.id }}"
                                 {% if row.is_paid %}checked{% endif %}
                             >
-                            Nghi
+                            Nghỉ
                         </label>
                     </td>
                     <td>
@@ -90,7 +90,7 @@
                             name="notes"
                             value="{{ row.notes or '' }}"
                             form="holiday-edit-{{ row.id }}"
-                            placeholder="Ghi chu"
+                            placeholder="Ghi chú"
                         >
                     </td>
                     <td>
@@ -98,7 +98,7 @@
                             name="changed_by"
                             value="admin"
                             form="holiday-edit-{{ row.id }}"
-                            placeholder="Nguoi sua"
+                            placeholder="Người sửa"
                         >
                     </td>
                     <td>
@@ -107,12 +107,12 @@
                             <input type="hidden" name="month_key" value="{{ month_key }}">
                             <input type="hidden" name="holiday_id" value="{{ row.id }}">
                         </form>
-                        <button type="submit" form="holiday-edit-{{ row.id }}">Luu</button>
+                        <button type="submit" form="holiday-edit-{{ row.id }}">Lưu</button>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7">Chua co ngay OFF/le trong thang nay.</td>
+                    <td colspan="7">Chưa có ngày OFF/lễ trong tháng này.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -131,7 +131,7 @@
 
     const setToolsState = (collapsed) => {
         toolsContainer.classList.toggle("tools-collapsed", collapsed);
-        toggleButton.textContent = collapsed ? "Mo cong cu" : "Thu gon";
+        toggleButton.textContent = collapsed ? "Mở công cụ" : "Thu gọn";
         toggleButton.setAttribute("aria-expanded", String(!collapsed));
     };
 

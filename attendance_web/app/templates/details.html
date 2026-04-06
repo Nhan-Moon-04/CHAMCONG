@@ -3,42 +3,42 @@
 <div class="panel details-filter-collapsed" id="details-filter-panel">
     <div class="inline-form details-filter-layout">
         <div>
-            <h2>Bang chi tiet toan bo nhan vien</h2>
-            <button type="button" id="details-filter-toggle-btn" class="secondary details-inline-toggle" aria-expanded="false">Mo bo loc v</button>
+            <h2>Bảng chi tiết toàn bộ nhân viên</h2>
+            <button type="button" id="details-filter-toggle-btn" class="secondary details-inline-toggle" aria-expanded="false">Mở bộ lọc</button>
             <div id="details-filter-extra">
-                <p class="muted">Bang nay tham chieu live tu cac bang nguon. Mac dinh se sap theo tung nguoi (du 1 thang roi moi sang nguoi tiep theo). Co the bam tieu de cot de sort nhanh.</p>
+                <p class="muted">Bảng này tham chiếu live từ các bảng nguồn. Mặc định sẽ sắp theo từng người (đủ 1 tháng rồi mới sang người tiếp theo). Có thể bấm tiêu đề cột để sort nhanh.</p>
                 {% if is_range_mode %}
-                <p class="muted">Dang xem khoang ngay: <strong>{{ period_label }}</strong></p>
+                <p class="muted">Đang xem khoảng ngày: <strong>{{ period_label }}</strong></p>
                 {% else %}
-                <p class="muted">Dang xem thang: <strong>{{ month_key }}</strong></p>
+                <p class="muted">Đang xem tháng: <strong>{{ month_key }}</strong></p>
                 {% endif %}
-                <p class="muted">Dong to mau vang nhat la ngay Chu nhat.</p>
-                <p class="muted">Mau dong: Nghi nua buoi (cam nhat), Nghi co phep (xanh la nhat), Nghi khong phep (do), Quen checkin/checkout (vang nhat).</p>
-                <p class="muted">Giua moi nhan vien co them gach ngan de de phan biet theo nguoi.</p>
-                <p class="muted">Neu nhap Tu ngay/Den ngay thi he thong uu tien loc theo khoang thoi gian (co the qua nhieu thang).</p>
+                <p class="muted">Dòng tô màu vàng nhạt là ngày Chủ nhật.</p>
+                <p class="muted">Màu dòng: Nghỉ nửa buổi (cam nhạt), Nghỉ có phép (xanh lá nhạt), Nghỉ không phép (đỏ), Quên checkin/checkout (vàng nhạt).</p>
+                <p class="muted">Giữa mỗi nhân viên có thêm gạch ngăn để dễ phân biệt theo người.</p>
+                <p class="muted">Nếu nhập Từ ngày/Đến ngày thì hệ thống ưu tiên lọc theo khoảng thời gian (có thể qua nhiều tháng).</p>
             </div>
         </div>
         <form method="get" class="form-grid" id="details-filter-form">
             <input type="month" name="month" value="{{ month_key }}">
-            <input type="date" name="start_date" value="{{ start_date_value }}" placeholder="Tu ngay">
-            <input type="date" name="end_date" value="{{ end_date_value }}" placeholder="Den ngay">
+            <input type="date" name="start_date" value="{{ start_date_value }}" placeholder="Từ ngày">
+            <input type="date" name="end_date" value="{{ end_date_value }}" placeholder="Đến ngày">
             <select name="employee_id">
-                <option value="">Tat ca nhan vien</option>
+                <option value="">Tất cả nhân viên</option>
                 {% for row in employees %}
                 <option value="{{ row.id }}" {% if selected_employee_id == row.id %}selected{% endif %}>{{ row.employee_code }} - {{ row.full_name }}</option>
                 {% endfor %}
             </select>
-            <button type="submit">Loc</button>
+            <button type="submit">Lọc</button>
         </form>
     </div>
 </div>
 
 <div class="panel" id="details-table-panel">
     <div class="inline-form details-toolbar">
-        <h3>Bang du lieu chi tiet</h3>
+        <h3>Bảng dữ liệu chi tiết</h3>
         <div class="details-toolbar-actions">
-            <a class="button-link button-link-secondary" href="{{ export_excel_url }}">Xuat Excel</a>
-            <button type="button" id="details-fullscreen-btn" class="secondary">Phong to bang</button>
+            <a class="button-link button-link-secondary" href="{{ export_excel_url }}">Xuất Excel</a>
+            <button type="button" id="details-fullscreen-btn" class="secondary">Phóng to bảng</button>
         </div>
     </div>
     <button type="button" id="details-exit-fullscreen-btn" class="danger" hidden>X</button>
@@ -47,21 +47,21 @@
             <thead>
                 <tr>
                     <th class="sortable" data-col-index="0" data-sort-type="number">STT</th>
-                    <th class="sortable" data-col-index="1" data-sort-type="string">Ma NV</th>
-                    <th class="sortable" data-col-index="2" data-sort-type="string">Ho Ten</th>
-                    <th class="sortable" data-col-index="3" data-sort-type="date">Ngay</th>
-                    <th class="sortable" data-col-index="4" data-sort-type="string">Ten Ca</th>
-                    <th class="sortable" data-col-index="5" data-sort-type="datetime">Gio Vao</th>
-                    <th class="sortable" data-col-index="6" data-sort-type="datetime">Gio Ra</th>
-                    <th class="sortable" data-col-index="7" data-sort-type="number">Gio Thuc</th>
-                    <th class="sortable" data-col-index="8" data-sort-type="number">Chenh Lech</th>
-                    <th class="sortable" data-col-index="9" data-sort-type="number">Tang Ca</th>
-                    <th class="sortable" data-col-index="10" data-sort-type="number">Tong Gio</th>
-                    <th class="sortable" data-col-index="11" data-sort-type="string">Status Code</th>
-                    <th class="sortable" data-col-index="12" data-sort-type="number">So Gio</th>
-                    <th class="sortable" data-col-index="13" data-sort-type="number">Luong Theo Ngay</th>
-                    <th class="sortable" data-col-index="14" data-sort-type="string">Ghi Chu</th>
-                    <th class="sortable" data-col-index="15" data-sort-type="number">Tien An Theo Ngay</th>
+                    <th class="sortable" data-col-index="1" data-sort-type="string">Mã NV</th>
+                    <th class="sortable" data-col-index="2" data-sort-type="string">Họ tên</th>
+                    <th class="sortable" data-col-index="3" data-sort-type="date">Ngày</th>
+                    <th class="sortable" data-col-index="4" data-sort-type="string">Tên ca</th>
+                    <th class="sortable" data-col-index="5" data-sort-type="datetime">Giờ vào</th>
+                    <th class="sortable" data-col-index="6" data-sort-type="datetime">Giờ ra</th>
+                    <th class="sortable" data-col-index="7" data-sort-type="number">Giờ thực</th>
+                    <th class="sortable" data-col-index="8" data-sort-type="number">Chênh lệch</th>
+                    <th class="sortable" data-col-index="9" data-sort-type="number">Tăng ca</th>
+                    <th class="sortable" data-col-index="10" data-sort-type="number">Tổng giờ</th>
+                    <th class="sortable" data-col-index="11" data-sort-type="string">Mã trạng thái</th>
+                    <th class="sortable" data-col-index="12" data-sort-type="number">Số giờ</th>
+                    <th class="sortable" data-col-index="13" data-sort-type="number">Lương theo ngày</th>
+                    <th class="sortable" data-col-index="14" data-sort-type="string">Ghi chú</th>
+                    <th class="sortable" data-col-index="15" data-sort-type="number">Tiền ăn theo ngày</th>
                 </tr>
             </thead>
             <tbody>
@@ -105,7 +105,7 @@
                 {% set ns.prev_employee_id = row.employee.id %}
                 {% else %}
                 <tr>
-                    <td colspan="16">Chua co du lieu chi tiet.</td>
+                    <td colspan="16">Chưa có dữ liệu chi tiết.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -286,7 +286,7 @@
         filterPanel.classList.toggle("details-filter-collapsed", collapsed);
 
         if (filterToggleButton) {
-            filterToggleButton.textContent = collapsed ? "Mo bo loc v" : "Thu gon ^";
+            filterToggleButton.textContent = collapsed ? "Mở bộ lọc" : "Thu gọn";
             filterToggleButton.setAttribute("aria-expanded", String(!collapsed));
         }
     };
