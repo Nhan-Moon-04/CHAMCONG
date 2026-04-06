@@ -77,7 +77,7 @@ cd /opt/CHAMCONG/attendance_web
 ## 7) Tao file .env va dat bien dung
 
 ```bash
-cp .env.example .env
+    cp .env.example .env
 nano .env
 ```
 
@@ -86,6 +86,7 @@ Dat it nhat cac bien sau (quan trong nhat la password phai dong bo):
 ```dotenv
 SECRET_KEY=0989057191
 APP_NAME=HIEP LOI
+WEB_PORT=8080
 LOGIN_USERNAME=admin
 LOGIN_PASSWORD=123456
 
@@ -103,11 +104,15 @@ APP_TIMEZONE=Asia/Ho_Chi_Minh
 Luu y:
 - POSTGRES_PASSWORD trong .env phai giong password trong DATABASE_URL.
 
-## 8) Chuyen app ra port 8080
+## 8) Chay app o port 8080
+
+Khong sua file docker-compose.yml truc tiep. Chi can dat trong `.env`:
+- `WEB_PORT=8080`
+
+Kiem tra compose da nhan dung port:
 
 ```bash
-sed -i 's/"5000:5000"/"8080:5000"/' docker-compose.yml
-grep -n "8080:5000" docker-compose.yml
+docker compose config | grep -n "8080:5000"
 ```
 
 ## 9) Build va run lai hoan toan
