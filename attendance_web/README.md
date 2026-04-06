@@ -137,3 +137,17 @@ Huong dan deploy Ubuntu port 8080:
 4. Host `db` hay `localhost`:
    - Chay app tren may host: dung `localhost`.
    - Chay app trong Docker Compose: dung `db`.
+
+5. Loi `OperationalError: AdminShutdown` (PostgreSQL restart/redeploy):
+   - App da bat `pool_pre_ping` + `pool_recycle` de tu loai bo ket noi cu.
+   - Neu vua redeploy, request dang mo co the loi 1 lan; tai lai trang se tu phuc hoi.
+   - Kiem tra log DB:
+   - `docker compose logs -f db`
+
+6. Loi `password authentication failed for user postgres` khi chay Docker:
+   - Thuong do doi `POSTGRES_PASSWORD` sau khi volume da duoc tao.
+   - Kiem tra bien dang dung:
+   - `docker compose config`
+   - Neu can giu du lieu, doi password ngay trong DB container:
+   - `docker compose exec db psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"`
+   - Neu chap nhan xoa du lieu test: stop stack, xoa volume `postgres_data`, roi up lai.

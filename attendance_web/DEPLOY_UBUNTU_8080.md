@@ -164,3 +164,37 @@ App co scheduler backup luc 17:00 moi ngay. Backup duoc ghi vao thu muc:
 - attendance_web/backups
 
 Neu log bao loi "pg_dump: not found" thi can them postgresql-client vao Dockerfile web image.
+
+## 11) Khac phuc loi OperationalError (Docker PostgreSQL)
+
+Neu gap loi ngan han:
+- `OperationalError: terminating connection due to administrator command`
+
+Day la luc container DB vua restart/redeploy. Ban moi da bat san pool settings de app tu loai ket noi cu.
+- Thu tai lai trang 1 lan.
+- Kiem tra log:
+
+```bash
+docker compose logs -f db
+docker compose logs -f web
+```
+
+Neu gap loi:
+- `password authentication failed for user "postgres"`
+
+Nguyen nhan pho bien: da doi password trong env sau khi volume `postgres_data` duoc tao truoc do.
+
+Kiem tra config thuc te:
+
+```bash
+docker compose config
+```
+
+Dong bo lai password ngay trong DB (giu du lieu):
+
+```bash
+docker compose exec db psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+docker compose restart web
+```
+
+Neu chi la moi truong test va chap nhan mat du lieu, co the xoa volume roi tao lai.

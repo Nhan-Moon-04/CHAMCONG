@@ -4,27 +4,42 @@ services:
     container_name: attendance_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: attendance_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-attendance_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-attendance_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
 
   web:
     build: .
     container_name: attendance_web
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       SECRET_KEY: change-me
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/attendance_db
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-attendance_db}
       BACKUP_TARGET_DIR: /app/backups
       BACKUP_RETENTION_DAYS: 30
       ENABLE_BACKUP_SCHEDULER: 1
       APP_TIMEZONE: Asia/Ho_Chi_Minh
+      DB_POOL_PRE_PING: 1
+      DB_POOL_RECYCLE_SECONDS: 1800
+      DB_POOL_TIMEOUT_SECONDS: 30
+      DB_POOL_SIZE: 5
+      DB_MAX_OVERFLOW: 10
+      DB_CONNECT_TIMEOUT_SECONDS: 10
+      DB_CONNECT_RETRY_ATTEMPTS: 8
+      DB_CONNECT_RETRY_DELAY_SECONDS: 3
     ports:
       - "5000:5000"
     volumes:
