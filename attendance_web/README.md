@@ -5,7 +5,8 @@ Ung dung nay duoc dung de:
 - Quan ly bang ma ca lam, bang luong theo thang, lich lam, tang ca, ngay OFF/le.
 - Tu dong tinh bang chi tiet cham cong theo quy tac da mo ta.
 - Theo doi audit log cho moi thay doi.
-- Backup PostgreSQL luc 17:00 moi ngay vao thu muc local (OneDrive co the dong bo thu muc nay).
+- Backup du lieu luc 17:00 moi ngay vao thu muc local (OneDrive co the dong bo thu muc nay).
+- Co backup portable full du lieu (.json.gz) de tai ve may va khoi phuc khi mat du lieu.
 - Tu dong xoa ban backup cu hon 30 ngay.
 
 ## 1) Chuan bi
@@ -16,6 +17,7 @@ Ung dung nay duoc dung de:
 3. Tao file `.env` tu `.env.example` va cap nhat:
    - `DATABASE_URL`
    - `BACKUP_TARGET_DIR` (tro den thu muc trong OneDrive neu muon dong bo len cloud)
+   - `PG_DUMP_PATH` (tuy chon, neu `pg_dump` khong nam trong PATH)
    - `LOGIN_USERNAME`, `LOGIN_PASSWORD` (tai khoan dang nhap noi bo)
 
 ## 2) Chay tren Windows
@@ -95,7 +97,13 @@ Huong dan deploy Ubuntu port 8080:
 - Dat `BACKUP_TARGET_DIR` den thu muc duoc OneDrive dong bo, vi du:
   - `D:/OneDrive/attendance-backups`
 - Scheduler se backup luc 17:00 moi ngay.
-- Sau moi lan backup, he thong xoa file `.dump` cu hon 30 ngay.
+- Neu may co `pg_dump`, he thong tao file `.dump`.
+- Neu may khong co `pg_dump`, he thong tu dong fallback sang backup portable `.json.gz`.
+- Sau moi lan backup, he thong xoa file backup cu hon 30 ngay.
+- Tren trang `Audit log`:
+   - Nut `Tai backup full du lieu (.json.gz)` se tao backup va tai file ve may.
+   - Nut `Khoi phuc du lieu tu backup` cho phep import file `.json/.json.gz` de phuc hoi du lieu.
+   - Co bang danh sach file backup tren server de tai lai bat ky luc nao.
 
 ## 6) Audit log
 
@@ -104,7 +112,8 @@ Huong dan deploy Ubuntu port 8080:
 
 ## 7) Luu y
 
-- App dung `pg_dump` cho backup, can dam bao lenh `pg_dump` co trong PATH.
+- Co the dat `PG_DUMP_PATH` neu `pg_dump` khong nam trong PATH (vi du duong dan den `.../PostgreSQL/16/bin/pg_dump.exe`).
+- Khi khoi phuc backup portable, du lieu hien tai se bi ghi de bang noi dung trong file backup.
 - Neu import file tho khong dung encoding, app se tu fallback qua `cp1258` va `latin1`.
 
 ## 8) Loi thuong gap va cach sua

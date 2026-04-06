@@ -31,5 +31,6 @@ class Config:
     UPLOAD_FOLDER = str(BASE_DIR / "uploads")
     BACKUP_TARGET_DIR = os.getenv("BACKUP_TARGET_DIR", str(BASE_DIR / "backups"))
     BACKUP_RETENTION_DAYS = int(os.getenv("BACKUP_RETENTION_DAYS", "30"))
+    PG_DUMP_PATH = os.getenv("PG_DUMP_PATH", "pg_dump")
     ENABLE_BACKUP_SCHEDULER = os.getenv("ENABLE_BACKUP_SCHEDULER", "1") == "1"
     TIMEZONE = os.getenv("APP_TIMEZONE", "Asia/Ho_Chi_Minh")

@@ -49,7 +49,12 @@ from .services.attendance import (
     rebuild_month_details,
 )
 from .services.audit import log_action
-from .services.backup import run_pg_dump
+from .services.backup import (
+    list_backup_files,
+    restore_portable_backup,
+    run_database_backup,
+    run_portable_backup,
+)
 from .services.importer import import_attendance_file
 from .services.salary_importer import import_salary_file
 from .services.schedule_importer import import_schedule_file
@@ -140,6 +145,34 @@ def _resolve_upload_relpath(relpath):
         return None
 
     return resolved_path
+
+
+def _resolve_backup_filename(filename):
+    if not filename:
+        return None
+
+    try:
+        backup_root = Path(current_app.config["BACKUP_TARGET_DIR"]).resolve()
+        resolved_path = (backup_root / str(filename)).resolve()
+        resolved_path.relative_to(backup_root)
+    except Exception:
+        return None
+
+    if not resolved_path.exists() or not resolved_path.is_file():
+        return None
+
+    return resolved_path
+
+
+def _format_size_label(size_bytes):
+    size = float(size_bytes or 0)
+    units = ["B", "KB", "MB", "GB", "TB"]
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            if unit == "B":
+                return f"{int(size)} {unit}"
+            return f"{size:.2f} {unit}"
+        size /= 1024
 
 
 def _iter_month_keys(start_date, end_date):
@@ -3124,11 +3157,28 @@ def register_routes(app):
 
     @app.route("/audit")
     def audit_logs():
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
         rows = AuditLog.query.order_by(AuditLog.changed_at.desc()).limit(300).all()
-        return render_template("audit.html", audit_logs=rows)
+        backup_files = []
+        for item in list_backup_files(current_app.config["BACKUP_TARGET_DIR"]):
+            backup_files.append(
+                {
+                    **item,
+                    "size_label": _format_size_label(item.get("size_bytes", 0)),
+                }
+            )
+
+        return render_template("audit.html", audit_logs=rows, backup_files=backup_files)
 
     @app.route("/audit/export")
     def export_audit_csv():
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
         rows = AuditLog.query.order_by(AuditLog.changed_at.desc()).limit(5000).all()
 
         stream = io.StringIO()
@@ -3173,27 +3223,154 @@ def register_routes(app):
             },
         )
 
+    @app.route("/backup/download/<path:filename>", methods=["GET"])
+    def download_backup_file(filename):
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        backup_file = _resolve_backup_filename(filename)
+        if not backup_file:
+            flash("Khong tim thay file backup", "error")
+            return redirect(url_for("audit_logs"))
+
+        return send_file(
+            backup_file,
+            as_attachment=True,
+            download_name=backup_file.name,
+        )
+
     @app.route("/backup/run", methods=["POST"])
     def run_backup_now():
-        actor = request.form.get("changed_by", "admin")
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        actor = request.form.get("changed_by") or session.get("username") or "admin"
         try:
-            backup_file, removed = run_pg_dump(
+            backup_file, removed, backup_type, summary = run_database_backup(
                 current_app.config["SQLALCHEMY_DATABASE_URI"],
                 current_app.config["BACKUP_TARGET_DIR"],
                 current_app.config["BACKUP_RETENTION_DAYS"],
+                current_app.config.get("PG_DUMP_PATH", "pg_dump"),
             )
+            backup_record_id = Path(backup_file).name
             log_action(
                 "system_backup",
-                backup_file,
+                backup_record_id,
                 "BACKUP",
                 changed_by=actor,
-                after_data={"backup_file": backup_file, "removed_files": removed},
-                notes="Backup thủ công",
+                after_data={
+                    "backup_file": backup_file,
+                    "removed_files": removed,
+                    "backup_type": backup_type,
+                    "summary": summary,
+                },
+                notes="Backup thu cong",
             )
             db.session.commit()
-            flash(f"Backup thành công: {backup_file}", "success")
+
+            if backup_type == "portable_json":
+                flash(
+                    "Khong tim thay pg_dump, he thong da backup full du lieu bang file portable.",
+                    "warning",
+                )
+
+            flash(f"Backup thanh cong: {Path(backup_file).name}", "success")
         except Exception as exc:
             db.session.rollback()
-            flash(f"Backup thất bại: {exc}", "error")
+            flash(f"Backup that bai: {exc}", "error")
+
+        return redirect(url_for("audit_logs"))
+
+    @app.route("/backup/export", methods=["POST"])
+    def export_portable_backup_now():
+        save_as_client = request.headers.get("X-Backup-Client") == "save-as"
+
+        blocked = _require_admin()
+        if blocked:
+            if save_as_client:
+                return Response("Forbidden", status=403, mimetype="text/plain")
+            return blocked
+
+        actor = request.form.get("changed_by") or session.get("username") or "admin"
+
+        try:
+            backup_file, removed, summary = run_portable_backup(
+                current_app.config["BACKUP_TARGET_DIR"],
+                current_app.config["BACKUP_RETENTION_DAYS"],
+            )
+            backup_record_id = Path(backup_file).name
+            log_action(
+                "system_backup",
+                backup_record_id,
+                "EXPORT",
+                changed_by=actor,
+                after_data={
+                    "backup_file": backup_file,
+                    "removed_files": removed,
+                    "backup_type": "portable_json",
+                    "summary": summary,
+                },
+                notes="Export backup full du lieu",
+            )
+            db.session.commit()
+
+            backup_path = Path(backup_file)
+            return send_file(
+                backup_path,
+                as_attachment=True,
+                download_name=backup_path.name,
+                mimetype="application/gzip",
+            )
+        except Exception as exc:
+            db.session.rollback()
+            if save_as_client:
+                return Response(f"Export backup that bai: {exc}", status=400, mimetype="text/plain")
+            flash(f"Export backup that bai: {exc}", "error")
+
+        return redirect(url_for("audit_logs"))
+
+    @app.route("/backup/restore", methods=["POST"])
+    def restore_backup_data():
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        actor = request.form.get("changed_by") or session.get("username") or "admin"
+        uploaded_file = request.files.get("backup_file")
+        confirm_text = (request.form.get("confirm_text") or "").strip().upper()
+
+        if confirm_text != "RESTORE":
+            flash("Nhap dung RESTORE de xac nhan khoi phuc du lieu", "error")
+            return redirect(url_for("audit_logs"))
+
+        if not uploaded_file or not uploaded_file.filename:
+            flash("Ban chua chon file backup", "error")
+            return redirect(url_for("audit_logs"))
+
+        filename = secure_filename(uploaded_file.filename)
+        if not filename.lower().endswith((".json", ".json.gz", ".gz")):
+            flash("Chi ho tro file backup .json hoac .json.gz", "error")
+            return redirect(url_for("audit_logs"))
+
+        try:
+            restore_summary = restore_portable_backup(uploaded_file.stream, filename)
+            log_action(
+                "system_backup",
+                filename,
+                "RESTORE",
+                changed_by=actor,
+                after_data=restore_summary,
+                notes="Khoi phuc du lieu tu file backup",
+            )
+            db.session.commit()
+            flash(
+                f"Khoi phuc thanh cong: {restore_summary.get('total_rows', 0)} dong du lieu",
+                "success",
+            )
+        except Exception as exc:
+            db.session.rollback()
+            flash(f"Khoi phuc that bai: {exc}", "error")
 
         return redirect(url_for("audit_logs"))

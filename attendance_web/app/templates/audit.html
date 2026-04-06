@@ -1,14 +1,62 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="panel">
-    <h2>Lịch sử sửa đổi hệ thống</h2>
-    <p class="muted">Mọi thay đổi dữ liệu quan trọng được ghi vào audit log, có thể trích xuất CSV bất cứ lúc nào.</p>
+    <h2>Lich su sua doi he thong</h2>
+    <p class="muted">Moi thay doi du lieu quan trong duoc ghi vao audit log. Ban co the backup, tai file backup ve may va khoi phuc khi can.</p>
     <div class="form-grid">
-        <a href="{{ url_for('export_audit_csv') }}"><button type="button">Xuất CSV audit</button></a>
+        <a class="button-link button-link-secondary" href="{{ url_for('export_audit_csv') }}">Xuat CSV audit</a>
+
         <form method="post" action="{{ url_for('run_backup_now') }}" class="form-grid">
-            <input name="changed_by" placeholder="Người backup" value="admin">
-            <button type="submit" class="secondary">Backup ngay bây giờ</button>
+            <input name="changed_by" placeholder="Nguoi backup" value="{{ current_user_username or 'admin' }}">
+            <button type="submit" class="secondary">Backup server (pg_dump neu co)</button>
         </form>
+
+        <form id="portable-backup-form" method="post" action="{{ url_for('export_portable_backup_now') }}" class="form-grid">
+            <input name="changed_by" placeholder="Nguoi export" value="{{ current_user_username or 'admin' }}">
+            <button type="button" id="portable-backup-saveas">Backup + chon noi luu tren may</button>
+            <button type="submit" class="secondary">Tai nhanh file backup (.json.gz)</button>
+        </form>
+    </div>
+    <p id="portable-backup-status" class="muted" aria-live="polite"></p>
+
+    <form method="post" action="{{ url_for('restore_backup_data') }}" enctype="multipart/form-data" class="form-grid" style="margin-top: 10px;">
+        <input name="changed_by" placeholder="Nguoi khoi phuc" value="{{ current_user_username or 'admin' }}">
+        <input type="file" name="backup_file" accept=".json,.json.gz,.gz" required>
+        <input name="confirm_text" placeholder="Nhap RESTORE de xac nhan" required>
+        <button type="submit" class="danger">Khoi phuc du lieu tu backup</button>
+    </form>
+    <p class="muted">Khoi phuc se ghi de toan bo du lieu hien tai bang du lieu trong file backup.</p>
+</div>
+
+<div class="panel">
+    <h3>Danh sach file backup tren server</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Thoi gian</th>
+                    <th>Ten file</th>
+                    <th>Loai</th>
+                    <th>Dung luong</th>
+                    <th>Hanh dong</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for backup in backup_files %}
+                <tr>
+                    <td>{{ backup.modified_at }}</td>
+                    <td>{{ backup.name }}</td>
+                    <td>{{ backup.backup_type }}</td>
+                    <td>{{ backup.size_label }}</td>
+                    <td><a class="link-pill" href="{{ url_for('download_backup_file', filename=backup.name) }}">Tai ve</a></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5">Chua co file backup nao.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
@@ -17,14 +65,14 @@
         <table>
             <thead>
                 <tr>
-                    <th>Thời gian</th>
-                    <th>Người sửa</th>
-                    <th>Bảng</th>
-                    <th>Hành động</th>
-                    <th>Bản ghi</th>
-                    <th>Trước</th>
+                    <th>Thoi gian</th>
+                    <th>Nguoi sua</th>
+                    <th>Bang</th>
+                    <th>Hanh dong</th>
+                    <th>Ban ghi</th>
+                    <th>Truoc</th>
                     <th>Sau</th>
-                    <th>Ghi chú</th>
+                    <th>Ghi chu</th>
                 </tr>
             </thead>
             <tbody>
@@ -41,11 +89,129 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8">Chưa có log thay đổi.</td>
+                    <td colspan="8">Chua co log thay doi.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+<script>
+    (function () {
+        const form = document.getElementById("portable-backup-form");
+        const saveAsButton = document.getElementById("portable-backup-saveas");
+        const statusNode = document.getElementById("portable-backup-status");
+
+        if (!form || !saveAsButton || !statusNode) {
+            return;
+        }
+
+        function setStatus(message, isError) {
+            statusNode.textContent = message || "";
+            statusNode.style.color = isError ? "var(--danger)" : "";
+        }
+
+        function extractSuggestedName(contentDisposition) {
+            if (!contentDisposition) {
+                return "";
+            }
+
+            let match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+            if (match && match[1]) {
+                try {
+                    return decodeURIComponent(match[1].trim());
+                } catch (error) {
+                    return match[1].trim();
+                }
+            }
+
+            match = contentDisposition.match(/filename="?([^";]+)"?/i);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+
+            return "";
+        }
+
+        function buildDefaultName() {
+            const now = new Date();
+            const pad = (value) => String(value).padStart(2, "0");
+            return [
+                "attendance_full_",
+                now.getFullYear(),
+                pad(now.getMonth() + 1),
+                pad(now.getDate()),
+                "_",
+                pad(now.getHours()),
+                pad(now.getMinutes()),
+                pad(now.getSeconds()),
+                ".json.gz",
+            ].join("");
+        }
+
+        async function saveBlobToUserDisk(blob, suggestedName) {
+            const fileHandle = await window.showSaveFilePicker({
+                suggestedName,
+                types: [
+                    {
+                        description: "Backup file",
+                        accept: {
+                            "application/gzip": [".gz"],
+                            "application/json": [".json"],
+                        },
+                    },
+                ],
+            });
+
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+        }
+
+        saveAsButton.addEventListener("click", async function () {
+            if (!window.isSecureContext || !window.showSaveFilePicker) {
+                setStatus(
+                    "Trinh duyet hien tai khong ho tro hop thoai chon noi luu. He thong se tai file theo cach thong thuong.",
+                    true
+                );
+                form.submit();
+                return;
+            }
+
+            const originalText = saveAsButton.textContent;
+            saveAsButton.disabled = true;
+            saveAsButton.textContent = "Dang tao backup...";
+            setStatus("Dang tao backup, vui long doi...", false);
+
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: formData,
+                    credentials: "same-origin",
+                    headers: {
+                        "X-Backup-Client": "save-as",
+                    },
+                });
+
+                if (!response.ok) {
+                    const errorText = (await response.text()).trim();
+                    throw new Error(errorText || "Backup that bai");
+                }
+
+                const contentDisposition = response.headers.get("Content-Disposition") || "";
+                const suggestedName = extractSuggestedName(contentDisposition) || buildDefaultName();
+                const backupBlob = await response.blob();
+
+                await saveBlobToUserDisk(backupBlob, suggestedName);
+                setStatus("Backup thanh cong. Ban da chon noi luu tren may.", false);
+            } catch (error) {
+                setStatus(error.message || "Backup that bai", true);
+            } finally {
+                saveAsButton.disabled = false;
+                saveAsButton.textContent = originalText;
+            }
+        });
+    })();
+</script>
 {% endblock %}
