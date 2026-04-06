@@ -92,7 +92,7 @@ body {
     position: sticky;
     top: 0;
     height: 100vh;
-    overflow-y: auto;
+    overflow-y: hidden;
 }
 
 .brand-block h1 {
@@ -763,6 +763,8 @@ a:hover {
 
 .salary-mask-cell {
     white-space: nowrap;
+    text-align: center;
+    vertical-align: middle;
 }
 
 .salary-mask-value {
@@ -770,12 +772,60 @@ a:hover {
     min-width: 92px;
     font-weight: 700;
     letter-spacing: 0.03em;
-    margin-right: 8px;
+}
+
+.salary-mask-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .salary-mask-toggle {
     width: auto;
     padding: 6px 10px;
+}
+
+.salary-col-th {
+    text-align: center;
+}
+
+.salary-col-head {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.salary-mask-toggle-all {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+    color: #ffffff;
+    background: transparent;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.salary-mask-toggle-all:hover {
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
+.salary-eye-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .meal-name-toggle {
@@ -800,7 +850,8 @@ a:hover {
 
 .meal-inner-wrap {
     margin-top: 6px;
-    max-height: 320px;
+    max-height: calc(100vh - 250px);
+    max-height: calc(100dvh - 250px);
 }
 
 .meal-inner-table {

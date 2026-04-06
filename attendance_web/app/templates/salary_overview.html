@@ -38,7 +38,7 @@
         </a>
         {% endfor %}
     </div>
-    <p class="muted">Bấm nút đợt 1 hoặc đợt 2 để mở trang chi tiết tiền ăn theo đợt.</p>
+   
 </section>
 
 <section class="panel data-panel" id="salary-overview-panel">
@@ -54,7 +54,23 @@
                     <th>Số ngày tăng ca</th>
                     <th>Số giờ lẻ</th>
                     <th>Số tiền ứng</th>
-                    <th>Tiền lương</th>
+                    <th class="salary-col-th">
+                        <div class="salary-col-head">
+                            <span>Tiền lương</span>
+                            <button
+                                type="button"
+                                id="salary-mask-toggle-all"
+                                class="secondary salary-mask-toggle-all"
+                                aria-expanded="false"
+                                title="Hiện/ẩn toàn bộ tiền lương"
+                            >
+                                <svg class="salary-eye-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -72,8 +88,10 @@
                     <td>{{ "%.2f"|format(item.overtime_remainder_hours) }}h</td>
                     <td>{{ "{:,.0f}".format(item.advance_amount) }}</td>
                     <td class="salary-mask-cell">
-                        <span class="salary-mask-value" data-real-value="{{ "{:,.0f}".format(item.salary_amount) }}">••••••</span>
-                        <button type="button" class="secondary salary-mask-toggle" aria-expanded="false">Hiện</button>
+                        <div class="salary-mask-inline">
+                            <span class="salary-mask-value" data-real-value="{{ "{:,.0f}".format(item.salary_amount) }}">••••••</span>
+                            <button type="button" class="secondary salary-mask-toggle" aria-expanded="false">Hiện</button>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
@@ -88,31 +106,78 @@
 
 <script>
 (() => {
-    const maskButtons = document.querySelectorAll(".salary-mask-toggle");
+    const maskButtons = Array.from(document.querySelectorAll(".salary-mask-toggle"));
+    const maskAllButton = document.getElementById("salary-mask-toggle-all");
+
+    const setMaskCellState = (cell, showValue) => {
+        if (!cell) {
+            return;
+        }
+
+        const value = cell.querySelector(".salary-mask-value");
+        const button = cell.querySelector(".salary-mask-toggle");
+        if (!value || !button) {
+            return;
+        }
+
+        if (showValue) {
+            value.textContent = value.getAttribute("data-real-value") || "0";
+            button.textContent = "Ẩn";
+            button.setAttribute("aria-expanded", "true");
+        } else {
+            value.textContent = "••••••";
+            button.textContent = "Hiện";
+            button.setAttribute("aria-expanded", "false");
+        }
+    };
+
+    const updateMaskAllButtonState = () => {
+        if (!maskAllButton) {
+            return;
+        }
+
+        if (maskButtons.length === 0) {
+            maskAllButton.disabled = true;
+            return;
+        }
+
+        const allVisible = maskButtons.every(
+            (button) => button.getAttribute("aria-expanded") === "true"
+        );
+
+        maskAllButton.disabled = false;
+        maskAllButton.setAttribute("aria-expanded", String(allVisible));
+        maskAllButton.title = allVisible
+            ? "Ẩn toàn bộ tiền lương"
+            : "Hiện toàn bộ tiền lương";
+    };
+
     maskButtons.forEach((button) => {
         button.addEventListener("click", () => {
             const cell = button.closest(".salary-mask-cell");
-            if (!cell) {
-                return;
-            }
-
-            const value = cell.querySelector(".salary-mask-value");
-            if (!value) {
-                return;
-            }
-
             const isExpanded = button.getAttribute("aria-expanded") === "true";
-            if (isExpanded) {
-                value.textContent = "••••••";
-                button.textContent = "Hiện";
-                button.setAttribute("aria-expanded", "false");
-            } else {
-                value.textContent = value.getAttribute("data-real-value") || "0";
-                button.textContent = "Ẩn";
-                button.setAttribute("aria-expanded", "true");
-            }
+            setMaskCellState(cell, !isExpanded);
+            updateMaskAllButtonState();
         });
     });
+
+    if (maskAllButton) {
+        maskAllButton.addEventListener("click", () => {
+            const allVisible = maskButtons.every(
+                (button) => button.getAttribute("aria-expanded") === "true"
+            );
+            const targetVisible = !allVisible;
+
+            maskButtons.forEach((button) => {
+                const cell = button.closest(".salary-mask-cell");
+                setMaskCellState(cell, targetVisible);
+            });
+
+            updateMaskAllButtonState();
+        });
+    }
+
+    updateMaskAllButtonState();
 })();
 </script>
 {% endblock %}

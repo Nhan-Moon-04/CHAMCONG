@@ -47,10 +47,10 @@
             </thead>
             <tbody>
                 {% for row in meal_rows %}
-                <tr class="{% if selected_employee_id == row.employee_id %}meal-selected-row{% endif %}">
+                <tr>
                     <td>{{ loop.index }}</td>
                     <td>
-                        <a href="{{ url_for('salary_overview_meal', month=month_key, period=period, q=search_query or None, employee_id=row.employee_id) }}#meal-detail-panel">{{ row.employee.full_name }}</a>
+                        <a href="{{ url_for('salary_overview_meal_employee_detail', employee_id=row.employee_id, month=month_key, period=period, q=search_query or None) }}">{{ row.employee.full_name }}</a>
                         <div class="muted">{{ row.employee.employee_code }}</div>
                     </td>
                     <td>{{ "%.2f"|format(row.worked_days) }}</td>
@@ -66,51 +66,5 @@
             </tbody>
         </table>
     </div>
-</section>
-
-<section class="panel" id="meal-detail-panel">
-    {% if selected_employee_row %}
-    <h3>Chi tiết ca làm + tiền ăn: {{ selected_employee_row.employee.full_name }} ({{ selected_employee_row.employee.employee_code }})</h3>
-    <p class="muted">Đợt chốt: {{ period_title }} ({{ period_label }})</p>
-    <div class="table-wrap meal-inner-wrap">
-        <table class="meal-inner-table">
-            <thead>
-                <tr>
-                    <th>Ngày</th>
-                    <th>Mã ca</th>
-                    <th>Giờ vào</th>
-                    <th>Giờ ra</th>
-                    <th>Giờ thực</th>
-                    <th>Tăng ca</th>
-                    <th>Số giờ</th>
-                    <th>Tiền ăn</th>
-                    <th>Ghi chú</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for detail in selected_employee_row.details %}
-                <tr>
-                    <td>{{ detail.work_date }}</td>
-                    <td>{{ detail.shift_code }}</td>
-                    <td>{{ detail.check_in.strftime('%Y-%m-%d %H:%M') if detail.check_in else '-' }}</td>
-                    <td>{{ detail.check_out.strftime('%Y-%m-%d %H:%M') if detail.check_out else '-' }}</td>
-                    <td>{{ "%.2f"|format(detail.actual_work_hours) }}</td>
-                    <td>{{ "%.2f"|format(detail.overtime_hours) }}</td>
-                    <td>{{ "%.2f"|format(detail.paid_hours) }}</td>
-                    <td>{{ "{:,.0f}".format(detail.meal_allowance_daily) }}</td>
-                    <td>{{ detail.notes or '-' }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="9">Nhân viên này không có dữ liệu ca làm trong đợt này.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <h3>Chưa chọn nhân viên</h3>
-    <p class="muted">Bấm vào tên trong bảng trên để hiện chi tiết ca làm và tiền ăn của người đó.</p>
-    {% endif %}
 </section>
 {% endblock %}

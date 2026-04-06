@@ -1746,14 +1746,6 @@ def register_routes(app):
         period = 2 if period_raw == "2" else 1
         search_query = (request.args.get("q") or "").strip()
 
-        employee_id_raw = (request.args.get("employee_id") or "").strip()
-        selected_employee_id = None
-        if employee_id_raw:
-            if employee_id_raw.isdigit():
-                selected_employee_id = int(employee_id_raw)
-            else:
-                flash("Nhân viên không hợp lệ", "error")
-
         start_date, end_date = parse_month_key(month_key)
         period_1_end = date(start_date.year, start_date.month, 15)
         period_2_start = date(start_date.year, start_date.month, 16)
@@ -1777,7 +1769,6 @@ def register_routes(app):
                 "paid_leave_days": 0.0,
                 "unpaid_leave_days": 0.0,
                 "meal_amount": 0.0,
-                "details": [],
             }
             for row in employees
         }
@@ -1819,13 +1810,11 @@ def register_routes(app):
                     "paid_leave_days": 0.0,
                     "unpaid_leave_days": 0.0,
                     "meal_amount": 0.0,
-                    "details": [],
                 }
                 meal_summary_map[detail_row.employee_id] = meal_summary
 
             _apply_status(meal_summary, detail_row.status_code)
             meal_summary["meal_amount"] += _to_float(detail_row.meal_allowance_daily)
-            meal_summary["details"].append(detail_row)
 
         meal_rows = []
         for employee_id, meal_summary in meal_summary_map.items():
@@ -1837,7 +1826,6 @@ def register_routes(app):
                     "paid_leave_days": round(meal_summary["paid_leave_days"], 2),
                     "unpaid_leave_days": round(meal_summary["unpaid_leave_days"], 2),
                     "meal_amount": round(meal_summary["meal_amount"], 2),
-                    "details": meal_summary["details"],
                 }
             )
 
@@ -1865,16 +1853,6 @@ def register_routes(app):
 
             meal_rows = [item for item in meal_rows if _match_meal_row(item)]
 
-        selected_employee_row = None
-        if selected_employee_id is not None:
-            for row in meal_rows:
-                if row["employee_id"] == selected_employee_id:
-                    selected_employee_row = row
-                    break
-
-            if not selected_employee_row:
-                flash("Không tìm thấy nhân viên trong danh sách đợt này", "error")
-
         return render_template(
             "salary_meal_period.html",
             month_key=month_key,
@@ -1883,8 +1861,82 @@ def register_routes(app):
             period_label=period_label,
             search_query=search_query,
             meal_rows=meal_rows,
-            selected_employee_id=selected_employee_id,
-            selected_employee_row=selected_employee_row,
+        )
+
+    @app.route("/salary-overview/meal/<int:employee_id>")
+    def salary_overview_meal_employee_detail(employee_id):
+        month_key = _safe_month_key(request.args.get("month"))
+        period_raw = (request.args.get("period") or "1").strip()
+        period = 2 if period_raw == "2" else 1
+        search_query = (request.args.get("q") or "").strip()
+
+        employee = Employee.query.get_or_404(employee_id)
+
+        start_date, end_date = parse_month_key(month_key)
+        period_1_end = date(start_date.year, start_date.month, 15)
+        period_2_start = date(start_date.year, start_date.month, 16)
+
+        if period == 2:
+            period_start = period_2_start
+            period_end = end_date
+            period_label = f"{period_start.strftime('%d/%m')} - {period_end.strftime('%d/%m')}"
+            period_title = "Tiền ăn đợt 2"
+        else:
+            period_start = start_date
+            period_end = period_1_end
+            period_label = f"{period_start.strftime('%d/%m')} - {period_end.strftime('%d/%m')}"
+            period_title = "Tiền ăn đợt 1"
+
+        detail_rows = (
+            AttendanceDetail.query
+            .filter(
+                AttendanceDetail.month_key == month_key,
+                AttendanceDetail.employee_id == employee.id,
+                AttendanceDetail.work_date >= period_start,
+                AttendanceDetail.work_date <= period_end,
+            )
+            .order_by(AttendanceDetail.work_date.asc())
+            .all()
+        )
+
+        summary = {
+            "worked_days": 0.0,
+            "paid_leave_days": 0.0,
+            "unpaid_leave_days": 0.0,
+            "meal_amount": 0.0,
+        }
+
+        for row in detail_rows:
+            status_code = str(row.status_code or "").upper()
+            if status_code == "P":
+                summary["paid_leave_days"] += 1.0
+            elif status_code in {"S", "C"}:
+                summary["paid_leave_days"] += 0.5
+                summary["worked_days"] += 0.5
+            elif status_code == "N":
+                summary["unpaid_leave_days"] += 1.0
+            elif status_code == "OFF":
+                pass
+            else:
+                summary["worked_days"] += 1.0
+
+            summary["meal_amount"] += _to_float(row.meal_allowance_daily)
+
+        return render_template(
+            "salary_meal_employee_detail.html",
+            month_key=month_key,
+            period=period,
+            period_title=period_title,
+            period_label=period_label,
+            search_query=search_query,
+            employee=employee,
+            details=detail_rows,
+            summary={
+                "worked_days": round(summary["worked_days"], 2),
+                "paid_leave_days": round(summary["paid_leave_days"], 2),
+                "unpaid_leave_days": round(summary["unpaid_leave_days"], 2),
+                "meal_amount": round(summary["meal_amount"], 2),
+            },
         )
 
     @app.route("/salaries/import", methods=["POST"])
