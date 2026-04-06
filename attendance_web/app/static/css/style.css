@@ -79,6 +79,10 @@ body {
     display: grid;
     grid-template-columns: 290px minmax(0, 1fr);
     overflow: hidden;
+    transition: none;
+}
+
+.layout[data-sidebar-init="1"] {
     transition: grid-template-columns 0.22s ease;
 }
 
@@ -1301,6 +1305,80 @@ tr.employee-divider td {
     width: auto;
 }
 
+.shift-edit-shell {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.shift-edit-table-form {
+    display: grid;
+    gap: 12px;
+}
+
+.shift-edit-table {
+    width: 100%;
+    border: 1px solid #dbe3ee;
+    border-radius: 12px;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.shift-edit-table th,
+.shift-edit-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.shift-edit-table tr:last-child th,
+.shift-edit-table tr:last-child td {
+    border-bottom: none;
+}
+
+.shift-edit-table th {
+    width: 230px;
+    text-align: left;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #334155;
+    background: #f8fafc;
+}
+
+.shift-edit-table th label {
+    font-size: inherit;
+    color: inherit;
+}
+
+.shift-edit-table input[readonly] {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #334155;
+}
+
+.shift-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.shift-edit-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.shift-edit-actions button {
+    width: auto;
+}
+
+.shift-edit-danger-zone {
+    margin-top: 4px;
+}
+
 .row-actions {
     white-space: nowrap;
 }
@@ -1313,6 +1391,26 @@ tr.employee-divider td {
     width: auto;
     margin-left: 8px;
     padding: 6px 10px;
+}
+
+@media (max-width: 760px) {
+    .shift-edit-table,
+    .shift-edit-table tbody,
+    .shift-edit-table tr,
+    .shift-edit-table th,
+    .shift-edit-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .shift-edit-table th {
+        border-bottom: none;
+        padding-bottom: 6px;
+    }
+
+    .shift-edit-table td {
+        padding-top: 6px;
+    }
 }
 
 .details-filter-layout {

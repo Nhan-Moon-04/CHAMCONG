@@ -1,11 +1,58 @@
-# Deploy Ubuntu 24 - Port 8080 - Auto Start
+# REBUILD TU DAU UBUNTU 24
 
-Huong dan nay dung cho source:
+Muc tieu:
+- Xoa sach toan bo repo CHAMCONG cu.
+- Xoa sach Docker cu (containers, images, volumes, cache, package docker).
+- Cai lai tu dau va deploy lai du an CHAMCONG o port 8080.
+
+Source:
 - https://github.com/Nhan-Moon-04/CHAMCONG
 
-## 1) Cai Docker va Git
+## 0) Canh bao
 
-Chay tren Ubuntu 24:
+Huong dan nay co buoc XOA SACH DU LIEU Docker va source code cu.
+
+Neu can giu file backup cua app, copy ra ngoai truoc khi xoa.
+
+## 1) Backup tuy chon truoc khi wipe
+
+```bash
+sudo mkdir -p /root/chamcong_backup
+if [ -d /opt/CHAMCONG/attendance_web/backups ]; then sudo cp -a /opt/CHAMCONG/attendance_web/backups /root/chamcong_backup/; fi
+ls -la /root/chamcong_backup
+```
+
+## 2) Stop stack cu neu con ton tai
+
+```bash
+if [ -f /opt/CHAMCONG/attendance_web/docker-compose.yml ]; then cd /opt/CHAMCONG/attendance_web; sudo docker compose down --remove-orphans; fi
+sudo docker rm -f attendance_web attendance_db 2>/dev/null || true
+sudo docker volume rm attendance_web_postgres_data 2>/dev/null || true
+sudo docker network rm attendance_web_default 2>/dev/null || true
+```
+
+## 3) Xoa repo CHAMCONG cu
+
+```bash
+sudo rm -rf /opt/CHAMCONG
+```
+
+## 4) Go Docker cu hoan toan (wipe)
+
+```bash
+sudo systemctl stop docker docker.socket 2>/dev/null || true
+sudo apt purge -y docker.io docker-compose-v2 docker-buildx-plugin containerd runc
+sudo apt autoremove -y --purge
+sudo rm -rf /var/lib/docker /var/lib/containerd /etc/docker
+```
+
+Neu muon xoa sach hon nua (toan bo cache apt):
+
+```bash
+sudo apt clean
+```
+
+## 5) Cai lai Docker va Git
 
 ```bash
 sudo apt update
@@ -13,16 +60,11 @@ sudo apt install -y docker.io docker-compose-v2 git
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
 newgrp docker
-```
-
-Kiem tra:
-
-```bash
 docker --version
 docker compose version
 ```
 
-## 2) Clone source
+## 6) Clone source lai tu dau
 
 ```bash
 sudo mkdir -p /opt
@@ -32,76 +74,58 @@ sudo chown -R $USER:$USER /opt/CHAMCONG
 cd /opt/CHAMCONG/attendance_web
 ```
 
-## 3) Tao file env
+## 7) Tao file .env va dat bien dung
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Cap nhat cac bien quan trong:
-- SECRET_KEY=0989057191
-- LOGIN_USERNAME=admin
-- LOGIN_PASSWORD=123456
-- APP_TIMEZONE=Asia/Ho_Chi_Minh
-- BACKUP_TARGET_DIR=/app/backups
+Dat it nhat cac bien sau (quan trong nhat la password phai dong bo):
 
-Neu ban muon doi tai khoan DB thi sua them DATABASE_URL.
+```dotenv
+SECRET_KEY=0989057191
+APP_NAME=HIEP LOI
+LOGIN_USERNAME=admin
+LOGIN_PASSWORD=123456
 
-## 3.1) PostgreSQL o dau?
+POSTGRES_DB=attendance_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/attendance_db
 
-Ban KHONG can cai PostgreSQL tren host Ubuntu khi deploy theo cach nay.
-
-PostgreSQL da nam trong docker-compose voi service `db` (image `postgres:16`).
-Khi chay `docker compose up -d --build`, he thong se len ca:
-- container DB: attendance_db
-- container Web: attendance_web
-
-Kiem tra DB container:
-
-```bash
-docker compose ps db
-docker compose logs -f db
+BACKUP_TARGET_DIR=/app/backups
+BACKUP_RETENTION_DAYS=30
+ENABLE_BACKUP_SCHEDULER=1
+APP_TIMEZONE=Asia/Ho_Chi_Minh
 ```
 
-## 4) Chay web o port 8080
+Luu y:
+- POSTGRES_PASSWORD trong .env phai giong password trong DATABASE_URL.
 
-Trong file docker-compose.yml, sua mapping port tu:
-- "5000:5000"
-thanh:
-- "8080:5000"
-
-Lenh sua nhanh:
+## 8) Chuyen app ra port 8080
 
 ```bash
 sed -i 's/"5000:5000"/"8080:5000"/' docker-compose.yml
+grep -n "8080:5000" docker-compose.yml
 ```
 
-## 5) Build va run
+## 9) Build va run lai hoan toan
 
 ```bash
 docker compose up -d --build
-```
-
-Lenh tren se build web image va chay dong thoi ca `db` + `web`.
-
-Kiem tra trang thai:
-
-```bash
 docker compose ps
+docker compose logs -f db
 docker compose logs -f web
 ```
 
-Test local tren server:
+Test nhanh tren server:
 
 ```bash
 curl -I http://127.0.0.1:8080/login
 ```
 
-Truy cap tu may ngoai:
-- http://IP_SERVER:8080/login
-
-## 6) Mo firewall port 8080 (neu dung UFW)
+## 10) Mo firewall port 8080 (neu dung UFW)
 
 ```bash
 sudo ufw allow 8080/tcp
@@ -109,92 +133,39 @@ sudo ufw reload
 sudo ufw status
 ```
 
-## 7) Auto start sau reboot
+## 11) Kiem tra loi password DB neu web restart loop
 
-Compose file da co:
-- restart: unless-stopped
+Kiem tra bien dang su dung thuc te:
 
-Chi can dam bao docker service auto start:
+```bash
+docker compose config | grep -E "POSTGRES_DB|POSTGRES_USER|POSTGRES_PASSWORD|DATABASE_URL"
+```
+
+Neu van bao password authentication failed, doi password user postgres trong DB cho khop:
+
+```bash
+docker compose exec -u postgres db psql -d postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+docker compose restart web
+docker compose logs -f web
+```
+
+## 12) Lenh quan ly nhanh sau khi deploy
+
+```bash
+docker compose stop
+docker compose start
+docker compose restart
+docker compose logs -f web
+docker compose logs -f db
+```
+
+## 13) Auto start sau reboot
+
+Compose service da co restart unless-stopped.
+
+Chi can dam bao docker daemon auto start:
 
 ```bash
 sudo systemctl enable docker
 sudo systemctl status docker
 ```
-
-Sau khi reboot, containers se tu len lai.
-
-## 8) Update code khi da deploy
-
-```bash
-cd /opt/CHAMCONG
-git pull
-cd attendance_web
-docker compose up -d --build
-```
-
-## 9) Lenh quan ly nhanh
-
-Dung app:
-
-```bash
-docker compose stop
-```
-
-Chay lai:
-
-```bash
-docker compose start
-```
-
-Khoi dong lai:
-
-```bash
-docker compose restart
-```
-
-Xem log web:
-
-```bash
-docker compose logs -f web
-```
-
-## 10) Luu y backup
-
-App co scheduler backup luc 17:00 moi ngay. Backup duoc ghi vao thu muc:
-- attendance_web/backups
-
-Neu log bao loi "pg_dump: not found" thi can them postgresql-client vao Dockerfile web image.
-
-## 11) Khac phuc loi OperationalError (Docker PostgreSQL)
-
-Neu gap loi ngan han:
-- `OperationalError: terminating connection due to administrator command`
-
-Day la luc container DB vua restart/redeploy. Ban moi da bat san pool settings de app tu loai ket noi cu.
-- Thu tai lai trang 1 lan.
-- Kiem tra log:
-
-```bash
-docker compose logs -f db
-docker compose logs -f web
-```
-
-Neu gap loi:
-- `password authentication failed for user "postgres"`
-
-Nguyen nhan pho bien: da doi password trong env sau khi volume `postgres_data` duoc tao truoc do.
-
-Kiem tra config thuc te:
-
-```bash
-docker compose config
-```
-
-Dong bo lai password ngay trong DB (giu du lieu):
-
-```bash
-docker compose exec db psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-docker compose restart web
-```
-
-Neu chi la moi truong test va chap nhan mat du lieu, co the xoa volume roi tao lai.

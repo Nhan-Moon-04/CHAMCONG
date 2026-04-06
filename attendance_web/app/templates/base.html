@@ -17,7 +17,25 @@
     <div class="bg-glow bg-glow-bottom"></div>
 
     {% if is_authenticated %}
-    <div class="layout">
+    <div class="layout" id="app-layout" data-sidebar-init="0">
+        <script>
+            (function () {
+                const layout = document.getElementById("app-layout");
+                if (!layout) {
+                    return;
+                }
+
+                try {
+                    const collapsed = localStorage.getItem("attendance_sidebar_collapsed") === "1";
+                    const isMobile = window.matchMedia("(max-width: 980px)").matches;
+                    if (collapsed && !isMobile) {
+                        layout.classList.add("sidebar-collapsed");
+                    }
+                } catch (error) {
+                    // Ignore storage/media query errors.
+                }
+            })();
+        </script>
         <aside class="sidebar">
             <div class="sidebar-head">
                 <div class="brand-block">
@@ -97,6 +115,66 @@
         </aside>
 
         <main class="main-content{% if request.endpoint %} page-{{ request.endpoint|replace('_', '-') }}{% endif %}">
+            <script>
+                (function () {
+                    const layout = document.getElementById("app-layout");
+                    const toggleButton = document.getElementById("sidebar-toggle-btn");
+                    const toggleIcon = document.getElementById("sidebar-toggle-icon");
+
+                    if (!layout || !toggleButton || !toggleIcon) {
+                        return;
+                    }
+
+                    const storageKey = "attendance_sidebar_collapsed";
+                    const mobileQuery = window.matchMedia("(max-width: 980px)");
+
+                    function readStoredState() {
+                        try {
+                            return localStorage.getItem(storageKey) === "1";
+                        } catch (error) {
+                            return false;
+                        }
+                    }
+
+                    function writeStoredState(collapsed) {
+                        try {
+                            localStorage.setItem(storageKey, collapsed ? "1" : "0");
+                        } catch (error) {
+                            // Ignore storage errors.
+                        }
+                    }
+
+                    function applyState(collapsed, persist) {
+                        layout.classList.toggle("sidebar-collapsed", collapsed);
+                        toggleIcon.classList.toggle("bi-chevron-left", !collapsed);
+                        toggleIcon.classList.toggle("bi-chevron-right", collapsed);
+                        toggleButton.setAttribute("aria-expanded", String(!collapsed));
+                        toggleButton.setAttribute("aria-label", collapsed ? "Mở rộng menu" : "Thu gọn menu");
+                        toggleButton.title = collapsed ? "Mở rộng menu" : "Thu gọn menu";
+
+                        if (persist) {
+                            writeStoredState(collapsed);
+                        }
+                    }
+
+                    applyState(!mobileQuery.matches && readStoredState(), false);
+                    layout.setAttribute("data-sidebar-init", "1");
+
+                    toggleButton.addEventListener("click", function () {
+                        const collapsed = layout.classList.contains("sidebar-collapsed");
+                        applyState(!collapsed, true);
+                    });
+
+                    mobileQuery.addEventListener("change", function (event) {
+                        if (event.matches) {
+                            applyState(false, false);
+                            return;
+                        }
+
+                        applyState(readStoredState(), false);
+                    });
+                })();
+            </script>
     {% else %}
     <main class="auth-layout">
     {% endif %}
@@ -120,64 +198,5 @@
     </main>
     {% endif %}
 
-    <script>
-        (function () {
-            const layout = document.querySelector(".layout");
-            const toggleButton = document.getElementById("sidebar-toggle-btn");
-            const toggleIcon = document.getElementById("sidebar-toggle-icon");
-
-            if (!layout || !toggleButton || !toggleIcon) {
-                return;
-            }
-
-            const storageKey = "attendance_sidebar_collapsed";
-            const mobileQuery = window.matchMedia("(max-width: 980px)");
-
-            function readStoredState() {
-                try {
-                    return localStorage.getItem(storageKey) === "1";
-                } catch (error) {
-                    return false;
-                }
-            }
-
-            function writeStoredState(collapsed) {
-                try {
-                    localStorage.setItem(storageKey, collapsed ? "1" : "0");
-                } catch (error) {
-                    // Ignore storage errors.
-                }
-            }
-
-            function applyState(collapsed, persist) {
-                layout.classList.toggle("sidebar-collapsed", collapsed);
-                toggleIcon.classList.toggle("bi-chevron-left", !collapsed);
-                toggleIcon.classList.toggle("bi-chevron-right", collapsed);
-                toggleButton.setAttribute("aria-expanded", String(!collapsed));
-                toggleButton.setAttribute("aria-label", collapsed ? "Mở rộng menu" : "Thu gọn menu");
-                toggleButton.title = collapsed ? "Mở rộng menu" : "Thu gọn menu";
-
-                if (persist) {
-                    writeStoredState(collapsed);
-                }
-            }
-
-            applyState(!mobileQuery.matches && readStoredState(), false);
-
-            toggleButton.addEventListener("click", function () {
-                const collapsed = layout.classList.contains("sidebar-collapsed");
-                applyState(!collapsed, true);
-            });
-
-            mobileQuery.addEventListener("change", function (event) {
-                if (event.matches) {
-                    applyState(false, false);
-                    return;
-                }
-
-                applyState(readStoredState(), false);
-            });
-        })();
-    </script>
 </body>
 </html>
