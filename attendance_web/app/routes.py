@@ -1630,60 +1630,6 @@ def register_routes(app):
 
             summary["overtime_hours"] += _to_float(row.overtime_hours)
 
-        def _build_meal_period_rows(period_start, period_end):
-            meal_summary_map = {
-                row.id: {
-                    "employee": row,
-                    "worked_days": 0.0,
-                    "paid_leave_days": 0.0,
-                    "unpaid_leave_days": 0.0,
-                    "meal_amount": 0.0,
-                    "details": [],
-                }
-                for row in employees
-            }
-
-            for detail_row in detail_rows:
-                if not detail_row.employee:
-                    continue
-                if detail_row.work_date < period_start or detail_row.work_date > period_end:
-                    continue
-
-                meal_summary = meal_summary_map.get(detail_row.employee_id)
-                if not meal_summary:
-                    meal_summary = {
-                        "employee": detail_row.employee,
-                        "worked_days": 0.0,
-                        "paid_leave_days": 0.0,
-                        "unpaid_leave_days": 0.0,
-                        "meal_amount": 0.0,
-                        "details": [],
-                    }
-                    meal_summary_map[detail_row.employee_id] = meal_summary
-
-                _apply_status(meal_summary, detail_row.status_code)
-                meal_summary["meal_amount"] += _to_float(detail_row.meal_allowance_daily)
-                meal_summary["details"].append(detail_row)
-
-            meal_rows = []
-            for employee_id, meal_summary in meal_summary_map.items():
-                meal_rows.append(
-                    {
-                        "employee_id": employee_id,
-                        "employee": meal_summary["employee"],
-                        "worked_days": round(meal_summary["worked_days"], 2),
-                        "paid_leave_days": round(meal_summary["paid_leave_days"], 2),
-                        "unpaid_leave_days": round(meal_summary["unpaid_leave_days"], 2),
-                        "meal_amount": round(meal_summary["meal_amount"], 2),
-                        "details": meal_summary["details"],
-                    }
-                )
-
-            meal_rows.sort(
-                key=lambda item: _employee_code_sort_key(item["employee"].employee_code)
-            )
-            return meal_rows
-
         employee_ids = list(summary_map.keys())
 
         salary_by_employee = {}
@@ -1750,16 +1696,14 @@ def register_routes(app):
 
         meal_periods = [
             {
-                "key": "meal-period-1",
+                "period": "1",
                 "label": "Tiền ăn đợt 1",
                 "date_label": f"{start_date.strftime('%d/%m')} - {period_1_end.strftime('%d/%m')}",
-                "rows": _build_meal_period_rows(start_date, period_1_end),
             },
             {
-                "key": "meal-period-2",
+                "period": "2",
                 "label": "Tiền ăn đợt 2",
                 "date_label": f"{period_2_start.strftime('%d/%m')} - {end_date.strftime('%d/%m')}",
-                "rows": _build_meal_period_rows(period_2_start, end_date),
             },
         ]
 
@@ -1786,6 +1730,124 @@ def register_routes(app):
 
             overview_rows = [item for item in overview_rows if _match_overview(item)]
 
+        return render_template(
+            "salary_overview.html",
+            month_key=month_key,
+            company_work_days=round(company_work_days, 2),
+            search_query=search_query,
+            overview_rows=overview_rows,
+            meal_periods=meal_periods,
+        )
+
+    @app.route("/salary-overview/meal")
+    def salary_overview_meal():
+        month_key = _safe_month_key(request.args.get("month"))
+        period_raw = (request.args.get("period") or "1").strip()
+        period = 2 if period_raw == "2" else 1
+        search_query = (request.args.get("q") or "").strip()
+
+        employee_id_raw = (request.args.get("employee_id") or "").strip()
+        selected_employee_id = None
+        if employee_id_raw:
+            if employee_id_raw.isdigit():
+                selected_employee_id = int(employee_id_raw)
+            else:
+                flash("Nhân viên không hợp lệ", "error")
+
+        start_date, end_date = parse_month_key(month_key)
+        period_1_end = date(start_date.year, start_date.month, 15)
+        period_2_start = date(start_date.year, start_date.month, 16)
+
+        if period == 2:
+            period_start = period_2_start
+            period_end = end_date
+            period_label = f"{period_start.strftime('%d/%m')} - {period_end.strftime('%d/%m')}"
+            period_title = "Tiền ăn đợt 2"
+        else:
+            period_start = start_date
+            period_end = period_1_end
+            period_label = f"{period_start.strftime('%d/%m')} - {period_end.strftime('%d/%m')}"
+            period_title = "Tiền ăn đợt 1"
+
+        employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.employee_code.asc()).all()
+        meal_summary_map = {
+            row.id: {
+                "employee": row,
+                "worked_days": 0.0,
+                "paid_leave_days": 0.0,
+                "unpaid_leave_days": 0.0,
+                "meal_amount": 0.0,
+                "details": [],
+            }
+            for row in employees
+        }
+
+        detail_rows = (
+            AttendanceDetail.query.options(joinedload(AttendanceDetail.employee))
+            .filter(
+                AttendanceDetail.month_key == month_key,
+                AttendanceDetail.work_date >= period_start,
+                AttendanceDetail.work_date <= period_end,
+            )
+            .order_by(AttendanceDetail.employee_id.asc(), AttendanceDetail.work_date.asc())
+            .all()
+        )
+
+        def _apply_status(summary_obj, status_code):
+            normalized = str(status_code or "").upper()
+            if normalized == "P":
+                summary_obj["paid_leave_days"] += 1.0
+            elif normalized in {"S", "C"}:
+                summary_obj["paid_leave_days"] += 0.5
+                summary_obj["worked_days"] += 0.5
+            elif normalized == "N":
+                summary_obj["unpaid_leave_days"] += 1.0
+            elif normalized == "OFF":
+                return
+            else:
+                summary_obj["worked_days"] += 1.0
+
+        for detail_row in detail_rows:
+            if not detail_row.employee:
+                continue
+
+            meal_summary = meal_summary_map.get(detail_row.employee_id)
+            if not meal_summary:
+                meal_summary = {
+                    "employee": detail_row.employee,
+                    "worked_days": 0.0,
+                    "paid_leave_days": 0.0,
+                    "unpaid_leave_days": 0.0,
+                    "meal_amount": 0.0,
+                    "details": [],
+                }
+                meal_summary_map[detail_row.employee_id] = meal_summary
+
+            _apply_status(meal_summary, detail_row.status_code)
+            meal_summary["meal_amount"] += _to_float(detail_row.meal_allowance_daily)
+            meal_summary["details"].append(detail_row)
+
+        meal_rows = []
+        for employee_id, meal_summary in meal_summary_map.items():
+            meal_rows.append(
+                {
+                    "employee_id": employee_id,
+                    "employee": meal_summary["employee"],
+                    "worked_days": round(meal_summary["worked_days"], 2),
+                    "paid_leave_days": round(meal_summary["paid_leave_days"], 2),
+                    "unpaid_leave_days": round(meal_summary["unpaid_leave_days"], 2),
+                    "meal_amount": round(meal_summary["meal_amount"], 2),
+                    "details": meal_summary["details"],
+                }
+            )
+
+        meal_rows.sort(
+            key=lambda item: _employee_code_sort_key(item["employee"].employee_code)
+        )
+
+        if search_query:
+            search_text = search_query.lower()
+
             def _match_meal_row(item):
                 values = [
                     item["employee"].employee_code,
@@ -1801,16 +1863,28 @@ def register_routes(app):
                     if value is not None
                 )
 
-            for period in meal_periods:
-                period["rows"] = [row for row in period["rows"] if _match_meal_row(row)]
+            meal_rows = [item for item in meal_rows if _match_meal_row(item)]
+
+        selected_employee_row = None
+        if selected_employee_id is not None:
+            for row in meal_rows:
+                if row["employee_id"] == selected_employee_id:
+                    selected_employee_row = row
+                    break
+
+            if not selected_employee_row:
+                flash("Không tìm thấy nhân viên trong danh sách đợt này", "error")
 
         return render_template(
-            "salary_overview.html",
+            "salary_meal_period.html",
             month_key=month_key,
-            company_work_days=round(company_work_days, 2),
+            period=period,
+            period_title=period_title,
+            period_label=period_label,
             search_query=search_query,
-            overview_rows=overview_rows,
-            meal_periods=meal_periods,
+            meal_rows=meal_rows,
+            selected_employee_id=selected_employee_id,
+            selected_employee_row=selected_employee_row,
         )
 
     @app.route("/salaries/import", methods=["POST"])

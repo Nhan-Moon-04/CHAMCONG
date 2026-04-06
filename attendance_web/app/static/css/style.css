@@ -661,6 +661,10 @@ a:hover {
     width: auto;
 }
 
+.meal-period-actions .button-link {
+    width: auto;
+}
+
 .advances-search-form {
     display: grid;
     grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr) auto minmax(220px, 260px) auto auto;
@@ -801,6 +805,14 @@ a:hover {
 
 .meal-inner-table {
     min-width: 1080px;
+}
+
+tr.meal-selected-row td {
+    background: #e2ecff;
+}
+
+tr.meal-selected-row:hover td {
+    background: #d6e4ff;
 }
 
 #schedules-table-panel .table-wrap {
@@ -1361,6 +1373,10 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
     }
 
     .meal-period-actions button {
+        width: 100%;
+    }
+
+    .meal-period-actions .button-link {
         width: 100%;
     }
 

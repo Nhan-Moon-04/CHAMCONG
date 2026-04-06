@@ -33,17 +33,12 @@
     <h3>Tính tiền ăn theo đợt chốt tháng</h3>
     <div class="meal-period-actions">
         {% for period in meal_periods %}
-        <button
-            type="button"
-            class="secondary meal-period-toggle"
-            data-target="{{ period.key }}"
-            aria-expanded="false"
-        >
+        <a class="button-link button-link-secondary" href="{{ url_for('salary_overview_meal', month=month_key, period=period.period, q=search_query or None) }}">
             {{ period.label }} ({{ period.date_label }})
-        </button>
+        </a>
         {% endfor %}
     </div>
-    <p class="muted">Bấm nút đợt 1 hoặc đợt 2 để hiện bảng tiền ăn theo kỳ chốt.</p>
+    <p class="muted">Bấm nút đợt 1 hoặc đợt 2 để mở trang chi tiết tiền ăn theo đợt.</p>
 </section>
 
 <section class="panel data-panel" id="salary-overview-panel">
@@ -91,90 +86,6 @@
     </div>
 </section>
 
-{% for period in meal_periods %}
-<section class="panel data-panel meal-period-panel" id="{{ period.key }}" hidden>
-    <div class="dashboard-panel-head">
-        <h3>{{ period.label }} ({{ period.date_label }})</h3>
-        <span class="panel-caption">Bấm vào tên để xem chi tiết ca + tiền ăn từng ngày.</span>
-    </div>
-    <div class="table-wrap">
-        <table class="meal-period-table">
-            <thead>
-                <tr>
-                    <th>STT</th>
-                    <th>Họ tên</th>
-                    <th>Số ngày làm</th>
-                    <th>Số ngày nghỉ có phép</th>
-                    <th>Số ngày nghỉ không phép</th>
-                    <th>Số tiền ăn</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in period.rows %}
-                <tr class="meal-summary-row" data-target-key="{{ period.key }}" data-employee-id="{{ row.employee_id }}">
-                    <td>{{ loop.index }}</td>
-                    <td>
-                        <button type="button" class="meal-name-toggle" data-target-key="{{ period.key }}" data-employee-id="{{ row.employee_id }}">
-                            {{ row.employee.full_name }}
-                        </button>
-                        <div class="muted">{{ row.employee.employee_code }}</div>
-                    </td>
-                    <td>{{ "%.2f"|format(row.worked_days) }}</td>
-                    <td>{{ "%.2f"|format(row.paid_leave_days) }}</td>
-                    <td>{{ "%.2f"|format(row.unpaid_leave_days) }}</td>
-                    <td>{{ "{:,.0f}".format(row.meal_amount) }}</td>
-                </tr>
-                <tr class="meal-detail-row" data-target-key="{{ period.key }}" data-employee-id="{{ row.employee_id }}" hidden>
-                    <td colspan="6">
-                        {% if row.details %}
-                        <div class="table-wrap meal-inner-wrap">
-                            <table class="meal-inner-table">
-                                <thead>
-                                    <tr>
-                                        <th>Ngày</th>
-                                        <th>Mã ca</th>
-                                        <th>Giờ vào</th>
-                                        <th>Giờ ra</th>
-                                        <th>Giờ thực</th>
-                                        <th>Tăng ca</th>
-                                        <th>Số giờ</th>
-                                        <th>Tiền ăn</th>
-                                        <th>Ghi chú</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for detail in row.details %}
-                                    <tr>
-                                        <td>{{ detail.work_date }}</td>
-                                        <td>{{ detail.shift_code }}</td>
-                                        <td>{{ detail.check_in.strftime('%Y-%m-%d %H:%M') if detail.check_in else '-' }}</td>
-                                        <td>{{ detail.check_out.strftime('%Y-%m-%d %H:%M') if detail.check_out else '-' }}</td>
-                                        <td>{{ "%.2f"|format(detail.actual_work_hours) }}</td>
-                                        <td>{{ "%.2f"|format(detail.overtime_hours) }}</td>
-                                        <td>{{ "%.2f"|format(detail.paid_hours) }}</td>
-                                        <td>{{ "{:,.0f}".format(detail.meal_allowance_daily) }}</td>
-                                        <td>{{ detail.notes or '-' }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% else %}
-                        <p class="muted">Không có dữ liệu ca làm trong đợt này.</p>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6">Không có dữ liệu tiền ăn cho đợt này.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-{% endfor %}
-
 <script>
 (() => {
     const maskButtons = document.querySelectorAll(".salary-mask-toggle");
@@ -199,52 +110,6 @@
                 value.textContent = value.getAttribute("data-real-value") || "0";
                 button.textContent = "Ẩn";
                 button.setAttribute("aria-expanded", "true");
-            }
-        });
-    });
-
-    const mealPanelButtons = document.querySelectorAll(".meal-period-toggle");
-    mealPanelButtons.forEach((button) => {
-        const targetId = button.getAttribute("data-target");
-        const panel = targetId ? document.getElementById(targetId) : null;
-        if (!panel) {
-            return;
-        }
-
-        button.addEventListener("click", () => {
-            const hidden = panel.hasAttribute("hidden");
-            if (hidden) {
-                panel.removeAttribute("hidden");
-                button.setAttribute("aria-expanded", "true");
-            } else {
-                panel.setAttribute("hidden", "hidden");
-                button.setAttribute("aria-expanded", "false");
-            }
-        });
-    });
-
-    const mealNameButtons = document.querySelectorAll(".meal-name-toggle");
-    mealNameButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-            const employeeId = button.getAttribute("data-employee-id");
-            const targetKey = button.getAttribute("data-target-key");
-            if (!employeeId || !targetKey) {
-                return;
-            }
-
-            const detailSelector = `.meal-detail-row[data-target-key="${targetKey}"][data-employee-id="${employeeId}"]`;
-            const detailRow = document.querySelector(detailSelector);
-            if (!detailRow) {
-                return;
-            }
-
-            const isHidden = detailRow.hasAttribute("hidden");
-            if (isHidden) {
-                detailRow.removeAttribute("hidden");
-                button.classList.add("expanded");
-            } else {
-                detailRow.setAttribute("hidden", "hidden");
-                button.classList.remove("expanded");
             }
         });
     });
