@@ -645,7 +645,7 @@ a:hover {
 
 .salary-overview-search-form {
     display: grid;
-    grid-template-columns: minmax(280px, 1fr) auto auto;
+    grid-template-columns: minmax(220px, 260px) minmax(280px, 1fr) auto auto;
     gap: 8px;
     align-items: end;
 }

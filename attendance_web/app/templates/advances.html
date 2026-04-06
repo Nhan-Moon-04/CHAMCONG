@@ -89,10 +89,10 @@
             <input type="hidden" name="view_advance_filter" value="{{ advance_filter or 'all' }}">
             <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
 
-            <select name="employee_id" required>
+            <select name="employee_id" id="advance-employee-select" required>
                 <option value="">Chọn nhân viên</option>
                 {% for row in employees %}
-                <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
+                <option value="{{ row.id }}" data-name="{{ row.full_name or '' }}" title="Mã NV: {{ row.employee_code }}">{{ row.full_name or row.employee_code }}</option>
                 {% endfor %}
             </select>
 
@@ -118,6 +118,7 @@
             <input type="text" name="notes" placeholder="Ghi chú giao dịch">
             <button type="submit">Thêm ứng tiền</button>
         </form>
+        <p class="muted">Mẹo: tại ô Chọn nhân viên, gõ chữ cái đầu của họ để nhảy nhanh (ví dụ: N cho NGUYEN, L cho LE).</p>
         <p class="muted">Nếu ứng theo ngày công, hệ thống tự quy đổi tiền theo lương tháng và công chuẩn của tháng tương ứng.</p>
         <p class="muted">Nếu để trống ngày ứng, hệ thống tự lấy ngày hiện tại.</p>
         <p class="muted">Hệ thống chặn khi tổng ứng vượt lương tháng; nếu vượt mốc 10% lương sẽ chỉ cảnh báo để bạn quyết định.</p>
@@ -295,6 +296,7 @@
         const daysInput = createForm.elements["advance_days"];
         const amountWrap = document.getElementById("advance-amount-wrap");
         const daysWrap = document.getElementById("advance-days-wrap");
+        const employeeSelect = createForm.elements["employee_id"];
 
         const syncMode = () => {
             const mode = (modeSelect.value || "amount").toLowerCase();
@@ -323,6 +325,79 @@
 
         modeSelect.addEventListener("change", syncMode);
         syncMode();
+
+        if (employeeSelect) {
+            const TYPEAHEAD_RESET_MS = 900;
+            let typeaheadBuffer = "";
+            let lastTypeaheadAt = 0;
+
+            const normalizeName = (value) => {
+                return String(value || "")
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .trim()
+                    .toUpperCase();
+            };
+
+            const findOptionIndex = (prefix, startIndex) => {
+                for (let i = startIndex; i < employeeSelect.options.length; i += 1) {
+                    const option = employeeSelect.options[i];
+                    if (!option || !option.value) {
+                        continue;
+                    }
+
+                    const optionName = normalizeName(option.getAttribute("data-name") || option.textContent);
+                    const optionSurname = optionName.split(/\s+/).filter(Boolean)[0] || optionName;
+                    if (optionSurname.startsWith(prefix)) {
+                        return i;
+                    }
+                }
+                return -1;
+            };
+
+            employeeSelect.addEventListener("keydown", (event) => {
+                if (event.ctrlKey || event.metaKey || event.altKey) {
+                    return;
+                }
+                if (event.key.length !== 1) {
+                    return;
+                }
+
+                const typed = normalizeName(event.key);
+                if (!typed) {
+                    return;
+                }
+
+                const now = Date.now();
+                if (now - lastTypeaheadAt > TYPEAHEAD_RESET_MS) {
+                    typeaheadBuffer = "";
+                }
+                lastTypeaheadAt = now;
+                typeaheadBuffer += typed;
+
+                const firstValidIndex = 1;
+                const nextIndex = Math.max(employeeSelect.selectedIndex + 1, firstValidIndex);
+
+                let targetIndex = findOptionIndex(typeaheadBuffer, nextIndex);
+                if (targetIndex < 0) {
+                    targetIndex = findOptionIndex(typeaheadBuffer, firstValidIndex);
+                }
+
+                if (targetIndex < 0 && typeaheadBuffer.length > 1) {
+                    typeaheadBuffer = typed;
+                    targetIndex = findOptionIndex(typeaheadBuffer, nextIndex);
+                    if (targetIndex < 0) {
+                        targetIndex = findOptionIndex(typeaheadBuffer, firstValidIndex);
+                    }
+                }
+
+                if (targetIndex >= 0) {
+                    employeeSelect.selectedIndex = targetIndex;
+                    employeeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                    event.preventDefault();
+                }
+            });
+        }
     }
 
     const table = document.getElementById("advances-table");

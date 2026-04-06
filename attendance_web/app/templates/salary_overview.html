@@ -3,12 +3,17 @@
 <section class="panel page-toolbar">
     <div>
         <h2>Tổng quan lương theo tháng</h2>
+        {% if search_scope == 'all' %}
+        <p class="muted">Phạm vi đang xem: <strong>Tất cả tháng</strong> | Tháng mặc định: <strong>{{ month_key }}</strong></p>
+        {% else %}
         <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong> | Hệ số công chuẩn công ty: <strong>{{ company_work_days }}</strong></p>
+        {% endif %}
     </div>
     <div class="toolbar-actions">
         <form method="get" class="toolbar-month-form">
             <label for="overview-month">Tháng</label>
             <input id="overview-month" type="month" name="month" value="{{ month_key }}">
+            <input type="hidden" name="scope" value="{{ search_scope }}">
             {% if search_query %}
             <input type="hidden" name="q" value="{{ search_query }}">
             {% endif %}
@@ -20,13 +25,26 @@
 <section class="panel soft-panel">
     <form method="get" class="salary-overview-search-form">
         <input type="hidden" name="month" value="{{ month_key }}">
+        <div class="scope-choice">
+            <label>
+                <input type="radio" name="scope" value="current" {% if search_scope != 'all' %}checked{% endif %}>
+                Tháng hiện tại
+            </label>
+            <label>
+                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                Tất cả tháng
+            </label>
+        </div>
         <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo họ tên, mã NV, ngày công, nghỉ phép, tăng ca, tiền ứng, tiền lương, tiền ăn">
         <button type="submit">Tìm kiếm</button>
-        {% if search_query %}
+        {% if search_query or search_scope == 'all' %}
+            {% if search_scope == 'all' %}
+        <a class="button-link button-link-secondary" href="{{ url_for('salary_overview', month=month_key, scope='all') }}">Xóa lọc</a>
+            {% else %}
         <a class="button-link button-link-secondary" href="{{ url_for('salary_overview', month=month_key) }}">Xóa lọc</a>
+            {% endif %}
         {% endif %}
     </form>
-    <p class="muted">Quy đổi tăng ca: cứ đủ 8 giờ tăng ca = 1 ngày công.</p>
 </section>
 
 <section class="panel soft-panel">
@@ -47,6 +65,9 @@
             <thead>
                 <tr>
                     <th>STT</th>
+                    {% if search_scope == 'all' %}
+                    <th>Tháng</th>
+                    {% endif %}
                     <th>Họ tên</th>
                     <th>Số ngày làm</th>
                     <th>Số ngày nghỉ có phép</th>
@@ -77,8 +98,11 @@
                 {% for item in overview_rows %}
                 <tr>
                     <td>{{ loop.index }}</td>
+                    {% if search_scope == 'all' %}
+                    <td>{{ item.month_key }}</td>
+                    {% endif %}
                     <td>
-                        <a href="{{ url_for('employee_detail', employee_id=item.employee.id, month=month_key) }}">{{ item.employee.full_name }}</a>
+                        <a href="{{ url_for('employee_detail', employee_id=item.employee.id, month=item.month_key) }}">{{ item.employee.full_name }}</a>
                         <div class="muted">{{ item.employee.employee_code }}</div>
                     </td>
                     <td>{{ "%.2f"|format(item.worked_days) }}</td>
@@ -96,7 +120,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9">Không có dữ liệu tổng quan lương cho tháng này.</td>
+                    <td colspan="{{ 10 if search_scope == 'all' else 9 }}">Không có dữ liệu tổng quan lương theo bộ lọc hiện tại.</td>
                 </tr>
                 {% endfor %}
             </tbody>

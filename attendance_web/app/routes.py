@@ -1570,30 +1570,42 @@ def register_routes(app):
     def salary_overview():
         month_key = _safe_month_key(request.args.get("month"))
         search_query = (request.args.get("q") or "").strip()
+        search_scope = (request.args.get("scope") or "current").strip().lower()
+        if search_scope not in {"current", "all"}:
+            search_scope = "current"
+
         start_date, end_date = parse_month_key(month_key)
         period_1_end = date(start_date.year, start_date.month, 15)
         period_2_start = date(start_date.year, start_date.month, 16)
 
-        company_work_days, _ = _resolve_company_work_days(month_key)
-        if company_work_days <= 0:
-            company_work_days = 26.0
+        company_work_days_current, _ = _resolve_company_work_days(month_key)
+        if company_work_days_current <= 0:
+            company_work_days_current = 26.0
 
-        employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.employee_code.asc()).all()
-        summary_map = {
-            row.id: {
-                "employee": row,
-                "worked_days": 0.0,
-                "paid_leave_days": 0.0,
-                "unpaid_leave_days": 0.0,
-                "overtime_hours": 0.0,
-            }
-            for row in employees
-        }
+        summary_map = {}
+        if search_scope == "current":
+            employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.employee_code.asc()).all()
+            for row in employees:
+                summary_map[(month_key, row.id)] = {
+                    "month_key": month_key,
+                    "employee": row,
+                    "worked_days": 0.0,
+                    "paid_leave_days": 0.0,
+                    "unpaid_leave_days": 0.0,
+                    "overtime_hours": 0.0,
+                }
+
+        detail_query = AttendanceDetail.query.options(joinedload(AttendanceDetail.employee))
+        if search_scope == "current":
+            detail_query = detail_query.filter(AttendanceDetail.month_key == month_key)
 
         detail_rows = (
-            AttendanceDetail.query.options(joinedload(AttendanceDetail.employee))
-            .filter(AttendanceDetail.month_key == month_key)
-            .order_by(AttendanceDetail.employee_id.asc(), AttendanceDetail.work_date.asc())
+            detail_query
+            .order_by(
+                AttendanceDetail.month_key.desc(),
+                AttendanceDetail.employee_id.asc(),
+                AttendanceDetail.work_date.asc(),
+            )
             .all()
         )
 
@@ -1615,53 +1627,74 @@ def register_routes(app):
             if not row.employee:
                 continue
 
-            summary = summary_map.get(row.employee_id)
+            item_month = (row.month_key or month_key).strip()
+            summary_key = (item_month, row.employee_id)
+            summary = summary_map.get(summary_key)
             if not summary:
                 summary = {
+                    "month_key": item_month,
                     "employee": row.employee,
                     "worked_days": 0.0,
                     "paid_leave_days": 0.0,
                     "unpaid_leave_days": 0.0,
                     "overtime_hours": 0.0,
                 }
-                summary_map[row.employee_id] = summary
+                summary_map[summary_key] = summary
 
             _apply_status(summary, row.status_code)
-
             summary["overtime_hours"] += _to_float(row.overtime_hours)
 
-        employee_ids = list(summary_map.keys())
+        summary_keys = list(summary_map.keys())
+        employee_ids = sorted({employee_id for _, employee_id in summary_keys})
+        summary_month_keys = sorted({item_month for item_month, _ in summary_keys if item_month})
 
-        salary_by_employee = {}
-        if employee_ids:
+        salary_by_key = {}
+        if employee_ids and summary_month_keys:
             salary_rows = MonthlySalary.query.filter(
-                MonthlySalary.month_key == month_key,
                 MonthlySalary.employee_id.in_(employee_ids),
+                MonthlySalary.month_key.in_(summary_month_keys),
             ).all()
-            salary_by_employee = {row.employee_id: row for row in salary_rows}
+            salary_by_key = {
+                (row.month_key, row.employee_id): row
+                for row in salary_rows
+            }
 
-        advance_by_employee = {}
-        if employee_ids:
+        advance_by_key = {}
+        if employee_ids and summary_month_keys:
             advance_rows = (
                 db.session.query(
+                    AdvancePayment.month_key,
                     AdvancePayment.employee_id,
                     func.coalesce(func.sum(AdvancePayment.amount), 0),
                 )
                 .filter(
-                    AdvancePayment.month_key == month_key,
+                    AdvancePayment.month_key.in_(summary_month_keys),
                     AdvancePayment.employee_id.in_(employee_ids),
                 )
-                .group_by(AdvancePayment.employee_id)
+                .group_by(AdvancePayment.month_key, AdvancePayment.employee_id)
                 .all()
             )
-            advance_by_employee = {
-                employee_id: _to_float(total_amount)
-                for employee_id, total_amount in advance_rows
+            advance_by_key = {
+                (item_month, employee_id): _to_float(total_amount)
+                for item_month, employee_id, total_amount in advance_rows
             }
 
+        workday_by_month = {month_key: company_work_days_current}
+        if search_scope == "all" and summary_month_keys:
+            workday_rows = MonthlyWorkdayConfig.query.filter(
+                MonthlyWorkdayConfig.month_key.in_(summary_month_keys)
+            ).all()
+            workday_by_month = {
+                row.month_key: _to_float(row.company_work_days, 0)
+                for row in workday_rows
+            }
+            for item_month in summary_month_keys:
+                if _to_float(workday_by_month.get(item_month), 0) <= 0:
+                    workday_by_month[item_month] = 26.0
+
         overview_rows = []
-        for employee_id, summary in summary_map.items():
-            salary_row = salary_by_employee.get(employee_id)
+        for (item_month, employee_id), summary in summary_map.items():
+            salary_row = salary_by_key.get((item_month, employee_id))
             monthly_wage = _to_float(salary_row.base_daily_wage if salary_row else None, 0)
 
             overtime_hours = round(summary["overtime_hours"], 2)
@@ -1673,12 +1706,19 @@ def register_routes(app):
                 + summary["paid_leave_days"]
                 + (overtime_hours / 8.0)
             )
+
+            company_work_days = _to_float(workday_by_month.get(item_month), 0)
+            if company_work_days <= 0:
+                legacy_value = _to_float(salary_row.salary_coefficient if salary_row else None, 0)
+                company_work_days = legacy_value if legacy_value >= 10 else 26.0
+
             daily_rate = (monthly_wage / company_work_days) if company_work_days > 0 else 0.0
             salary_amount = round(daily_rate * salary_day_units, 2)
-            advance_amount = round(_to_float(advance_by_employee.get(employee_id), 0), 2)
+            advance_amount = round(_to_float(advance_by_key.get((item_month, employee_id), 0), 0), 2)
 
             overview_rows.append(
                 {
+                    "month_key": item_month,
                     "employee": summary["employee"],
                     "worked_days": round(summary["worked_days"], 2),
                     "paid_leave_days": round(summary["paid_leave_days"], 2),
@@ -1690,9 +1730,15 @@ def register_routes(app):
                 }
             )
 
-        overview_rows.sort(
-            key=lambda item: _employee_code_sort_key(item["employee"].employee_code)
-        )
+        if search_scope == "all":
+            overview_rows.sort(
+                key=lambda item: _employee_code_sort_key(item["employee"].employee_code)
+            )
+            overview_rows.sort(key=lambda item: item["month_key"], reverse=True)
+        else:
+            overview_rows.sort(
+                key=lambda item: _employee_code_sort_key(item["employee"].employee_code)
+            )
 
         meal_periods = [
             {
@@ -1712,6 +1758,7 @@ def register_routes(app):
 
             def _match_overview(item):
                 values = [
+                    item["month_key"],
                     item["employee"].employee_code,
                     item["employee"].full_name,
                     item["worked_days"],
@@ -1733,8 +1780,9 @@ def register_routes(app):
         return render_template(
             "salary_overview.html",
             month_key=month_key,
-            company_work_days=round(company_work_days, 2),
+            company_work_days=round(company_work_days_current, 2),
             search_query=search_query,
+            search_scope=search_scope,
             overview_rows=overview_rows,
             meal_periods=meal_periods,
         )
@@ -2283,7 +2331,7 @@ def register_routes(app):
             flash("Thao tác ứng tiền không hợp lệ", "error")
             return redirect(url_for("advances", **_build_redirect_params(month_key)))
 
-        employees = Employee.query.order_by(Employee.employee_code.asc()).all()
+        employees = Employee.query.order_by(Employee.full_name.asc(), Employee.employee_code.asc()).all()
 
         month_rows = (
             AdvancePayment.query.options(joinedload(AdvancePayment.employee))
