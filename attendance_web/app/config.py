@@ -17,7 +17,7 @@ def normalize_database_url(url):
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-key-change")
-    APP_NAME = os.getenv("APP_NAME", "HIEP LOI Workforce")
+    APP_NAME = os.getenv("APP_NAME", "HIEP LOI")
     LOGIN_USERNAME = os.getenv("LOGIN_USERNAME", "admin")
     LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "123456")
     SQLALCHEMY_DATABASE_URI = normalize_database_url(
