@@ -21,7 +21,6 @@
             <div class="brand-block">
                 <p class="brand-eyebrow">Hiệp Lợi Group</p>
                 <h1>{{ config.APP_NAME }}</h1>
-                <p class="muted">Quản trị chấm công và lương nội bộ</p>
             </div>
             <nav class="sidebar-nav">
                 <a class="{% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">Bảng điều khiển</a>
@@ -31,6 +30,7 @@
                 <a class="{% if request.endpoint == 'salaries' %}active{% endif %}" href="{{ url_for('salaries') }}">Bảng lương</a>
                 <a class="{% if request.endpoint == 'holidays' %}active{% endif %}" href="{{ url_for('holidays') }}">Ngày OFF và lễ</a>
                 <a class="{% if request.endpoint == 'schedules' %}active{% endif %}" href="{{ url_for('schedules') }}">Lịch làm và OT</a>
+                <a class="{% if request.endpoint == 'advances' %}active{% endif %}" href="{{ url_for('advances') }}">Ứng tiền</a>
                 <a class="{% if request.endpoint == 'details' %}active{% endif %}" href="{{ url_for('details') }}">Bảng chi tiết</a>
                 <a class="{% if request.endpoint in ['audit_logs', 'export_audit_csv'] %}active{% endif %}" href="{{ url_for('audit_logs') }}">Nhật ký audit</a>
                 {% if current_user_is_admin %}

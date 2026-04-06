@@ -26,6 +26,7 @@ from werkzeug.utils import secure_filename
 
 from .database import db
 from .models import (
+    AdvancePayment,
     AppUser,
     AttendanceDaily,
     AttendanceDetail,
@@ -90,6 +91,27 @@ def _to_float(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _safe_advance_filter(value):
+    normalized = (value or "all").strip().lower()
+    if normalized in {"all", "has", "none"}:
+        return normalized
+    return "all"
+
+
+def _employee_code_sort_key(employee_code):
+    raw_code = str(employee_code or "").replace("'", "").strip()
+    if raw_code.isdigit():
+        return (0, int(raw_code))
+    return (1, raw_code.lower())
+
+
+def _safe_payment_method(value):
+    normalized = (value or "cash").strip().lower()
+    if normalized in {"cash", "salary_day"}:
+        return normalized
+    return "cash"
 
 
 def _sanitize_next_path(value):
@@ -1606,6 +1628,410 @@ def register_routes(app):
         finally:
             if temp_path.exists():
                 os.remove(temp_path)
+
+    @app.route("/advances", methods=["GET", "POST"])
+    def advances():
+        month_key = _safe_month_key(request.args.get("month") or request.form.get("view_month"))
+        search_query = (request.args.get("q") or "").strip()
+        search_scope = (request.args.get("scope") or "current").strip().lower()
+        if search_scope not in {"current", "all"}:
+            search_scope = "current"
+        advance_filter = _safe_advance_filter(request.args.get("advance_filter"))
+
+        if request.method == "POST":
+            actor = (request.form.get("changed_by") or session.get("username") or "admin").strip() or "admin"
+            action = (request.form.get("action") or "create_advance").strip()
+
+            def _build_redirect_params(default_month):
+                params = {
+                    "month": _safe_month_key(request.form.get("view_month") or default_month),
+                }
+                view_q = (request.form.get("view_q") or "").strip()
+                view_scope = (request.form.get("view_scope") or "current").strip().lower()
+                view_filter = _safe_advance_filter(request.form.get("view_advance_filter"))
+
+                if view_q:
+                    params["q"] = view_q
+                if view_scope == "all":
+                    params["scope"] = "all"
+                if view_filter != "all":
+                    params["advance_filter"] = view_filter
+                return params
+
+            if action == "create_advance":
+                employee_id_raw = (request.form.get("employee_id") or "").strip()
+                if not employee_id_raw.isdigit():
+                    flash("Cần chọn nhân viên để thêm ứng tiền", "error")
+                    return redirect(url_for("advances", **_build_redirect_params(month_key)))
+
+                employee_id = int(employee_id_raw)
+                advance_date_raw = (request.form.get("advance_date") or "").strip()
+                payment_method = _safe_payment_method(request.form.get("payment_method"))
+
+                if advance_date_raw:
+                    try:
+                        advance_date = _parse_date(advance_date_raw)
+                    except (TypeError, ValueError):
+                        flash("Ngày ứng không hợp lệ", "error")
+                        return redirect(url_for("advances", **_build_redirect_params(month_key)))
+                else:
+                    advance_date = date.today()
+
+                target_month = month_key_for_date(advance_date)
+                redirect_params = _build_redirect_params(target_month)
+                redirect_params["month"] = target_month
+
+                salary_row = MonthlySalary.query.filter_by(
+                    employee_id=employee_id,
+                    month_key=target_month,
+                ).first()
+                if not salary_row:
+                    flash(
+                        f"Chưa có lương tháng {target_month} cho nhân viên này nên chưa thể ứng tiền",
+                        "error",
+                    )
+                    return redirect(url_for("advances", **redirect_params))
+
+                monthly_wage = _to_float(salary_row.base_daily_wage, 0)
+                if monthly_wage <= 0:
+                    flash("Lương tháng đang bằng 0, không thể tạo ứng tiền", "error")
+                    return redirect(url_for("advances", **redirect_params))
+
+                input_mode = (request.form.get("input_mode") or "amount").strip().lower()
+                if input_mode not in {"amount", "days"}:
+                    input_mode = "amount"
+
+                advance_days = None
+                if input_mode == "days":
+                    advance_days = _to_float(request.form.get("advance_days"), 0)
+                    if advance_days <= 0:
+                        flash("Số ngày công ứng phải lớn hơn 0", "error")
+                        return redirect(url_for("advances", **redirect_params))
+
+                    company_work_days, _ = _resolve_company_work_days(target_month)
+                    if company_work_days <= 0:
+                        company_work_days = 26.0
+
+                    daily_rate = monthly_wage / company_work_days if company_work_days > 0 else 0.0
+                    amount = round(daily_rate * advance_days, 2)
+                else:
+                    amount = _to_float(request.form.get("amount"), 0)
+
+                if amount <= 0:
+                    flash("Số tiền ứng phải lớn hơn 0", "error")
+                    return redirect(url_for("advances", **redirect_params))
+
+                month_total_existing = (
+                    db.session.query(func.coalesce(func.sum(AdvancePayment.amount), 0))
+                    .filter(
+                        AdvancePayment.employee_id == employee_id,
+                        AdvancePayment.month_key == target_month,
+                    )
+                    .scalar()
+                )
+                new_total = _to_float(month_total_existing) + amount
+
+                if new_total > monthly_wage + 0.0001:
+                    flash(
+                        f"Tổng ứng tháng {target_month} ({new_total:,.0f}) vượt lương tháng ({monthly_wage:,.0f}), không thể lưu",
+                        "error",
+                    )
+                    return redirect(url_for("advances", **redirect_params))
+
+                row = AdvancePayment(
+                    employee_id=employee_id,
+                    advance_date=advance_date,
+                    month_key=target_month,
+                    amount=amount,
+                    input_mode=input_mode,
+                    payment_method=payment_method,
+                    advance_days=advance_days if input_mode == "days" else None,
+                    notes=(request.form.get("notes") or "").strip() or None,
+                )
+                db.session.add(row)
+                db.session.flush()
+
+                log_action(
+                    "advance_payments",
+                    row.id,
+                    "INSERT",
+                    changed_by=actor,
+                    after_data=row.to_dict(),
+                    notes="Tạo giao dịch ứng tiền",
+                )
+
+                warning_threshold = monthly_wage * 0.1
+                if warning_threshold > 0:
+                    if amount >= warning_threshold:
+                        flash(
+                            f"Cảnh báo: Giao dịch ứng {amount:,.0f} vượt 10% lương tháng ({warning_threshold:,.0f})",
+                            "warning",
+                        )
+                    elif new_total >= warning_threshold:
+                        flash(
+                            f"Cảnh báo: Tổng ứng tháng hiện tại {new_total:,.0f} vượt 10% lương tháng ({warning_threshold:,.0f})",
+                            "warning",
+                        )
+
+                db.session.commit()
+                flash("Đã thêm giao dịch ứng tiền", "success")
+                return redirect(url_for("advances", **redirect_params))
+
+            if action == "update_advance":
+                advance_id_raw = (request.form.get("advance_id") or "").strip()
+                if not advance_id_raw.isdigit():
+                    flash("Không tìm thấy giao dịch ứng tiền để cập nhật", "error")
+                    return redirect(url_for("advances", **_build_redirect_params(month_key)))
+
+                row = AdvancePayment.query.get(int(advance_id_raw))
+                if not row:
+                    flash("Giao dịch ứng tiền không tồn tại", "error")
+                    return redirect(url_for("advances", **_build_redirect_params(month_key)))
+
+                advance_date_raw = (request.form.get("advance_date") or "").strip()
+                payment_method = _safe_payment_method(request.form.get("payment_method"))
+                if advance_date_raw:
+                    try:
+                        advance_date = _parse_date(advance_date_raw)
+                    except (TypeError, ValueError):
+                        flash("Ngày ứng không hợp lệ", "error")
+                        return redirect(url_for("advances", **_build_redirect_params(row.month_key)))
+                else:
+                    advance_date = date.today()
+
+                amount = _to_float(request.form.get("amount"), 0)
+                if amount <= 0:
+                    flash("Số tiền ứng phải lớn hơn 0", "error")
+                    return redirect(url_for("advances", **_build_redirect_params(row.month_key)))
+
+                target_month = month_key_for_date(advance_date)
+                redirect_params = _build_redirect_params(target_month)
+                redirect_params["month"] = target_month
+
+                salary_row = MonthlySalary.query.filter_by(
+                    employee_id=row.employee_id,
+                    month_key=target_month,
+                ).first()
+                if not salary_row:
+                    flash(
+                        f"Chưa có lương tháng {target_month} cho nhân viên này nên chưa thể cập nhật ứng tiền",
+                        "error",
+                    )
+                    return redirect(url_for("advances", **redirect_params))
+
+                monthly_wage = _to_float(salary_row.base_daily_wage, 0)
+                if monthly_wage <= 0:
+                    flash("Lương tháng đang bằng 0, không thể cập nhật ứng tiền", "error")
+                    return redirect(url_for("advances", **redirect_params))
+
+                month_total_existing = (
+                    db.session.query(func.coalesce(func.sum(AdvancePayment.amount), 0))
+                    .filter(
+                        AdvancePayment.employee_id == row.employee_id,
+                        AdvancePayment.month_key == target_month,
+                        AdvancePayment.id != row.id,
+                    )
+                    .scalar()
+                )
+                new_total = _to_float(month_total_existing) + amount
+
+                if new_total > monthly_wage + 0.0001:
+                    flash(
+                        f"Tổng ứng tháng {target_month} ({new_total:,.0f}) vượt lương tháng ({monthly_wage:,.0f}), không thể lưu",
+                        "error",
+                    )
+                    return redirect(url_for("advances", **redirect_params))
+
+                before = row.to_dict()
+                previous_amount = _to_float(row.amount, 0)
+
+                row.advance_date = advance_date
+                row.month_key = target_month
+                row.amount = amount
+                row.payment_method = payment_method
+                row.notes = (request.form.get("notes") or "").strip() or None
+                if abs(previous_amount - amount) > 0.0001:
+                    row.input_mode = "amount"
+                    row.advance_days = None
+
+                log_action(
+                    "advance_payments",
+                    row.id,
+                    "UPDATE",
+                    changed_by=actor,
+                    before_data=before,
+                    after_data=row.to_dict(),
+                    notes="Cập nhật giao dịch ứng tiền",
+                )
+
+                warning_threshold = monthly_wage * 0.1
+                if warning_threshold > 0:
+                    if amount >= warning_threshold:
+                        flash(
+                            f"Cảnh báo: Giao dịch ứng {amount:,.0f} vượt 10% lương tháng ({warning_threshold:,.0f})",
+                            "warning",
+                        )
+                    elif new_total >= warning_threshold:
+                        flash(
+                            f"Cảnh báo: Tổng ứng tháng hiện tại {new_total:,.0f} vượt 10% lương tháng ({warning_threshold:,.0f})",
+                            "warning",
+                        )
+
+                db.session.commit()
+                flash("Đã cập nhật giao dịch ứng tiền", "success")
+                return redirect(url_for("advances", **redirect_params))
+
+            if action == "delete_advance":
+                advance_id_raw = (request.form.get("advance_id") or "").strip()
+                if not advance_id_raw.isdigit():
+                    flash("Không tìm thấy giao dịch ứng tiền để xóa", "error")
+                    return redirect(url_for("advances", **_build_redirect_params(month_key)))
+
+                row = AdvancePayment.query.get(int(advance_id_raw))
+                if not row:
+                    flash("Giao dịch ứng tiền không tồn tại", "error")
+                    return redirect(url_for("advances", **_build_redirect_params(month_key)))
+
+                target_month = row.month_key
+                before = row.to_dict()
+                db.session.delete(row)
+                log_action(
+                    "advance_payments",
+                    before.get("id"),
+                    "DELETE",
+                    changed_by=actor,
+                    before_data=before,
+                    notes="Xóa giao dịch ứng tiền",
+                )
+                db.session.commit()
+                flash("Đã xóa giao dịch ứng tiền", "success")
+                return redirect(url_for("advances", **_build_redirect_params(target_month)))
+
+            flash("Thao tác ứng tiền không hợp lệ", "error")
+            return redirect(url_for("advances", **_build_redirect_params(month_key)))
+
+        employees = Employee.query.order_by(Employee.employee_code.asc()).all()
+
+        month_rows = (
+            AdvancePayment.query.options(joinedload(AdvancePayment.employee))
+            .filter(AdvancePayment.month_key == month_key)
+            .order_by(AdvancePayment.advance_date.desc(), AdvancePayment.id.desc())
+            .all()
+        )
+
+        scope_query = AdvancePayment.query.options(joinedload(AdvancePayment.employee))
+        if search_scope == "current":
+            scope_query = scope_query.filter(AdvancePayment.month_key == month_key)
+
+        scope_rows = (
+            scope_query
+            .order_by(
+                AdvancePayment.month_key.desc(),
+                AdvancePayment.advance_date.desc(),
+                AdvancePayment.id.desc(),
+            )
+            .all()
+        )
+
+        month_rows_by_employee = {}
+        for row in month_rows:
+            month_rows_by_employee.setdefault(row.employee_id, []).append(row)
+
+        scope_rows_by_employee = {}
+        for row in scope_rows:
+            scope_rows_by_employee.setdefault(row.employee_id, []).append(row)
+
+        search_text = search_query.lower()
+
+        def _advance_row_matches(item):
+            payment_method_label = "Theo ngày lương" if item.payment_method == "salary_day" else "Tiền mặt"
+            values = [
+                item.month_key,
+                item.advance_date,
+                item.amount,
+                item.input_mode,
+                item.payment_method,
+                payment_method_label,
+                item.advance_days,
+                item.notes,
+            ]
+            return any(search_text in str(value).lower() for value in values if value is not None)
+
+        employee_groups = []
+        for employee in employees:
+            month_items = list(month_rows_by_employee.get(employee.id, []))
+            scope_items = list(scope_rows_by_employee.get(employee.id, []))
+            visible_items = list(scope_items)
+
+            employee_match = False
+            if search_query:
+                employee_match = any(
+                    search_text in str(value).lower()
+                    for value in [employee.employee_code, employee.full_name]
+                    if value
+                )
+                if not employee_match:
+                    visible_items = [item for item in scope_items if _advance_row_matches(item)]
+                if not employee_match and not visible_items:
+                    continue
+
+            has_month_advance = len(month_items) > 0
+            if advance_filter == "has" and not has_month_advance:
+                continue
+            if advance_filter == "none" and has_month_advance:
+                continue
+
+            month_total = round(sum(_to_float(item.amount) for item in month_items), 2)
+            scope_total = round(sum(_to_float(item.amount) for item in scope_items), 2)
+            display_total = round(sum(_to_float(item.amount) for item in visible_items), 2)
+            latest_scope_row = scope_items[0] if scope_items else None
+
+            employee_groups.append(
+                {
+                    "employee": employee,
+                    "month_total": month_total,
+                    "scope_total": scope_total,
+                    "display_total": display_total,
+                    "month_count": len(month_items),
+                    "scope_count": len(scope_items),
+                    "visible_count": len(visible_items),
+                    "visible_rows": visible_items,
+                    "latest_scope_month": latest_scope_row.month_key if latest_scope_row else None,
+                    "latest_scope_date": latest_scope_row.advance_date if latest_scope_row else None,
+                }
+            )
+
+        employee_groups.sort(
+            key=lambda item: _employee_code_sort_key(item["employee"].employee_code)
+        )
+        employee_groups.sort(
+            key=lambda item: item["latest_scope_date"] or date.min,
+            reverse=True,
+        )
+        employee_groups.sort(
+            key=lambda item: item["latest_scope_month"] or "",
+            reverse=True,
+        )
+
+        employees_with_month_advance = sum(1 for item in employee_groups if item["month_count"] > 0)
+        month_total_amount = round(sum(item["month_total"] for item in employee_groups), 2)
+        scope_total_amount = round(sum(item["scope_total"] for item in employee_groups), 2)
+        visible_total_amount = round(sum(item["display_total"] for item in employee_groups), 2)
+
+        return render_template(
+            "advances.html",
+            month_key=month_key,
+            employees=employees,
+            employee_groups=employee_groups,
+            search_query=search_query,
+            search_scope=search_scope,
+            advance_filter=advance_filter,
+            employees_with_month_advance=employees_with_month_advance,
+            month_total_amount=month_total_amount,
+            scope_total_amount=scope_total_amount,
+            visible_total_amount=visible_total_amount,
+            default_advance_date=date.today().isoformat(),
+        )
 
     @app.route("/holidays", methods=["GET", "POST"])
     def holidays():

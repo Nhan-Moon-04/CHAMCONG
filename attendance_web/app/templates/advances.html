@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel page-toolbar">
+    <div>
+        <h2>Ứng tiền theo nhân viên</h2>
+        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong></p>
+    </div>
+    <div class="toolbar-actions">
+        <form method="get" class="toolbar-month-form">
+            <label for="advance-month">Tháng</label>
+            <input id="advance-month" type="month" name="month" value="{{ month_key }}">
+            {% if search_query %}
+            <input type="hidden" name="q" value="{{ search_query }}">
+            {% endif %}
+            {% if search_scope == 'all' %}
+            <input type="hidden" name="scope" value="all">
+            {% endif %}
+            {% if advance_filter != 'all' %}
+            <input type="hidden" name="advance_filter" value="{{ advance_filter }}">
+            {% endif %}
+            <button type="submit">Xem</button>
+        </form>
+        <button type="button" id="advance-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
+        <button type="button" id="advances-show-all-btn" class="secondary" data-expanded="false">Show all</button>
+    </div>
+</section>
+
+<section class="panel soft-panel">
+    <form method="get" class="advances-search-form">
+        <input type="month" name="month" value="{{ month_key }}">
+        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo tên, mã NV, tháng, ngày ứng, số tiền, hình thức, ghi chú">
+        <div class="scope-choice">
+            <label>
+                <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
+                Tháng hiện tại
+            </label>
+            <label>
+                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                ALL
+            </label>
+        </div>
+        <select name="advance_filter">
+            <option value="all" {% if (advance_filter or 'all') == 'all' %}selected{% endif %}>Tất cả (lọc theo tháng chọn)</option>
+            <option value="has" {% if advance_filter == 'has' %}selected{% endif %}>Có ứng tiền (tháng chọn)</option>
+            <option value="none" {% if advance_filter == 'none' %}selected{% endif %}>Không ứng tiền (tháng chọn)</option>
+        </select>
+        <button type="submit">Tìm kiếm</button>
+        {% if search_query or search_scope == 'all' or advance_filter != 'all' %}
+        <a class="button-link button-link-secondary" href="{{ url_for('advances', month=month_key) }}">Xóa lọc</a>
+        {% endif %}
+    </form>
+    <p class="muted">
+        {% if search_scope == 'all' %}
+        Đang tìm trong toàn bộ lịch sử ứng tiền, sắp xếp theo tháng gần nhất.
+        {% else %}
+        Đang tìm trong tháng {{ month_key }} (mặc định).
+        {% endif %}
+        Bộ lọc Có/Không ứng tiền luôn bám theo tháng đang chọn.
+    </p>
+</section>
+
+<section class="card-grid advances-summary-grid">
+    <article class="card">
+        <div class="kpi-title">Nhân viên đang hiển thị</div>
+        <div class="kpi-value">{{ employee_groups|length }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Nhân viên có ứng tiền (tháng chọn)</div>
+        <div class="kpi-value">{{ employees_with_month_advance }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Tổng ứng theo tháng chọn</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(month_total_amount) }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Tổng ứng theo phạm vi tìm</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(scope_total_amount) }}</div>
+    </article>
+</section>
+
+<section id="advances-tools-container" class="page-tools tools-collapsed">
+    <div class="panel soft-panel">
+        <h3>Thêm giao dịch ứng tiền</h3>
+        <form method="post" class="form-grid" id="advance-create-form">
+            <input type="hidden" name="action" value="create_advance">
+            <input type="hidden" name="view_month" value="{{ month_key }}">
+            <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+            <input type="hidden" name="view_scope" value="{{ search_scope or 'current' }}">
+            <input type="hidden" name="view_advance_filter" value="{{ advance_filter or 'all' }}">
+            <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+
+            <select name="employee_id" required>
+                <option value="">Chọn nhân viên</option>
+                {% for row in employees %}
+                <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="input_mode" id="advance-input-mode" required>
+                <option value="amount" selected>Ứng theo số tiền</option>
+                <option value="days">Ứng theo ngày công</option>
+            </select>
+
+            <div id="advance-amount-wrap">
+                <input type="number" step="1" min="0" name="amount" placeholder="Số tiền ứng" required>
+            </div>
+
+            <div id="advance-days-wrap" hidden>
+                <input type="number" step="0.5" min="0.5" name="advance_days" placeholder="Số ngày công ứng">
+            </div>
+
+            <select name="payment_method" required>
+                <option value="cash" selected>Tiền mặt</option>
+                <option value="salary_day">Theo ngày lương</option>
+            </select>
+
+            <input type="date" name="advance_date" value="{{ default_advance_date }}">
+            <input type="text" name="notes" placeholder="Ghi chú giao dịch">
+            <button type="submit">Thêm ứng tiền</button>
+        </form>
+        <p class="muted">Nếu ứng theo ngày công, hệ thống tự quy đổi tiền theo lương tháng và công chuẩn của tháng tương ứng.</p>
+        <p class="muted">Nếu để trống ngày ứng, hệ thống tự lấy ngày hiện tại.</p>
+        <p class="muted">Hệ thống chặn khi tổng ứng vượt lương tháng; nếu vượt mốc 10% lương sẽ chỉ cảnh báo để bạn quyết định.</p>
+    </div>
+</section>
+
+<section class="panel data-panel" id="advances-table-panel">
+    <div class="table-wrap">
+        <table id="advances-table">
+            <thead>
+                <tr>
+                    <th>STT NV</th>
+                    <th>Mã NV</th>
+                    <th>Nhân viên</th>
+                    <th>Số giao dịch</th>
+                    <th>Tổng ứng hiển thị</th>
+                    <th>Tổng ứng tháng {{ month_key }}</th>
+                    <th>Tháng gần nhất</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in employee_groups %}
+                {% set shown_count = group.visible_count if search_query else group.scope_count %}
+                {% set shown_total = group.display_total if search_query else group.scope_total %}
+                <tr class="advance-summary-row" data-employee-id="{{ group.employee.id }}">
+                    <td>{{ loop.index }}</td>
+                    <td>{{ group.employee.employee_code }}</td>
+                    <td>
+                        <strong>{{ group.employee.full_name }}</strong>
+                        <div class="muted advance-summary-subline">Tổng nhân viên: {{ "{:,.0f}".format(group.scope_total) }}</div>
+                    </td>
+                    <td>{{ shown_count }}</td>
+                    <td>{{ "{:,.0f}".format(shown_total) }}</td>
+                    <td>{{ "{:,.0f}".format(group.month_total) }}</td>
+                    <td>
+                        {% if group.latest_scope_month %}
+                        {{ group.latest_scope_month }}
+                        {% if group.latest_scope_date %}
+                        <div class="muted">{{ group.latest_scope_date }}</div>
+                        {% endif %}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if group.visible_count > 0 %}
+                        <button type="button" class="secondary advance-toggle-btn">Xem</button>
+                        {% else %}
+                        <button type="button" class="secondary advance-toggle-btn" disabled>Không có</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr class="advance-detail-row" data-employee-id="{{ group.employee.id }}" hidden>
+                    <td colspan="8">
+                        {% if group.visible_rows %}
+                        <div class="table-wrap advance-inner-wrap">
+                            <table class="advance-inner-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ngày ứng</th>
+                                        <th>Tháng</th>
+                                        <th>Kiểu nhập</th>
+                                        <th>Hình thức nhận</th>
+                                        <th>Số ngày công</th>
+                                        <th>Số tiền ứng</th>
+                                        <th>Ghi chú</th>
+                                        <th>Cập nhật</th>
+                                        <th>Xóa</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in group.visible_rows %}
+                                    <tr>
+                                        <td>{{ tx.advance_date }}</td>
+                                        <td>{{ tx.month_key }}</td>
+                                        <td>
+                                            {% if tx.input_mode == 'days' %}
+                                            Theo ngày công
+                                            {% else %}
+                                            Theo số tiền
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tx.payment_method == 'salary_day' %}
+                                            Theo ngày lương
+                                            {% else %}
+                                            Tiền mặt
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tx.advance_days is not none %}
+                                            {{ "%.2f"|format(tx.advance_days) }}
+                                            {% else %}
+                                            -
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ "{:,.0f}".format(tx.amount) }}</td>
+                                        <td>{{ tx.notes or '-' }}</td>
+                                        <td class="advances-actions-cell">
+                                            <form method="post" class="advance-inline-edit-form">
+                                                <input type="hidden" name="action" value="update_advance">
+                                                <input type="hidden" name="advance_id" value="{{ tx.id }}">
+                                                <input type="hidden" name="view_month" value="{{ month_key }}">
+                                                <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+                                                <input type="hidden" name="view_scope" value="{{ search_scope or 'current' }}">
+                                                <input type="hidden" name="view_advance_filter" value="{{ advance_filter or 'all' }}">
+                                                <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+                                                <input type="date" name="advance_date" value="{{ tx.advance_date.isoformat() }}">
+                                                <select name="payment_method" required>
+                                                    <option value="cash" {% if tx.payment_method != 'salary_day' %}selected{% endif %}>Tiền mặt</option>
+                                                    <option value="salary_day" {% if tx.payment_method == 'salary_day' %}selected{% endif %}>Theo ngày lương</option>
+                                                </select>
+                                                <input type="number" step="1" min="0" name="amount" value="{{ '%.2f'|format(tx.amount) }}" required>
+                                                <input type="text" name="notes" value="{{ tx.notes or '' }}" placeholder="Ghi chú">
+                                                <button type="submit">Lưu</button>
+                                            </form>
+                                        </td>
+                                        <td>
+                                            <form method="post" class="advance-delete-form" onsubmit="return confirm('Xóa giao dịch ứng tiền này?');">
+                                                <input type="hidden" name="action" value="delete_advance">
+                                                <input type="hidden" name="advance_id" value="{{ tx.id }}">
+                                                <input type="hidden" name="view_month" value="{{ month_key }}">
+                                                <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+                                                <input type="hidden" name="view_scope" value="{{ search_scope or 'current' }}">
+                                                <input type="hidden" name="view_advance_filter" value="{{ advance_filter or 'all' }}">
+                                                <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+                                                <button type="submit" class="danger">Xóa</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="muted">Nhân viên này không có giao dịch trong phạm vi đang xem.</p>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">Không có dữ liệu ứng tiền phù hợp.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+(() => {
+    const toolContainer = document.getElementById("advances-tools-container");
+    const toolToggleButton = document.getElementById("advance-tools-toggle-btn");
+
+    if (toolContainer && toolToggleButton) {
+        const setToolsState = (collapsed) => {
+            toolContainer.classList.toggle("tools-collapsed", collapsed);
+            toolToggleButton.textContent = collapsed ? "Mở công cụ" : "Thu gọn";
+            toolToggleButton.setAttribute("aria-expanded", String(!collapsed));
+        };
+
+        toolToggleButton.addEventListener("click", () => {
+            const collapsed = toolContainer.classList.contains("tools-collapsed");
+            setToolsState(!collapsed);
+        });
+
+        setToolsState(true);
+    }
+
+    const createForm = document.getElementById("advance-create-form");
+    if (createForm) {
+        const modeSelect = createForm.elements["input_mode"];
+        const amountInput = createForm.elements["amount"];
+        const daysInput = createForm.elements["advance_days"];
+        const amountWrap = document.getElementById("advance-amount-wrap");
+        const daysWrap = document.getElementById("advance-days-wrap");
+
+        const syncMode = () => {
+            const mode = (modeSelect.value || "amount").toLowerCase();
+            const isDaysMode = mode === "days";
+
+            if (amountWrap) {
+                amountWrap.hidden = isDaysMode;
+            }
+            if (daysWrap) {
+                daysWrap.hidden = !isDaysMode;
+            }
+
+            if (amountInput) {
+                amountInput.required = !isDaysMode;
+                if (isDaysMode) {
+                    amountInput.value = "";
+                }
+            }
+            if (daysInput) {
+                daysInput.required = isDaysMode;
+                if (!isDaysMode) {
+                    daysInput.value = "";
+                }
+            }
+        };
+
+        modeSelect.addEventListener("change", syncMode);
+        syncMode();
+    }
+
+    const table = document.getElementById("advances-table");
+    const showAllButton = document.getElementById("advances-show-all-btn");
+    if (!table || !showAllButton) {
+        return;
+    }
+
+    const summaryRows = Array.from(table.querySelectorAll("tr.advance-summary-row"));
+
+    const setGroupExpanded = (summaryRow, expanded) => {
+        const employeeId = summaryRow.getAttribute("data-employee-id");
+        const detailRow = table.querySelector(`tr.advance-detail-row[data-employee-id="${employeeId}"]`);
+        const toggleButton = summaryRow.querySelector(".advance-toggle-btn");
+
+        summaryRow.classList.toggle("expanded", expanded);
+        if (detailRow) {
+            detailRow.hidden = !expanded;
+        }
+        if (toggleButton && !toggleButton.disabled) {
+            toggleButton.textContent = expanded ? "Ẩn" : "Xem";
+        }
+    };
+
+    const getExpandableRows = () => {
+        return summaryRows.filter((row) => {
+            const button = row.querySelector(".advance-toggle-btn");
+            return Boolean(button) && !button.disabled;
+        });
+    };
+
+    const syncShowAllState = () => {
+        const expandableRows = getExpandableRows();
+        if (expandableRows.length === 0) {
+            showAllButton.disabled = true;
+            showAllButton.textContent = "Không có giao dịch";
+            showAllButton.dataset.expanded = "false";
+            return;
+        }
+
+        const expandedCount = expandableRows.filter((row) => row.classList.contains("expanded")).length;
+        const allExpanded = expandedCount === expandableRows.length;
+
+        showAllButton.disabled = false;
+        showAllButton.dataset.expanded = allExpanded ? "true" : "false";
+        showAllButton.textContent = allExpanded ? "Ẩn all" : "Show all";
+    };
+
+    summaryRows.forEach((row) => {
+        setGroupExpanded(row, false);
+
+        const toggleButton = row.querySelector(".advance-toggle-btn");
+        if (!toggleButton || toggleButton.disabled) {
+            return;
+        }
+
+        toggleButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const expanded = row.classList.contains("expanded");
+            setGroupExpanded(row, !expanded);
+            syncShowAllState();
+        });
+
+        row.addEventListener("click", (event) => {
+            if (event.target.closest("button, a, input, select, textarea, form, label")) {
+                return;
+            }
+            const expanded = row.classList.contains("expanded");
+            setGroupExpanded(row, !expanded);
+            syncShowAllState();
+        });
+    });
+
+    showAllButton.addEventListener("click", () => {
+        const shouldExpand = showAllButton.dataset.expanded !== "true";
+        getExpandableRows().forEach((row) => setGroupExpanded(row, shouldExpand));
+        syncShowAllState();
+    });
+
+    syncShowAllState();
+})();
+</script>
+{% endblock %}

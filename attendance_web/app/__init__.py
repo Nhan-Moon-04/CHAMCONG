@@ -2,6 +2,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask
+from sqlalchemy import text
 
 from .config import Config
 from .database import db
@@ -27,6 +28,15 @@ def create_app():
         from . import models  # noqa: F401
 
         db.create_all()
+        db.session.execute(
+            text(
+                """
+                ALTER TABLE advance_payments
+                ADD COLUMN IF NOT EXISTS payment_method VARCHAR(32) NOT NULL DEFAULT 'cash'
+                """
+            )
+        )
+        db.session.commit()
         ensure_default_admin_user(
             app.config.get("LOGIN_USERNAME", "admin"),
             app.config.get("LOGIN_PASSWORD", "123456"),

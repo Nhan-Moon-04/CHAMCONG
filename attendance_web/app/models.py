@@ -99,6 +99,22 @@ class MonthlySalary(db.Model, TimestampMixin, SerializableMixin):
     )
 
 
+class AdvancePayment(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "advance_payments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=False, index=True)
+    advance_date = db.Column(db.Date, nullable=False, index=True)
+    month_key = db.Column(db.String(7), nullable=False, index=True)
+    amount = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    input_mode = db.Column(db.String(16), nullable=False, default="amount")
+    payment_method = db.Column(db.String(32), nullable=False, default="cash")
+    advance_days = db.Column(db.Numeric(6, 2), nullable=True)
+    notes = db.Column(db.String(255), nullable=True)
+
+    employee = db.relationship("Employee")
+
+
 class MonthlyWorkdayConfig(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = "monthly_workday_configs"
 
