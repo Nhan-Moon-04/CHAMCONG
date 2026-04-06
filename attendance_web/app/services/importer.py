@@ -154,6 +154,7 @@ def import_attendance_file(
     actor="system",
     month_key=None,
     replace_existing=False,
+    stored_file_relpath=None,
 ):
     frame = _read_dataframe(file_path, month_key=month_key)
 
@@ -253,6 +254,7 @@ def import_attendance_file(
         changed_by=actor,
         after_data={
             "source_file": source_name,
+            "stored_file": stored_file_relpath,
             "rows": int(len(frame)),
             "grouped_days": int(len(grouped_days)),
             "months": touched_months,

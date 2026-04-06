@@ -180,6 +180,10 @@ body {
     overflow-y: auto;
 }
 
+.main-content.page-details {
+    overflow-y: hidden;
+}
+
 .topbar {
     background: rgba(255, 255, 255, 0.74);
     backdrop-filter: blur(6px);
@@ -557,6 +561,9 @@ a:hover {
     max-height: 74vh;
     border-radius: 10px;
     border: 1px solid rgba(148, 163, 184, 0.28);
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    margin-bottom: 10px;
 }
 
 .page-toolbar {
@@ -608,6 +615,74 @@ a:hover {
     width: auto;
 }
 
+.warning-search-form {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto auto;
+    gap: 8px;
+    align-items: end;
+    width: min(100%, 560px);
+}
+
+.employee-search-form,
+.salary-search-form {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto auto auto;
+    gap: 8px;
+    align-items: end;
+}
+
+.scope-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #ffffff;
+}
+
+.scope-choice label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.scope-choice input {
+    width: auto;
+    margin: 0;
+}
+
+.imports-meta {
+    font-size: 0.84rem;
+    color: #475569;
+}
+
+.imports-actions-cell {
+    white-space: nowrap;
+}
+
+.imports-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.imports-actions form {
+    margin: 0;
+}
+
+.imports-actions button {
+    width: auto;
+    padding: 6px 10px;
+}
+
+.imports-actions .link-pill {
+    margin-right: 0;
+}
+
 .page-tools {
     display: grid;
     gap: 8px;
@@ -627,7 +702,37 @@ a:hover {
 }
 
 .data-panel .table-wrap {
-    max-height: calc(100vh - 260px);
+    max-height: calc(100vh - 220px);
+    max-height: calc(100dvh - 220px);
+}
+
+#salaries-table-panel .table-wrap {
+    max-height: calc(100vh - 290px);
+    max-height: calc(100dvh - 290px);
+}
+
+#schedules-table-panel .table-wrap {
+    max-height: calc(100vh - 290px);
+    max-height: calc(100dvh - 290px);
+}
+
+#schedule-tools-container.tools-collapsed + #schedules-table-panel .table-wrap {
+    max-height: calc(100vh - 205px);
+    max-height: calc(100dvh - 205px);
+}
+
+#details-table-panel .table-wrap {
+    max-height: calc(100vh - 290px);
+    max-height: calc(100dvh - 290px);
+}
+
+#details-filter-panel.details-filter-collapsed + #details-table-panel .table-wrap {
+    max-height: calc(100vh - 205px);
+    max-height: calc(100dvh - 205px);
+}
+
+#details-table-panel {
+    margin-bottom: 0;
 }
 
 table {
@@ -680,6 +785,12 @@ th.sortable.sort-asc::after {
 th.sortable.sort-desc::after {
     content: "  v";
     color: var(--brand);
+}
+
+#details-table th.sortable::after,
+#details-table th.sortable.sort-asc::after,
+#details-table th.sortable.sort-desc::after {
+    content: "";
 }
 
 tr.sunday-row td {
@@ -921,6 +1032,17 @@ tr.employee-divider td {
     flex-wrap: wrap;
 }
 
+.details-search-form {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) auto auto auto;
+    gap: 8px;
+    align-items: end;
+}
+
+.details-search-form button {
+    width: auto;
+}
+
 #details-collapse-btn,
 #details-fullscreen-btn,
 #salary-tools-toggle-btn {
@@ -1022,6 +1144,10 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
         overflow: visible;
     }
 
+    .main-content.page-details {
+        overflow: visible;
+    }
+
     .topbar {
         flex-direction: column;
         align-items: flex-start;
@@ -1048,6 +1174,14 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
 
     .toolbar-month-form {
         grid-template-columns: 1fr;
+    }
+
+    .warning-search-form,
+    .employee-search-form,
+    .salary-search-form,
+    .details-search-form {
+        grid-template-columns: 1fr;
+        width: 100%;
     }
 
     .login-shell {

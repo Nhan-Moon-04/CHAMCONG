@@ -50,13 +50,7 @@
             </div>
         </aside>
 
-        <main class="main-content">
-            <header class="topbar">
-                <div>
-                    <p class="topbar-eyebrow">Hệ thống nội bộ doanh nghiệp</p>
-                    <h2>{{ title or "Quản trị chấm công" }}</h2>
-                </div>
-            </header>
+        <main class="main-content{% if request.endpoint %} page-{{ request.endpoint|replace('_', '-') }}{% endif %}">
     {% else %}
     <main class="auth-layout">
     {% endif %}

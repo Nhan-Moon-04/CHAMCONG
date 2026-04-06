@@ -9,6 +9,9 @@
     <form method="get" class="dashboard-month-form">
         <label for="month">Chọn tháng</label>
         <input id="month" type="month" name="month" value="{{ month_key }}">
+        {% if warning_query %}
+        <input type="hidden" name="q" value="{{ warning_query }}">
+        {% endif %}
         <button type="submit">Cập nhật dashboard</button>
     </form>
 </section>
@@ -65,8 +68,24 @@
 
 <section class="panel dashboard-warning-panel">
     <div class="dashboard-panel-head">
-        <h3>Cảnh báo cần xem lại</h3>
-        <span class="panel-caption">Hiển thị 20 dòng mới nhất</span>
+        <div>
+            <h3>Cảnh báo cần xem lại</h3>
+            <span class="panel-caption">
+                {% if warning_query %}
+                Kết quả tìm kiếm trong tháng: {{ warning_total }} dòng
+                {% else %}
+                Hiển thị toàn bộ cảnh báo trong tháng: {{ warning_total }} dòng
+                {% endif %}
+            </span>
+        </div>
+        <form method="get" class="warning-search-form">
+            <input type="hidden" name="month" value="{{ month_key }}">
+            <input type="text" name="q" value="{{ warning_query }}" placeholder="Tìm trong cảnh báo tháng này">
+            <button type="submit">Tìm kiếm</button>
+            {% if warning_query %}
+            <a class="button-link button-link-secondary" href="{{ url_for('dashboard', month=month_key) }}">Xóa lọc</a>
+            {% endif %}
+        </form>
     </div>
     <div class="table-wrap">
         <table>

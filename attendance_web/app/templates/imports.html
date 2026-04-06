@@ -14,6 +14,16 @@
     </form>
 </section>
 
+<section class="panel soft-panel">
+    <form method="get" class="warning-search-form">
+        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo tên file, người import, batch, hành động...">
+        <button type="submit">Tìm kiếm</button>
+        {% if search_query %}
+        <a class="button-link button-link-secondary" href="{{ url_for('imports') }}">Xóa lọc</a>
+        {% endif %}
+    </form>
+</section>
+
 <section class="panel data-panel">
     <h3>Lịch sử import gần đây</h3>
     <div class="table-wrap">
@@ -24,24 +34,54 @@
                     <th>Người import</th>
                     <th>Hành động</th>
                     <th>Lô</th>
+                    <th>Tên file</th>
                     <th>Thông tin</th>
                     <th>Xử lý</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in import_logs %}
+                {% set payload = row.after_data if row.after_data is mapping else {} %}
+                {% set source_file = payload.get('source_file') or '-' %}
+                {% set has_stored_file = payload.get('stored_file') %}
                 <tr>
                     <td>{{ row.changed_at }}</td>
                     <td>{{ row.changed_by }}</td>
                     <td>{{ row.action }}</td>
                     <td>{{ row.record_id }}</td>
-                    <td>{{ row.after_data }}</td>
+                    <td>{{ source_file }}</td>
                     <td>
+                        {% if row.notes %}
+                        <div class="imports-meta">{{ row.notes }}</div>
+                        {% endif %}
+                        {% if row.action == "IMPORT" and payload.get('rows') is not none %}
+                        <div class="imports-meta">Dòng import: {{ payload.get('rows') }}</div>
+                        {% endif %}
+                        {% if row.action == "IMPORT" and payload.get('grouped_days') is not none %}
+                        <div class="imports-meta">Bản ghi ngày: {{ payload.get('grouped_days') }}</div>
+                        {% endif %}
+                        {% if row.action == "IMPORT" and payload.get('months') %}
+                        <div class="imports-meta">Tháng: {{ payload.get('months') }}</div>
+                        {% endif %}
+                        {% if row.action == "DELETE_BATCH" %}
+                        <div class="imports-meta">Đã xóa vĩnh viễn khỏi máy, chỉ lưu lại tên file.</div>
+                        {% endif %}
+                    </td>
+                    <td class="imports-actions-cell">
                         {% if row.action == "IMPORT" %}
-                        <form method="post" action="{{ url_for('delete_import_batch', batch_id=row.record_id) }}" onsubmit="return confirm('Xóa dữ liệu của batch này?');">
-                            <input type="hidden" name="changed_by" value="admin">
-                            <button type="submit" class="secondary">Xóa batch này</button>
-                        </form>
+                        <div class="imports-actions">
+                            {% if has_stored_file %}
+                            <a class="link-pill link-pill-secondary" href="{{ url_for('download_import_file', batch_id=row.record_id) }}">Tải file đã up</a>
+                            {% endif %}
+                            {% if row.record_id not in deleted_batch_ids %}
+                            <form method="post" action="{{ url_for('delete_import_batch', batch_id=row.record_id) }}" onsubmit="return confirm('Xóa vĩnh viễn dữ liệu và file upload của batch này?');">
+                                <input type="hidden" name="changed_by" value="admin">
+                                <button type="submit" class="danger">Xóa vĩnh viễn</button>
+                            </form>
+                            {% else %}
+                            <span class="muted">Đã xóa</span>
+                            {% endif %}
+                        </div>
                         {% else %}
                         -
                         {% endif %}
@@ -49,7 +89,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6">Chưa có lần import nào.</td>
+                    <td colspan="7">Chưa có lần import nào.</td>
                 </tr>
                 {% endfor %}
             </tbody>

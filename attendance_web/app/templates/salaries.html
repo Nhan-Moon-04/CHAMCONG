@@ -15,6 +15,34 @@
     </div>
 </section>
 
+<section class="panel soft-panel">
+    <form method="get" class="salary-search-form">
+        <input type="hidden" name="month" value="{{ month_key }}">
+        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo mọi cột trong bảng lương">
+        <div class="scope-choice">
+            <label>
+                <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
+                Hiện tại
+            </label>
+            <label>
+                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                ALL
+            </label>
+        </div>
+        <button type="submit">Tìm kiếm</button>
+        {% if search_query or search_scope == 'all' %}
+        <a class="button-link button-link-secondary" href="{{ url_for('salaries', month=month_key) }}">Xóa lọc</a>
+        {% endif %}
+    </form>
+    <p class="muted">
+        {% if search_scope == 'all' %}
+        Đang tìm toàn bộ dữ liệu lương từ trước đến nay, sắp xếp tháng mới nhất lên trước.
+        {% else %}
+        Đang tìm trong tháng hiện tại {{ month_key }} (mặc định).
+        {% endif %}
+    </p>
+</section>
+
 <section id="salary-tools-container" class="page-tools tools-collapsed">
     <div class="panel soft-panel">
         <h3>Cấu hình công chuẩn tháng (dùng cho tất cả nhân viên)</h3>
@@ -58,7 +86,7 @@
     </div>
 </section>
 
-<section class="panel data-panel">
+<section class="panel data-panel" id="salaries-table-panel">
     <div class="table-wrap">
         <table>
             <thead>
@@ -77,9 +105,9 @@
                 {% set row = item.salary %}
                 <tr>
                     <td>{{ row.month_key }}</td>
-                    <td>{{ company_work_days }}</td>
+                    <td>{{ item.company_work_days }}</td>
                     <td>{{ row.employee.employee_code }}</td>
-                    <td><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=month_key) }}">{{ row.employee.full_name }}</a></td>
+                    <td><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=row.month_key) }}">{{ row.employee.full_name }}</a></td>
                     <td>{{ "{:,.0f}".format(item.monthly_wage) }}</td>
                     <td>{{ "{:,.0f}".format(item.daily_rate) }}</td>
                     <td>{{ row.pay_method or '-' }}</td>

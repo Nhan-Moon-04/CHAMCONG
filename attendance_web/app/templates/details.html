@@ -6,9 +6,10 @@
             <h2>Bảng chi tiết toàn bộ nhân viên</h2>
             <button type="button" id="details-filter-toggle-btn" class="secondary details-inline-toggle" aria-expanded="false">Mở bộ lọc</button>
             <div id="details-filter-extra">
-                <p class="muted">Bảng này tham chiếu live từ các bảng nguồn. Mặc định sẽ sắp theo từng người (đủ 1 tháng rồi mới sang người tiếp theo). Có thể bấm tiêu đề cột để sort nhanh.</p>
                 {% if is_range_mode %}
                 <p class="muted">Đang xem khoảng ngày: <strong>{{ period_label }}</strong></p>
+                {% elif search_scope == 'all' %}
+                <p class="muted">Đang xem: <strong>{{ period_label }}</strong></p>
                 {% else %}
                 <p class="muted">Đang xem tháng: <strong>{{ month_key }}</strong></p>
                 {% endif %}
@@ -28,6 +29,10 @@
                 <option value="{{ row.id }}" {% if selected_employee_id == row.id %}selected{% endif %}>{{ row.employee_code }} - {{ row.full_name }}</option>
                 {% endfor %}
             </select>
+            {% if search_query %}
+            <input type="hidden" name="q" value="{{ search_query }}">
+            {% endif %}
+            <input type="hidden" name="scope" value="{{ search_scope or 'current' }}">
             <button type="submit">Lọc</button>
         </form>
     </div>
@@ -37,6 +42,33 @@
     <div class="inline-form details-toolbar">
         <h3>Bảng dữ liệu chi tiết</h3>
         <div class="details-toolbar-actions">
+            <form method="get" class="details-search-form">
+                <input type="hidden" name="month" value="{{ month_key }}">
+                {% if start_date_value %}
+                <input type="hidden" name="start_date" value="{{ start_date_value }}">
+                {% endif %}
+                {% if end_date_value %}
+                <input type="hidden" name="end_date" value="{{ end_date_value }}">
+                {% endif %}
+                {% if selected_employee_id %}
+                <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
+                {% endif %}
+                <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo mọi cột trong bảng chi tiết">
+                <div class="scope-choice">
+                    <label>
+                        <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
+                        Tháng hiện tại
+                    </label>
+                    <label>
+                        <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                        ALL
+                    </label>
+                </div>
+                <button type="submit">Tìm kiếm</button>
+                {% if search_query or search_scope == 'all' %}
+                <a class="button-link button-link-secondary" href="{{ clear_search_url }}">Xóa lọc</a>
+                {% endif %}
+            </form>
             <a class="button-link button-link-secondary" href="{{ export_excel_url }}">Xuất Excel</a>
             <button type="button" id="details-fullscreen-btn" class="secondary">Phóng to bảng</button>
         </div>
@@ -122,7 +154,7 @@
 
     const tbody = table.querySelector("tbody");
     const headers = Array.from(table.querySelectorAll("thead th.sortable"));
-    if (!tbody || headers.length === 0) {
+    if (!tbody) {
         return;
     }
 
@@ -211,26 +243,28 @@
         });
     };
 
-    headers.forEach((header) => {
-        header.addEventListener("click", () => {
-            const colIndex = Number(header.dataset.colIndex || "0");
-            const type = header.dataset.sortType || "string";
+    if (headers.length > 0) {
+        headers.forEach((header) => {
+            header.addEventListener("click", () => {
+                const colIndex = Number(header.dataset.colIndex || "0");
+                const type = header.dataset.sortType || "string";
 
-            if (activeCol === colIndex) {
-                activeDirection = activeDirection === "asc" ? "desc" : "asc";
-            } else {
-                activeCol = colIndex;
-                activeDirection = "asc";
-            }
+                if (activeCol === colIndex) {
+                    activeDirection = activeDirection === "asc" ? "desc" : "asc";
+                } else {
+                    activeCol = colIndex;
+                    activeDirection = "asc";
+                }
 
-            headers.forEach((h) => {
-                h.classList.remove("sort-asc", "sort-desc");
+                headers.forEach((h) => {
+                    h.classList.remove("sort-asc", "sort-desc");
+                });
+                header.classList.add(activeDirection === "asc" ? "sort-asc" : "sort-desc");
+
+                sortRows(colIndex, type, activeDirection);
             });
-            header.classList.add(activeDirection === "asc" ? "sort-asc" : "sort-desc");
-
-            sortRows(colIndex, type, activeDirection);
         });
-    });
+    }
 
     const setFullscreenState = () => {
         const isNativeFullscreen = document.fullscreenElement === tablePanel;

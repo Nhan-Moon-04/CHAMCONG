@@ -19,7 +19,7 @@ from flask import (
 )
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
-from sqlalchemy import desc, func, or_
+from sqlalchemy import String, cast, desc, func, or_
 from sqlalchemy.orm import joinedload
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -104,6 +104,20 @@ def _sanitize_next_path(value):
         return None
 
     return value
+
+
+def _resolve_upload_relpath(relpath):
+    if not relpath:
+        return None
+
+    try:
+        upload_root = Path(current_app.config["UPLOAD_FOLDER"]).resolve()
+        resolved_path = (upload_root / str(relpath)).resolve()
+        resolved_path.relative_to(upload_root)
+    except Exception:
+        return None
+
+    return resolved_path
 
 
 def _iter_month_keys(start_date, end_date):
@@ -199,6 +213,10 @@ def _get_details_highlight_tag(detail_row):
 def _collect_details_view_data(query_args, emit_flash=True):
     month_key = _safe_month_key(query_args.get("month"))
     employee_id_raw = (query_args.get("employee_id", "") or "").strip()
+    search_query = (query_args.get("q", "") or "").strip()
+    search_scope = (query_args.get("scope") or "current").strip().lower()
+    if search_scope not in {"current", "all"}:
+        search_scope = "current"
 
     selected_employee_id = None
     if employee_id_raw:
@@ -245,6 +263,15 @@ def _collect_details_view_data(query_args, emit_flash=True):
     if is_range_mode and parsed_start_date > parsed_end_date:
         parsed_start_date, parsed_end_date = parsed_end_date, parsed_start_date
 
+    def _sort_key(detail_row):
+        raw_code = (detail_row.employee.employee_code or "").replace("'", "").strip()
+        if raw_code.isdigit():
+            code_key = (0, int(raw_code))
+        else:
+            code_key = (1, raw_code.lower())
+
+        return code_key, detail_row.work_date, detail_row.employee.id
+
     if is_range_mode:
         rows = []
         for item_month in _iter_month_keys(parsed_start_date, parsed_end_date):
@@ -252,21 +279,58 @@ def _collect_details_view_data(query_args, emit_flash=True):
             rows.extend(
                 row for row in month_rows if parsed_start_date <= row.work_date <= parsed_end_date
             )
-
-        def _sort_key(detail_row):
-            raw_code = (detail_row.employee.employee_code or "").replace("'", "").strip()
-            if raw_code.isdigit():
-                code_key = (0, int(raw_code))
-            else:
-                code_key = (1, raw_code.lower())
-
-            return code_key, detail_row.work_date, detail_row.employee.id
-
         rows.sort(key=_sort_key)
         period_label = f"{parsed_start_date} đến {parsed_end_date}"
     else:
-        rows = build_live_month_details(month_key, employee_id=selected_employee_id)
-        period_label = month_key
+        if search_scope == "all":
+            month_rows = (
+                db.session.query(AttendanceDetail.month_key)
+                .distinct()
+                .order_by(AttendanceDetail.month_key.desc())
+                .all()
+            )
+            month_keys = [row[0] for row in month_rows if row[0]]
+
+            rows = []
+            for item_month in month_keys:
+                rows.extend(build_live_month_details(item_month, employee_id=selected_employee_id))
+
+            rows.sort(key=_sort_key)
+            period_label = "Toàn bộ dữ liệu"
+        else:
+            rows = build_live_month_details(month_key, employee_id=selected_employee_id)
+            period_label = month_key
+
+    if search_query:
+        search_text = search_query.lower()
+
+        def _detail_matches_search(detail_row):
+            values = [
+                getattr(detail_row.employee, "employee_code", ""),
+                getattr(detail_row.employee, "full_name", ""),
+                getattr(detail_row, "work_date", ""),
+                getattr(detail_row, "shift_code", ""),
+                getattr(detail_row, "shift_name", ""),
+                getattr(detail_row, "check_in", ""),
+                getattr(detail_row, "check_out", ""),
+                getattr(detail_row, "actual_work_hours", ""),
+                getattr(detail_row, "deviation_hours", ""),
+                getattr(detail_row, "overtime_hours", ""),
+                getattr(detail_row, "total_span_hours", ""),
+                getattr(detail_row, "status_code", ""),
+                getattr(detail_row, "paid_hours", ""),
+                getattr(detail_row, "daily_wage", ""),
+                getattr(detail_row, "notes", ""),
+                getattr(detail_row, "meal_allowance_daily", ""),
+            ]
+
+            return any(
+                search_text in str(value).lower()
+                for value in values
+                if value is not None
+            )
+
+        rows = [row for row in rows if _detail_matches_search(row)]
 
     for row in rows:
         setattr(row, "highlight_tag", _get_details_highlight_tag(row))
@@ -278,6 +342,10 @@ def _collect_details_view_data(query_args, emit_flash=True):
         query_params["start_date"] = parsed_start_date.isoformat()
     if parsed_end_date:
         query_params["end_date"] = parsed_end_date.isoformat()
+    if search_scope == "all":
+        query_params["scope"] = "all"
+    if search_query:
+        query_params["q"] = search_query
 
     return {
         "month_key": month_key,
@@ -287,6 +355,8 @@ def _collect_details_view_data(query_args, emit_flash=True):
         "parsed_end_date": parsed_end_date,
         "is_range_mode": is_range_mode,
         "period_label": period_label,
+        "search_query": search_query,
+        "search_scope": search_scope,
         "query_params": query_params,
     }
 
@@ -704,6 +774,7 @@ def register_routes(app):
     @app.route("/")
     def dashboard():
         month_key = _safe_month_key(request.args.get("month"))
+        warning_query = (request.args.get("q") or "").strip()
 
         # Keep dashboard numbers in sync with source tables (schedule, shifts, attendance, salary).
         rebuild_month_details(month_key, actor="system-auto-sync", write_audit=False)
@@ -745,7 +816,7 @@ def register_routes(app):
             .all()
         )
 
-        warning_rows = (
+        warning_rows_query = (
             db.session.query(AttendanceDetail, Employee)
             .join(Employee, AttendanceDetail.employee_id == Employee.id)
             .filter(AttendanceDetail.month_key == month_key)
@@ -755,21 +826,26 @@ def register_routes(app):
                     AttendanceDetail.deviation_hours < 0,
                 )
             )
-            .order_by(AttendanceDetail.work_date.desc())
-            .limit(20)
-            .all()
         )
 
-        warning_total = (
-            db.session.query(func.count(AttendanceDetail.id))
-            .filter(AttendanceDetail.month_key == month_key)
-            .filter(
+        if warning_query:
+            warning_like = f"%{warning_query}%"
+            warning_rows_query = warning_rows_query.filter(
                 or_(
-                    AttendanceDetail.status_code == "N",
-                    AttendanceDetail.deviation_hours < 0,
+                    Employee.employee_code.ilike(warning_like),
+                    Employee.full_name.ilike(warning_like),
+                    AttendanceDetail.status_code.ilike(warning_like),
+                    AttendanceDetail.notes.ilike(warning_like),
+                    cast(AttendanceDetail.work_date, String).ilike(warning_like),
+                    cast(AttendanceDetail.deviation_hours, String).ilike(warning_like),
                 )
             )
-            .scalar()
+
+        warning_total = warning_rows_query.count()
+        warning_rows = (
+            warning_rows_query
+            .order_by(AttendanceDetail.work_date.desc(), AttendanceDetail.id.desc())
+            .all()
         )
 
         attendance_rate = (
@@ -796,11 +872,40 @@ def register_routes(app):
             overtime_labels=[row[0] for row in overtime_rows],
             overtime_values=[float(row[1]) for row in overtime_rows],
             warning_rows=warning_rows,
+            warning_query=warning_query,
         )
 
     @app.route("/employees", methods=["GET"])
     def employees():
-        rows = Employee.query.order_by(Employee.employee_code.asc()).all()
+        search_query = (request.args.get("q") or "").strip()
+        search_scope = (request.args.get("scope") or "current").strip().lower()
+        if search_scope not in {"current", "all"}:
+            search_scope = "current"
+
+        rows_query = Employee.query
+        if search_scope == "current":
+            rows_query = rows_query.filter(Employee.is_active.is_(True))
+
+        if search_query:
+            search_like = f"%{search_query}%"
+            search_filters = [
+                Employee.employee_code.ilike(search_like),
+                Employee.full_name.ilike(search_like),
+                Employee.gender.ilike(search_like),
+                Employee.hometown.ilike(search_like),
+                Employee.default_shift_code.ilike(search_like),
+                cast(Employee.birth_year, String).ilike(search_like),
+            ]
+
+            query_lower = search_query.lower()
+            if any(token in query_lower for token in ["hoat", "hoạt", "active", "current", "hiện tại"]):
+                search_filters.append(Employee.is_active.is_(True))
+            if any(token in query_lower for token in ["tam", "tạm", "ngung", "ngưng", "inactive"]):
+                search_filters.append(Employee.is_active.is_(False))
+
+            rows_query = rows_query.filter(or_(*search_filters))
+
+        rows = rows_query.order_by(Employee.created_at.desc(), Employee.id.desc()).all()
         active_rows = [row for row in rows if row.is_active]
         return render_template(
             "employees.html",
@@ -808,6 +913,8 @@ def register_routes(app):
             employees=rows,
             total_employees=len(rows),
             active_employees=len(active_rows),
+            search_query=search_query,
+            search_scope=search_scope,
         )
 
     @app.route("/employees/new", methods=["GET", "POST"])
@@ -1258,6 +1365,10 @@ def register_routes(app):
     @app.route("/salaries", methods=["GET", "POST"])
     def salaries():
         month_key = _safe_month_key(request.args.get("month"))
+        search_query = (request.args.get("q") or "").strip()
+        search_scope = (request.args.get("scope") or "current").strip().lower()
+        if search_scope not in {"current", "all"}:
+            search_scope = "current"
 
         if request.method == "POST":
             actor = request.form.get("changed_by", "admin").strip() or "admin"
@@ -1368,16 +1479,49 @@ def register_routes(app):
             return redirect(url_for("salaries", month=target_month))
 
         employees = Employee.query.order_by(Employee.employee_code.asc()).all()
-        company_work_days, workday_config = _resolve_company_work_days(month_key)
+        company_work_days_current, workday_config = _resolve_company_work_days(month_key)
+
+        rows_query = MonthlySalary.query.options(joinedload(MonthlySalary.employee))
+        if search_scope == "current":
+            rows_query = rows_query.filter(MonthlySalary.month_key == month_key)
+
+        if search_query:
+            search_like = f"%{search_query}%"
+            rows_query = rows_query.join(Employee, MonthlySalary.employee_id == Employee.id).filter(
+                or_(
+                    MonthlySalary.month_key.ilike(search_like),
+                    Employee.employee_code.ilike(search_like),
+                    Employee.full_name.ilike(search_like),
+                    MonthlySalary.pay_method.ilike(search_like),
+                    cast(MonthlySalary.base_daily_wage, String).ilike(search_like),
+                    cast(MonthlySalary.salary_coefficient, String).ilike(search_like),
+                )
+            )
+
         rows = (
-            MonthlySalary.query.options(joinedload(MonthlySalary.employee))
-            .filter(MonthlySalary.month_key == month_key)
-            .order_by(MonthlySalary.employee_id.asc())
+            rows_query
+            .order_by(MonthlySalary.month_key.desc(), MonthlySalary.created_at.desc(), MonthlySalary.id.desc())
             .all()
         )
 
+        month_key_set = {row.month_key for row in rows}
+        workday_by_month = {}
+        if month_key_set:
+            workday_rows = MonthlyWorkdayConfig.query.filter(
+                MonthlyWorkdayConfig.month_key.in_(month_key_set)
+            ).all()
+            workday_by_month = {
+                row.month_key: _to_float(row.company_work_days, 0)
+                for row in workday_rows
+            }
+
         salary_rows = []
         for row in rows:
+            company_work_days = workday_by_month.get(row.month_key, 0)
+            if company_work_days <= 0:
+                legacy_value = _to_float(row.salary_coefficient, 0)
+                company_work_days = legacy_value if legacy_value >= 10 else 26.0
+
             monthly_wage = _to_float(row.base_daily_wage)
             daily_rate = (monthly_wage / company_work_days) if company_work_days > 0 else 0.0
             salary_rows.append(
@@ -1385,6 +1529,7 @@ def register_routes(app):
                     "salary": row,
                     "monthly_wage": round(monthly_wage, 2),
                     "daily_rate": round(daily_rate, 2),
+                    "company_work_days": round(company_work_days, 2),
                 }
             )
 
@@ -1393,8 +1538,10 @@ def register_routes(app):
             month_key=month_key,
             employees=employees,
             salary_rows=salary_rows,
-            company_work_days=round(company_work_days, 2),
+            company_work_days=round(company_work_days_current, 2),
             workday_config=workday_config,
+            search_query=search_query,
+            search_scope=search_scope,
         )
 
     @app.route("/salaries/import", methods=["POST"])
@@ -1829,20 +1976,23 @@ def register_routes(app):
                 return redirect(url_for("imports"))
 
             upload_folder = Path(current_app.config["UPLOAD_FOLDER"])
-            upload_folder.mkdir(parents=True, exist_ok=True)
+            archive_folder = upload_folder / "attendance_imports"
+            archive_folder.mkdir(parents=True, exist_ok=True)
 
-            safe_name = secure_filename(upload.filename)
-            temp_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{safe_name}"
-            temp_path = upload_folder / temp_name
-            upload.save(temp_path)
+            safe_name = secure_filename(upload.filename) or "attendance_upload.csv"
+            stored_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{safe_name}"
+            stored_relpath = str(Path("attendance_imports") / stored_name).replace("\\", "/")
+            stored_path = archive_folder / stored_name
+            upload.save(stored_path)
 
             try:
                 result = import_attendance_file(
-                    str(temp_path),
+                    str(stored_path),
                     upload.filename,
                     actor,
                     month_key=month_key,
                     replace_existing=replace_existing_month,
+                    stored_file_relpath=stored_relpath,
                 )
                 months = result["months"]
                 rebuilt = {}
@@ -1862,29 +2012,102 @@ def register_routes(app):
                 )
             except Exception as exc:
                 db.session.rollback()
+                if stored_path.exists():
+                    os.remove(stored_path)
                 flash(f"Import thất bại: {exc}", "error")
-            finally:
-                if temp_path.exists():
-                    os.remove(temp_path)
 
             return redirect(url_for("imports"))
 
+        search_query = (request.args.get("q") or "").strip()
+        import_logs_query = AuditLog.query.filter_by(table_name="attendance_import")
+        if search_query:
+            search_like = f"%{search_query}%"
+            import_logs_query = import_logs_query.filter(
+                or_(
+                    AuditLog.changed_by.ilike(search_like),
+                    AuditLog.action.ilike(search_like),
+                    AuditLog.record_id.ilike(search_like),
+                    cast(AuditLog.after_data, String).ilike(search_like),
+                    cast(AuditLog.notes, String).ilike(search_like),
+                )
+            )
+
         import_logs = (
-            AuditLog.query.filter_by(table_name="attendance_import")
+            import_logs_query
             .order_by(AuditLog.changed_at.desc())
-            .limit(30)
+            .limit(200)
             .all()
         )
-        return render_template("imports.html", import_logs=import_logs)
+
+        deleted_batch_ids = {
+            row[0]
+            for row in db.session.query(AuditLog.record_id)
+            .filter_by(table_name="attendance_import", action="DELETE_BATCH")
+            .all()
+            if row[0]
+        }
+
+        return render_template(
+            "imports.html",
+            import_logs=import_logs,
+            search_query=search_query,
+            deleted_batch_ids=deleted_batch_ids,
+        )
+
+    @app.route("/imports/download/<batch_id>", methods=["GET"])
+    def download_import_file(batch_id):
+        import_log = (
+            AuditLog.query.filter_by(
+                table_name="attendance_import",
+                record_id=batch_id,
+                action="IMPORT",
+            )
+            .order_by(AuditLog.changed_at.desc())
+            .first()
+        )
+        if not import_log:
+            flash("Không tìm thấy lô import để tải file", "error")
+            return redirect(url_for("imports"))
+
+        payload = import_log.after_data if isinstance(import_log.after_data, dict) else {}
+        source_file = str(payload.get("source_file") or f"attendance_{batch_id}.dat")
+        stored_file_relpath = payload.get("stored_file")
+        stored_file_path = _resolve_upload_relpath(stored_file_relpath)
+
+        if not stored_file_path or not stored_file_path.exists():
+            flash("File upload không còn trên máy", "error")
+            return redirect(url_for("imports"))
+
+        return send_file(
+            str(stored_file_path),
+            as_attachment=True,
+            download_name=source_file,
+        )
 
     @app.route("/imports/delete/<batch_id>", methods=["POST"])
     def delete_import_batch(batch_id):
-        actor = request.form.get("changed_by", "admin")
+        actor = (request.form.get("changed_by") or "admin").strip() or "admin"
+
+        import_log = (
+            AuditLog.query.filter_by(
+                table_name="attendance_import",
+                record_id=batch_id,
+                action="IMPORT",
+            )
+            .order_by(AuditLog.changed_at.desc())
+            .first()
+        )
+        import_payload = import_log.after_data if isinstance(import_log.after_data, dict) else {}
+        source_file_name = str(import_payload.get("source_file") or "")
+        stored_file_relpath = import_payload.get("stored_file")
 
         log_rows = AttendanceLog.query.filter_by(import_batch=batch_id).all()
         if not log_rows:
             flash("Không tìm thấy batch import để xóa", "error")
             return redirect(url_for("imports"))
+
+        if not source_file_name and log_rows:
+            source_file_name = log_rows[0].source_file or ""
 
         affected_months = sorted(
             {month_key_for_date(row.event_time.date()) for row in log_rows}
@@ -1897,17 +2120,33 @@ def register_routes(app):
             synchronize_session=False
         )
 
+        file_removed = False
+        stored_file_path = _resolve_upload_relpath(stored_file_relpath)
+        if stored_file_path and stored_file_path.exists():
+            try:
+                os.remove(stored_file_path)
+                file_removed = True
+            except OSError:
+                file_removed = False
+
+        if import_log:
+            import_log.after_data = {
+                "source_file": source_file_name,
+            }
+
         log_action(
             "attendance_import",
             batch_id,
             "DELETE_BATCH",
             changed_by=actor,
             after_data={
+                "source_file": source_file_name,
+                "file_removed": file_removed,
                 "removed_logs": int(removed_logs),
                 "removed_daily": int(removed_daily),
                 "affected_months": affected_months,
             },
-            notes="Xóa dữ liệu của một lần import",
+            notes="Xóa vĩnh viễn dữ liệu và file upload của một lần import",
         )
         db.session.commit()
 
@@ -1916,7 +2155,8 @@ def register_routes(app):
             rebuilt[item] = rebuild_month_details(item, actor)
 
         flash(
-            f"Đã xóa batch {batch_id}. Logs: {removed_logs}, Daily: {removed_daily}, Tái tạo: {rebuilt}",
+            f"Đã xóa vĩnh viễn batch {batch_id}. File: {'đã xóa' if file_removed else 'không tìm thấy'}, "
+            f"Logs: {removed_logs}, Daily: {removed_daily}, Tái tạo: {rebuilt}",
             "success",
         )
         return redirect(url_for("imports"))
@@ -1924,12 +2164,17 @@ def register_routes(app):
     @app.route("/details")
     def details():
         details_view_data = _collect_details_view_data(request.args, emit_flash=True)
+        clear_search_params = dict(details_view_data["query_params"])
+        clear_search_params.pop("q", None)
+        clear_search_params.pop("scope", None)
 
         employees = Employee.query.order_by(Employee.employee_code.asc()).all()
         return render_template(
             "details.html",
             month_key=details_view_data["month_key"],
             details=details_view_data["rows"],
+            search_query=details_view_data["search_query"],
+            search_scope=details_view_data["search_scope"],
             employees=employees,
             selected_employee_id=details_view_data["selected_employee_id"],
             start_date_value=(
@@ -1944,6 +2189,7 @@ def register_routes(app):
             ),
             is_range_mode=details_view_data["is_range_mode"],
             period_label=details_view_data["period_label"],
+            clear_search_url=url_for("details", **clear_search_params),
             export_excel_url=url_for("export_details_excel", **details_view_data["query_params"]),
         )
 

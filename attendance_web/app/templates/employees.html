@@ -9,6 +9,33 @@
     <a class="button-link" href="{{ url_for('create_employee') }}">Thêm nhân viên</a>
 </section>
 
+<section class="panel soft-panel">
+    <form method="get" class="employee-search-form">
+        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo mọi cột trong bảng nhân viên">
+        <div class="scope-choice">
+            <label>
+                <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
+                Hiện tại
+            </label>
+            <label>
+                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                ALL
+            </label>
+        </div>
+        <button type="submit">Tìm kiếm</button>
+        {% if search_query or search_scope == 'all' %}
+        <a class="button-link button-link-secondary" href="{{ url_for('employees') }}">Xóa lọc</a>
+        {% endif %}
+    </form>
+    <p class="muted">
+        {% if search_scope == 'all' %}
+        Đang tìm trong toàn bộ dữ liệu từ trước đến nay, ưu tiên bản ghi mới nhất.
+        {% else %}
+        Đang tìm trong dữ liệu hiện tại (mặc định).
+        {% endif %}
+    </p>
+</section>
+
 <section class="card-grid employees-summary-grid">
     <article class="card">
         <div class="kpi-title">Tổng nhân viên</div>
