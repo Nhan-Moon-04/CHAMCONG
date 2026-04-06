@@ -132,6 +132,21 @@ def run_pg_dump(database_url, target_dir, retention_days=30, pg_dump_path="pg_du
     return str(backup_file), removed_files
 
 
+def _serialize_backup_value(value):
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
+
+
+def _serialize_row_for_backup(model, row):
+    payload = {}
+    for column in model.__table__.columns:
+        payload[column.name] = _serialize_backup_value(getattr(row, column.name))
+    return payload
+
+
 def _serialize_database_payload():
     payload = {
         "schema_version": PORTABLE_BACKUP_SCHEMA_VERSION,
@@ -145,7 +160,7 @@ def _serialize_database_payload():
         if hasattr(model, "id"):
             query = query.order_by(model.id.asc())
 
-        rows = [row.to_dict() for row in query.all()]
+        rows = [_serialize_row_for_backup(model, row) for row in query.all()]
         table_name = model.__tablename__
         payload["tables"][table_name] = rows
         payload["row_counts"][table_name] = len(rows)
@@ -334,13 +349,14 @@ def _reset_postgres_sequences():
             )
 
 
-def restore_portable_backup(file_stream, filename):
+def restore_portable_backup(file_stream, filename, fallback_user_password_hash=None):
     payload = _decode_backup_payload(file_stream.read(), filename)
     table_payload = payload.get("tables", {})
 
     _truncate_existing_data()
 
     inserted_counts = {}
+    reset_user_password_count = 0
     for model in BACKUP_MODELS:
         table_name = model.__tablename__
         rows = table_payload.get(table_name, [])
@@ -354,7 +370,20 @@ def restore_portable_backup(file_stream, filename):
         for row in rows:
             if not isinstance(row, dict):
                 raise ValueError(f"Dong du lieu trong bang {table_name} khong hop le")
-            prepared_rows.append(_coerce_row(model, row))
+
+            prepared_row = _coerce_row(model, row)
+            if model is AppUser:
+                password_hash = str(prepared_row.get("password_hash") or "").strip()
+                if not password_hash:
+                    if not fallback_user_password_hash:
+                        raise ValueError(
+                            "File backup thieu password_hash trong bang app_users. "
+                            "Hay tao backup moi hoac cung cap fallback hash."
+                        )
+                    prepared_row["password_hash"] = fallback_user_password_hash
+                    reset_user_password_count += 1
+
+            prepared_rows.append(prepared_row)
 
         if prepared_rows:
             db.session.bulk_insert_mappings(model, prepared_rows)
@@ -368,6 +397,7 @@ def restore_portable_backup(file_stream, filename):
         "schema_version": payload.get("schema_version"),
         "backup_created_at": payload.get("created_at"),
         "row_counts": inserted_counts,
+        "reset_user_password_count": reset_user_password_count,
         "total_rows": sum(inserted_counts.values()),
     }
 

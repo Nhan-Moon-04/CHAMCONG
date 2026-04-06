@@ -3355,7 +3355,14 @@ def register_routes(app):
             return redirect(url_for("audit_logs"))
 
         try:
-            restore_summary = restore_portable_backup(uploaded_file.stream, filename)
+            fallback_password_hash = generate_password_hash(
+                current_app.config.get("LOGIN_PASSWORD", "123456")
+            )
+            restore_summary = restore_portable_backup(
+                uploaded_file.stream,
+                filename,
+                fallback_user_password_hash=fallback_password_hash,
+            )
             log_action(
                 "system_backup",
                 filename,
@@ -3365,6 +3372,17 @@ def register_routes(app):
                 notes="Khoi phuc du lieu tu file backup",
             )
             db.session.commit()
+
+            reset_user_password_count = int(restore_summary.get("reset_user_password_count", 0) or 0)
+            if reset_user_password_count > 0:
+                flash(
+                    (
+                        f"Backup cu thieu password_hash cho {reset_user_password_count} user. "
+                        "He thong da reset cac user nay ve mat khau dang nhap mac dinh hien tai."
+                    ),
+                    "warning",
+                )
+
             flash(
                 f"Khoi phuc thanh cong: {restore_summary.get('total_rows', 0)} dong du lieu",
                 "success",

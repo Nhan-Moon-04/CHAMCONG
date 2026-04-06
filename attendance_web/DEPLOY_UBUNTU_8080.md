@@ -174,3 +174,29 @@ Chi can dam bao docker daemon auto start:
 sudo systemctl enable docker
 sudo systemctl status docker
 ```
+
+
+
+
+cd /opt/CHAMCONG/attendance_web
+docker compose config | grep -E "POSTGRES_DB|POSTGRES_USER|POSTGRES_PASSWORD|DATABASE_URL"
+docker compose exec -u postgres db psql -d postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+docker compose restart web
+docker compose logs --tail=80 web
+
+Chạy đúng bộ lệnh này mỗi lần kéo code mới trên server:
+cd /opt/CHAMCONG
+git pull --rebase --autostash
+cd attendance_web
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=80 web
+
+
+
+Nếu bị chặn do local changes thì chạy bộ này
+cd /opt/CHAMCONG
+git stash push -u -m temp-deploy
+git pull
+cd attendance_web
+docker compose up -d --build
