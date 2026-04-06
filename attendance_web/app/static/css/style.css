@@ -643,6 +643,13 @@ a:hover {
     align-items: end;
 }
 
+.salary-overview-search-form {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) auto auto;
+    gap: 8px;
+    align-items: end;
+}
+
 .advances-search-form {
     display: grid;
     grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr) auto minmax(220px, 260px) auto auto;
@@ -728,6 +735,28 @@ a:hover {
 #salaries-table-panel .table-wrap {
     max-height: calc(100vh - 290px);
     max-height: calc(100dvh - 290px);
+}
+
+#salary-overview-panel .table-wrap {
+    max-height: calc(100vh - 270px);
+    max-height: calc(100dvh - 270px);
+}
+
+.salary-mask-cell {
+    white-space: nowrap;
+}
+
+.salary-mask-value {
+    display: inline-block;
+    min-width: 92px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    margin-right: 8px;
+}
+
+.salary-mask-toggle {
+    width: auto;
+    padding: 6px 10px;
 }
 
 #schedules-table-panel .table-wrap {
@@ -1274,6 +1303,7 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
     .warning-search-form,
     .employee-search-form,
     .salary-search-form,
+    .salary-overview-search-form,
     .details-search-form,
     .advances-search-form,
     .advance-inline-edit-form {

@@ -1566,6 +1566,159 @@ def register_routes(app):
             search_scope=search_scope,
         )
 
+    @app.route("/salary-overview")
+    def salary_overview():
+        month_key = _safe_month_key(request.args.get("month"))
+        search_query = (request.args.get("q") or "").strip()
+
+        company_work_days, _ = _resolve_company_work_days(month_key)
+        if company_work_days <= 0:
+            company_work_days = 26.0
+
+        employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.employee_code.asc()).all()
+        summary_map = {
+            row.id: {
+                "employee": row,
+                "worked_days": 0.0,
+                "paid_leave_days": 0.0,
+                "unpaid_leave_days": 0.0,
+                "overtime_hours": 0.0,
+            }
+            for row in employees
+        }
+
+        detail_rows = (
+            AttendanceDetail.query.options(joinedload(AttendanceDetail.employee))
+            .filter(AttendanceDetail.month_key == month_key)
+            .order_by(AttendanceDetail.employee_id.asc(), AttendanceDetail.work_date.asc())
+            .all()
+        )
+
+        for row in detail_rows:
+            if not row.employee:
+                continue
+
+            summary = summary_map.get(row.employee_id)
+            if not summary:
+                summary = {
+                    "employee": row.employee,
+                    "worked_days": 0.0,
+                    "paid_leave_days": 0.0,
+                    "unpaid_leave_days": 0.0,
+                    "overtime_hours": 0.0,
+                }
+                summary_map[row.employee_id] = summary
+
+            status_code = str(row.status_code or "").upper()
+            if status_code == "P":
+                summary["paid_leave_days"] += 1.0
+            elif status_code in {"S", "C"}:
+                summary["paid_leave_days"] += 0.5
+                summary["worked_days"] += 0.5
+            elif status_code == "N":
+                summary["unpaid_leave_days"] += 1.0
+            elif status_code == "OFF":
+                pass
+            else:
+                summary["worked_days"] += 1.0
+
+            summary["overtime_hours"] += _to_float(row.overtime_hours)
+
+        employee_ids = list(summary_map.keys())
+
+        salary_by_employee = {}
+        if employee_ids:
+            salary_rows = MonthlySalary.query.filter(
+                MonthlySalary.month_key == month_key,
+                MonthlySalary.employee_id.in_(employee_ids),
+            ).all()
+            salary_by_employee = {row.employee_id: row for row in salary_rows}
+
+        advance_by_employee = {}
+        if employee_ids:
+            advance_rows = (
+                db.session.query(
+                    AdvancePayment.employee_id,
+                    func.coalesce(func.sum(AdvancePayment.amount), 0),
+                )
+                .filter(
+                    AdvancePayment.month_key == month_key,
+                    AdvancePayment.employee_id.in_(employee_ids),
+                )
+                .group_by(AdvancePayment.employee_id)
+                .all()
+            )
+            advance_by_employee = {
+                employee_id: _to_float(total_amount)
+                for employee_id, total_amount in advance_rows
+            }
+
+        overview_rows = []
+        for employee_id, summary in summary_map.items():
+            salary_row = salary_by_employee.get(employee_id)
+            monthly_wage = _to_float(salary_row.base_daily_wage if salary_row else None, 0)
+
+            overtime_hours = round(summary["overtime_hours"], 2)
+            overtime_day_units = int(overtime_hours // 8)
+            overtime_remainder_hours = round(overtime_hours - (overtime_day_units * 8), 2)
+
+            salary_day_units = (
+                summary["worked_days"]
+                + summary["paid_leave_days"]
+                + (overtime_hours / 8.0)
+            )
+            daily_rate = (monthly_wage / company_work_days) if company_work_days > 0 else 0.0
+            salary_amount = round(daily_rate * salary_day_units, 2)
+            advance_amount = round(_to_float(advance_by_employee.get(employee_id), 0), 2)
+
+            overview_rows.append(
+                {
+                    "employee": summary["employee"],
+                    "worked_days": round(summary["worked_days"], 2),
+                    "paid_leave_days": round(summary["paid_leave_days"], 2),
+                    "unpaid_leave_days": round(summary["unpaid_leave_days"], 2),
+                    "overtime_day_units": overtime_day_units,
+                    "overtime_remainder_hours": overtime_remainder_hours,
+                    "advance_amount": advance_amount,
+                    "salary_amount": salary_amount,
+                }
+            )
+
+        overview_rows.sort(
+            key=lambda item: _employee_code_sort_key(item["employee"].employee_code)
+        )
+
+        if search_query:
+            search_text = search_query.lower()
+
+            def _match_overview(item):
+                values = [
+                    item["employee"].employee_code,
+                    item["employee"].full_name,
+                    item["worked_days"],
+                    item["paid_leave_days"],
+                    item["unpaid_leave_days"],
+                    item["overtime_day_units"],
+                    item["overtime_remainder_hours"],
+                    item["advance_amount"],
+                    item["salary_amount"],
+                ]
+                return any(
+                    search_text in str(value).lower()
+                    for value in values
+                    if value is not None
+                )
+
+            overview_rows = [item for item in overview_rows if _match_overview(item)]
+
+        return render_template(
+            "salary_overview.html",
+            month_key=month_key,
+            company_work_days=round(company_work_days, 2),
+            search_query=search_query,
+            overview_rows=overview_rows,
+        )
+
     @app.route("/salaries/import", methods=["POST"])
     def import_salaries():
         actor = request.form.get("changed_by", "admin").strip() or "admin"

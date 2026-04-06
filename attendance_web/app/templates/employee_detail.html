@@ -96,13 +96,12 @@
                 <tr>
                     <th>Ngày</th>
                     <th>Mã ca</th>
-                    <th>Trạng thái</th>
                     <th>Giờ vào</th>
                     <th>Giờ ra</th>
                     <th>Giờ thực</th>
                     <th>Tăng ca</th>
                     <th>Số giờ</th>
-                    <th>Lương ngày</th>
+                    <th>Ghi chú</th>
                 </tr>
             </thead>
             <tbody>
@@ -110,17 +109,16 @@
                 <tr>
                     <td>{{ row.work_date }}</td>
                     <td>{{ row.shift_code }}</td>
-                    <td>{{ row.status_code }}</td>
                     <td>{{ row.check_in.strftime('%Y-%m-%d %H:%M') if row.check_in else '-' }}</td>
                     <td>{{ row.check_out.strftime('%Y-%m-%d %H:%M') if row.check_out else '-' }}</td>
                     <td>{{ "%.2f"|format(row.actual_work_hours) }}</td>
                     <td>{{ "%.2f"|format(row.overtime_hours) }}</td>
                     <td>{{ "%.2f"|format(row.paid_hours) }}</td>
-                    <td>{{ "{:,.0f}".format(row.daily_wage) }}</td>
+                    <td>{{ row.notes or '-' }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9">Chưa có dữ liệu.</td>
+                    <td colspan="8">Chưa có dữ liệu.</td>
                 </tr>
                 {% endfor %}
             </tbody>
