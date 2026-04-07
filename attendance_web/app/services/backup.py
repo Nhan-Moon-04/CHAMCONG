@@ -32,7 +32,6 @@ from .audit import log_action
 
 
 _scheduler = None
-PORTABLE_BACKUP_SCHEMA_VERSION = 1
 
 BACKUP_MODELS = [
     ShiftTemplate,
@@ -148,12 +147,8 @@ def _serialize_row_for_backup(model, row):
 
 
 def _serialize_database_payload():
-    payload = {
-        "schema_version": PORTABLE_BACKUP_SCHEMA_VERSION,
-        "created_at": datetime.utcnow().isoformat(),
-        "tables": {},
-        "row_counts": {},
-    }
+    table_payload = {}
+    row_counts = {}
 
     for model in BACKUP_MODELS:
         query = db.session.query(model)
@@ -162,10 +157,10 @@ def _serialize_database_payload():
 
         rows = [_serialize_row_for_backup(model, row) for row in query.all()]
         table_name = model.__tablename__
-        payload["tables"][table_name] = rows
-        payload["row_counts"][table_name] = len(rows)
+        table_payload[table_name] = rows
+        row_counts[table_name] = len(rows)
 
-    return payload
+    return table_payload, row_counts
 
 
 def run_portable_backup(target_dir, retention_days=30):
@@ -175,16 +170,14 @@ def run_portable_backup(target_dir, retention_days=30):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_file = target_path / f"attendance_full_{timestamp}.json.gz"
 
-    payload = _serialize_database_payload()
+    table_payload, row_counts = _serialize_database_payload()
     with gzip.open(backup_file, "wt", encoding="utf-8") as output:
-        json.dump(payload, output, ensure_ascii=False)
+        json.dump(table_payload, output, ensure_ascii=False)
 
     removed_files = cleanup_old_backups(target_path, retention_days)
     summary = {
-        "schema_version": payload["schema_version"],
-        "created_at": payload["created_at"],
-        "row_counts": payload["row_counts"],
-        "total_rows": sum(payload["row_counts"].values()),
+        "row_counts": row_counts,
+        "total_rows": sum(row_counts.values()),
     }
     return str(backup_file), removed_files, summary
 
@@ -248,10 +241,14 @@ def _decode_backup_payload(raw_bytes, filename):
         raise ValueError("Noi dung backup khong hop le")
 
     tables = payload.get("tables")
-    if not isinstance(tables, dict):
-        raise ValueError("Backup khong co du lieu bang")
+    if isinstance(tables, dict):
+        return payload
 
-    return payload
+    # Ho tro dinh dang gon: top-level chi gom ten bang -> danh sach dong.
+    if all(isinstance(rows, list) for rows in payload.values()):
+        return {"tables": payload}
+
+    raise ValueError("Backup khong co du lieu bang")
 
 
 def _coerce_column_value(column, value):
