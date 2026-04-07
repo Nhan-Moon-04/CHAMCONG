@@ -29,6 +29,22 @@
         <a class="button-link button-link-secondary" href="{{ url_for('salary_overview_meal', month=month_key, period=period) }}">Xóa lọc</a>
         {% endif %}
     </form>
+    <div class="meal-period-actions" style="margin-top: 10px;">
+        <form method="get" action="{{ url_for('export_salary_overview_meal_excel') }}" class="meal-export-form">
+            <input type="hidden" name="month" value="{{ month_key }}">
+            {% if search_query %}
+            <input type="hidden" name="q" value="{{ search_query }}">
+            {% endif %}
+            <label for="meal-period-export" class="meal-export-label">Xuất tiền ăn</label>
+            <div class="meal-export-controls">
+                <select id="meal-period-export" name="period">
+                    <option value="1" {% if period == 1 %}selected{% endif %}>Tiền ăn đợt 1</option>
+                    <option value="2" {% if period == 2 %}selected{% endif %}>Tiền ăn đợt 2</option>
+                </select>
+                <button type="submit">Xuất tiền ăn</button>
+            </div>
+        </form>
+    </div>
     <p class="muted">Bấm vào tên nhân viên để xem chi tiết ca làm và tiền ăn của đúng người đó.</p>
 </section>
 

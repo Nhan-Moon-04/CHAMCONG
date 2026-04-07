@@ -881,6 +881,63 @@ a:hover {
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 8px;
+    align-items: center;
+}
+
+.meal-period-actions .meal-export-form {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meal-period-actions .meal-export-label {
+    margin: 0;
+    white-space: nowrap;
+    font-size: 0.84rem;
+    color: #475569;
+}
+
+.meal-period-actions .meal-export-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meal-period-actions .meal-export-controls select {
+    min-width: 200px;
+}
+
+.meal-period-actions-overview {
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.meal-period-actions-overview .meal-period-link-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.meal-period-actions-overview .meal-export-form {
+    margin-left: auto;
+    display: grid;
+    gap: 6px;
+    border: 1px solid #dbe3ee;
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: #f8fafc;
+}
+
+.meal-period-actions-overview .meal-export-label {
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.meal-period-actions-overview .meal-export-controls select {
+    min-width: 260px;
 }
 
 .meal-period-actions button {
@@ -1753,6 +1810,30 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
     .meal-period-actions {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .meal-period-actions .meal-export-form {
+        margin-left: 0;
+        width: 100%;
+        display: grid;
+        gap: 8px;
+    }
+
+    .meal-period-actions .meal-export-controls {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .meal-period-actions .meal-export-controls select {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .meal-period-actions-overview .meal-period-link-list {
+        width: 100%;
+        display: grid;
+        gap: 8px;
     }
 
     .meal-period-actions button {

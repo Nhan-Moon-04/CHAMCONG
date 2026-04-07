@@ -58,6 +58,10 @@ from .services.backup import (
     run_portable_backup,
 )
 from .services.importer import import_attendance_file
+from .services.salary_meal_export import (
+    build_salary_meal_export_excel,
+    collect_salary_meal_overview_data,
+)
 from .services.salary_importer import import_salary_file
 from .services.schedule_importer import import_schedule_file
 
@@ -2364,122 +2368,34 @@ def register_routes(app):
         period_raw = (request.args.get("period") or "1").strip()
         period = 2 if period_raw == "2" else 1
         search_query = (request.args.get("q") or "").strip()
-
-        start_date, end_date = parse_month_key(month_key)
-        period_1_end = date(start_date.year, start_date.month, 15)
-        period_2_start = date(start_date.year, start_date.month, 16)
-
-        if period == 2:
-            period_start = period_2_start
-            period_end = end_date
-            period_label = f"{period_start.strftime('%d/%m')} - {period_end.strftime('%d/%m')}"
-            period_title = "Tiền ăn đợt 2"
-        else:
-            period_start = start_date
-            period_end = period_1_end
-            period_label = f"{period_start.strftime('%d/%m')} - {period_end.strftime('%d/%m')}"
-            period_title = "Tiền ăn đợt 1"
-
-        employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.employee_code.asc()).all()
-        meal_summary_map = {
-            row.id: {
-                "employee": row,
-                "worked_days": 0.0,
-                "paid_leave_days": 0.0,
-                "unpaid_leave_days": 0.0,
-                "meal_amount": 0.0,
-            }
-            for row in employees
-        }
-
-        detail_rows = (
-            AttendanceDetail.query.options(joinedload(AttendanceDetail.employee))
-            .filter(
-                AttendanceDetail.month_key == month_key,
-                AttendanceDetail.work_date >= period_start,
-                AttendanceDetail.work_date <= period_end,
-            )
-            .order_by(AttendanceDetail.employee_id.asc(), AttendanceDetail.work_date.asc())
-            .all()
-        )
-
-        def _apply_status(summary_obj, status_code):
-            normalized = str(status_code or "").upper()
-            if normalized == "P":
-                summary_obj["paid_leave_days"] += 1.0
-            elif normalized in {"S", "C"}:
-                summary_obj["paid_leave_days"] += 0.5
-                summary_obj["worked_days"] += 0.5
-            elif normalized == "N":
-                summary_obj["unpaid_leave_days"] += 1.0
-            elif normalized == "OFF":
-                return
-            else:
-                summary_obj["worked_days"] += 1.0
-
-        for detail_row in detail_rows:
-            if not detail_row.employee:
-                continue
-
-            meal_summary = meal_summary_map.get(detail_row.employee_id)
-            if not meal_summary:
-                meal_summary = {
-                    "employee": detail_row.employee,
-                    "worked_days": 0.0,
-                    "paid_leave_days": 0.0,
-                    "unpaid_leave_days": 0.0,
-                    "meal_amount": 0.0,
-                }
-                meal_summary_map[detail_row.employee_id] = meal_summary
-
-            _apply_status(meal_summary, detail_row.status_code)
-            meal_summary["meal_amount"] += _to_float(detail_row.meal_allowance_daily)
-
-        meal_rows = []
-        for employee_id, meal_summary in meal_summary_map.items():
-            meal_rows.append(
-                {
-                    "employee_id": employee_id,
-                    "employee": meal_summary["employee"],
-                    "worked_days": round(meal_summary["worked_days"], 2),
-                    "paid_leave_days": round(meal_summary["paid_leave_days"], 2),
-                    "unpaid_leave_days": round(meal_summary["unpaid_leave_days"], 2),
-                    "meal_amount": round(meal_summary["meal_amount"], 2),
-                }
-            )
-
-        meal_rows.sort(
-            key=lambda item: _employee_code_sort_key(item["employee"].employee_code)
-        )
-
-        if search_query:
-            search_text = search_query.lower()
-
-            def _match_meal_row(item):
-                values = [
-                    item["employee"].employee_code,
-                    item["employee"].full_name,
-                    item["worked_days"],
-                    item["paid_leave_days"],
-                    item["unpaid_leave_days"],
-                    item["meal_amount"],
-                ]
-                return any(
-                    search_text in str(value).lower()
-                    for value in values
-                    if value is not None
-                )
-
-            meal_rows = [item for item in meal_rows if _match_meal_row(item)]
+        meal_data = collect_salary_meal_overview_data(month_key, period, search_query)
+        period_title = "Tiền ăn đợt 2" if meal_data["period"] == 2 else "Tiền ăn đợt 1"
 
         return render_template(
             "salary_meal_period.html",
-            month_key=month_key,
-            period=period,
+            month_key=meal_data["month_key"],
+            period=meal_data["period"],
             period_title=period_title,
-            period_label=period_label,
-            search_query=search_query,
-            meal_rows=meal_rows,
+            period_label=meal_data["period_label"],
+            search_query=meal_data["search_query"],
+            meal_rows=meal_data["meal_rows"],
+        )
+
+    @app.route("/salary-overview/meal/export.xlsx")
+    def export_salary_overview_meal_excel():
+        month_key = _safe_month_key(request.args.get("month"))
+        period_raw = (request.args.get("period") or "1").strip()
+        period = 2 if period_raw == "2" else 1
+        search_query = (request.args.get("q") or "").strip()
+
+        meal_data = collect_salary_meal_overview_data(month_key, period, search_query)
+        output, filename = build_salary_meal_export_excel(meal_data)
+
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=filename,
         )
 
     @app.route("/salary-overview/meal/<int:employee_id>")

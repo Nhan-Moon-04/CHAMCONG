@@ -80,12 +80,28 @@
 
 <section class="panel soft-panel">
     <h3>Tính tiền ăn theo đợt chốt tháng</h3>
-    <div class="meal-period-actions">
-        {% for period in meal_periods %}
-        <a class="button-link button-link-secondary" href="{{ url_for('salary_overview_meal', month=month_key, period=period.period, q=search_query or None) }}">
-            {{ period.label }} ({{ period.date_label }})
-        </a>
-        {% endfor %}
+    <div class="meal-period-actions meal-period-actions-overview">
+        <div class="meal-period-link-list">
+            {% for period in meal_periods %}
+            <a class="button-link button-link-secondary" href="{{ url_for('salary_overview_meal', month=month_key, period=period.period, q=search_query or None) }}">
+                {{ period.label }} ({{ period.date_label }})
+            </a>
+            {% endfor %}
+        </div>
+        <form method="get" action="{{ url_for('export_salary_overview_meal_excel') }}" class="meal-export-form">
+            <input type="hidden" name="month" value="{{ month_key }}">
+            {% if search_query %}
+            <input type="hidden" name="q" value="{{ search_query }}">
+            {% endif %}
+            <label for="meal-export-period" class="meal-export-label">Xuất tiền ăn</label>
+            <div class="meal-export-controls">
+                <select id="meal-export-period" name="period">
+                    <option value="1">Tiền ăn đợt 1</option>
+                    <option value="2">Tiền ăn đợt 2</option>
+                </select>
+                <button type="submit">Xuất tiền ăn</button>
+            </div>
+        </form>
     </div>
    
 </section>
