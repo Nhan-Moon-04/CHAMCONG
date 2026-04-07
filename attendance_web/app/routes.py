@@ -18,7 +18,7 @@ from flask import (
     url_for,
 )
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill
+from openpyxl.styles import Font, PatternFill
 from sqlalchemy import String, cast, desc, func, or_
 from sqlalchemy.orm import joinedload
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -1465,6 +1465,49 @@ def register_routes(app):
         summary_paid_hours = sum(float(row.paid_hours or 0) for row in details)
         summary_wage = sum(float(row.daily_wage or 0) for row in details)
 
+        shift_name_map = {row.code: row.name for row in ShiftTemplate.query.all()}
+        shift_summary_map = {}
+        for row in details:
+            status_code = str(row.status_code or "").upper()
+            if status_code == "N":
+                shift_code = "N"
+            elif status_code == "OFF":
+                shift_code = "OFF"
+            else:
+                shift_code = str(row.shift_code or "").upper()
+                if not shift_code:
+                    shift_code = status_code or "UNKNOWN"
+
+            summary_item = shift_summary_map.get(shift_code)
+            if not summary_item:
+                if shift_code == "N":
+                    shift_display_name = "Nghi khong phep"
+                elif shift_code == "OFF":
+                    shift_display_name = "Nghi ca OFF"
+                else:
+                    shift_display_name = shift_name_map.get(shift_code, "")
+                summary_item = {
+                    "shift_code": shift_code,
+                    "shift_name": shift_display_name,
+                    "days": 0,
+                    "paid_hours": 0.0,
+                    "actual_work_hours": 0.0,
+                    "overtime_hours": 0.0,
+                    "wage_amount": 0.0,
+                }
+                shift_summary_map[shift_code] = summary_item
+
+            summary_item["days"] += 1
+            summary_item["paid_hours"] += _to_float(row.paid_hours)
+            summary_item["actual_work_hours"] += _to_float(row.actual_work_hours)
+            summary_item["overtime_hours"] += _to_float(row.overtime_hours)
+            summary_item["wage_amount"] += _to_float(row.daily_wage)
+
+        shift_summary_rows = sorted(
+            shift_summary_map.values(),
+            key=lambda item: (-item["days"], item["shift_code"]),
+        )
+
         return render_template(
             "employee_detail.html",
             employee=employee,
@@ -1474,6 +1517,7 @@ def register_routes(app):
             balances=balances,
             summary_paid_hours=summary_paid_hours,
             summary_wage=summary_wage,
+            shift_summary_rows=shift_summary_rows,
         )
 
     @app.route("/shifts", methods=["GET", "POST"])
@@ -1791,11 +1835,10 @@ def register_routes(app):
             salary_edit_blocked=salary_edit_blocked,
         )
 
-    @app.route("/salary-overview")
-    def salary_overview():
-        month_key = _safe_month_key(request.args.get("month"))
-        search_query = (request.args.get("q") or "").strip()
-        search_scope = (request.args.get("scope") or "current").strip().lower()
+    def _collect_salary_overview_data(args):
+        month_key = _safe_month_key(args.get("month"))
+        search_query = (args.get("q") or "").strip()
+        search_scope = (args.get("scope") or "current").strip().lower()
         if search_scope not in {"current", "all"}:
             search_scope = "current"
 
@@ -2042,18 +2085,95 @@ def register_routes(app):
 
             overview_rows = [item for item in overview_rows if _match_overview(item)]
 
+        return {
+            "month_key": month_key,
+            "company_work_days": round(company_work_days_current, 2),
+            "search_query": search_query,
+            "search_scope": search_scope,
+            "overview_rows": overview_rows,
+            "meal_periods": meal_periods,
+            "is_month_locked": is_month_locked,
+            "month_lock_record": month_lock_record,
+            "month_payment_summary": month_payment_summary,
+            "can_manage_month_lock": is_admin_user,
+        }
+
+    @app.route("/salary-overview")
+    def salary_overview():
+        overview_data = _collect_salary_overview_data(request.args)
         return render_template(
             "salary_overview.html",
-            month_key=month_key,
-            company_work_days=round(company_work_days_current, 2),
-            search_query=search_query,
-            search_scope=search_scope,
-            overview_rows=overview_rows,
-            meal_periods=meal_periods,
-            is_month_locked=is_month_locked,
-            month_lock_record=month_lock_record,
-            month_payment_summary=month_payment_summary,
-            can_manage_month_lock=is_admin_user,
+            month_key=overview_data["month_key"],
+            company_work_days=overview_data["company_work_days"],
+            search_query=overview_data["search_query"],
+            search_scope=overview_data["search_scope"],
+            overview_rows=overview_data["overview_rows"],
+            meal_periods=overview_data["meal_periods"],
+            is_month_locked=overview_data["is_month_locked"],
+            month_lock_record=overview_data["month_lock_record"],
+            month_payment_summary=overview_data["month_payment_summary"],
+            can_manage_month_lock=overview_data["can_manage_month_lock"],
+        )
+
+    @app.route("/salary-overview/export.xlsx")
+    def export_salary_overview_excel():
+        overview_data = _collect_salary_overview_data(request.args)
+        rows = overview_data["overview_rows"]
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Bang luong"
+
+        headers = [
+            "STT",
+            "Họ tên",
+            "Số ngày làm",
+            "Số ngày nghỉ có phép",
+            "Số ngày ko phép",
+            "Số ngày tăng ca",
+            "Số giờ lẻ",
+            "Số tiền ứng",
+            "Tiền lương",
+        ]
+        sheet.append(headers)
+        salary_bold_font = Font(bold=True)
+
+        for index, item in enumerate(rows, start=1):
+            sheet.append(
+                [
+                    index,
+                    item["employee"].full_name,
+                    float(item["worked_days"]),
+                    float(item["paid_leave_days"]),
+                    float(item["unpaid_leave_days"]),
+                    int(item["overtime_day_units"]),
+                    float(item["overtime_remainder_hours"]),
+                    float(item["advance_amount"]),
+                    float(item["salary_amount"]),
+                ]
+            )
+
+            amount_cell = sheet.cell(row=sheet.max_row, column=8)
+            salary_cell = sheet.cell(row=sheet.max_row, column=9)
+            amount_cell.number_format = "#,##0"
+            salary_cell.number_format = "#,##0"
+            salary_cell.font = salary_bold_font
+
+        sheet.freeze_panes = "A2"
+
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        month_label = overview_data["month_key"].replace("-", "")
+        scope_label = "tat_ca" if overview_data["search_scope"] == "all" else "thang"
+        filename = f"bang_luong_{scope_label}_{month_label}.xlsx"
+
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=filename,
         )
 
     @app.route("/salary-overview/payment-status", methods=["POST"])
@@ -2404,6 +2524,8 @@ def register_routes(app):
             "unpaid_leave_days": 0.0,
             "meal_amount": 0.0,
         }
+        shift_name_map = {row.code: row.name for row in ShiftTemplate.query.all()}
+        shift_meal_summary_map = {}
 
         for row in detail_rows:
             status_code = str(row.status_code or "").upper()
@@ -2421,6 +2543,39 @@ def register_routes(app):
 
             summary["meal_amount"] += _to_float(row.meal_allowance_daily)
 
+            if status_code == "N":
+                shift_code = "N"
+            elif status_code == "OFF":
+                shift_code = "OFF"
+            else:
+                shift_code = str(row.shift_code or "").upper()
+                if not shift_code:
+                    shift_code = status_code or "UNKNOWN"
+
+            shift_summary_item = shift_meal_summary_map.get(shift_code)
+            if not shift_summary_item:
+                if shift_code == "N":
+                    shift_display_name = "Nghi khong phep"
+                elif shift_code == "OFF":
+                    shift_display_name = "Nghi ca OFF"
+                else:
+                    shift_display_name = shift_name_map.get(shift_code, "")
+                shift_summary_item = {
+                    "shift_code": shift_code,
+                    "shift_name": shift_display_name,
+                    "days": 0,
+                    "meal_amount": 0.0,
+                }
+                shift_meal_summary_map[shift_code] = shift_summary_item
+
+            shift_summary_item["days"] += 1
+            shift_summary_item["meal_amount"] += _to_float(row.meal_allowance_daily)
+
+        shift_meal_summary_rows = sorted(
+            shift_meal_summary_map.values(),
+            key=lambda item: (-item["days"], item["shift_code"]),
+        )
+
         return render_template(
             "salary_meal_employee_detail.html",
             month_key=month_key,
@@ -2430,6 +2585,7 @@ def register_routes(app):
             search_query=search_query,
             employee=employee,
             details=detail_rows,
+            shift_meal_summary_rows=shift_meal_summary_rows,
             summary={
                 "worked_days": round(summary["worked_days"], 2),
                 "paid_leave_days": round(summary["paid_leave_days"], 2),

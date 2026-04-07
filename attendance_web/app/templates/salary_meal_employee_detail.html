@@ -40,6 +40,37 @@
 
 <section class="panel">
     <h3>Chi tiết ca làm + tiền ăn</h3>
+
+    <div class="table-wrap meal-inner-wrap" style="margin-bottom: 12px;">
+        <table class="meal-inner-table">
+            <thead>
+                <tr>
+                    <th colspan="4">Tổng theo ca trong đợt</th>
+                </tr>
+                <tr>
+                    <th>Mã ca</th>
+                    <th>Tên ca</th>
+                    <th>Số ngày</th>
+                    <th>Tổng tiền ăn</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in shift_meal_summary_rows %}
+                <tr>
+                    <td>{{ item.shift_code }}</td>
+                    <td>{{ item.shift_name or '-' }}</td>
+                    <td>{{ item.days }}</td>
+                    <td>{{ "{:,.0f}".format(item.meal_amount) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">Nhân viên này chưa có dữ liệu để tổng hợp theo ca.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
     <div class="table-wrap meal-inner-wrap">
         <table class="meal-inner-table">
             <thead>

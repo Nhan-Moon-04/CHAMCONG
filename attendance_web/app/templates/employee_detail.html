@@ -90,6 +90,43 @@
 
 <div class="panel">
     <h3>Chi tiết chấm công tháng {{ month_key }}</h3>
+
+    <div class="table-wrap" style="margin-bottom: 12px;">
+        <table>
+            <thead>
+                <tr>
+                    <th colspan="7">Tổng theo ca</th>
+                </tr>
+                <tr>
+                    <th>Mã ca</th>
+                    <th>Tên ca</th>
+                    <th>Số ngày</th>
+                    <th>Tổng giờ công</th>
+                    <th>Tổng giờ thực</th>
+                    <th>Tổng tăng ca</th>
+                    <th>Tổng lương</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in shift_summary_rows %}
+                <tr>
+                    <td>{{ item.shift_code }}</td>
+                    <td>{{ item.shift_name or '-' }}</td>
+                    <td>{{ item.days }}</td>
+                    <td>{{ "%.2f"|format(item.paid_hours) }}</td>
+                    <td>{{ "%.2f"|format(item.actual_work_hours) }}</td>
+                    <td>{{ "%.2f"|format(item.overtime_hours) }}</td>
+                    <td>{{ "{:,.0f}".format(item.wage_amount) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">Chưa có dữ liệu để tổng hợp theo ca.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
     <div class="table-wrap">
         <table>
             <thead>

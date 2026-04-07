@@ -24,6 +24,12 @@
             {% endif %}
             <button type="submit">Xem</button>
         </form>
+        <a
+            class="button-link button-link-secondary"
+            href="{{ url_for('export_salary_overview_excel', month=month_key, scope=search_scope, q=search_query or None) }}"
+        >
+            Xuất Excel lương
+        </a>
         {% if can_manage_month_lock %}
         <form method="post" action="{{ url_for('toggle_salary_overview_month_lock') }}" class="toolbar-lock-form" onsubmit="return confirm('{% if is_month_locked %}Mở khóa sổ tháng này?{% else %}Chốt sổ tháng này? Sau khi chốt, user thường không thể sửa dữ liệu.{% endif %}');">
             <input type="hidden" name="month_key" value="{{ month_key }}">
