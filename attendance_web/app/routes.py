@@ -38,6 +38,8 @@ from .models import (
     MonthlySalary,
     MonthlyWorkdayConfig,
     OvertimeEntry,
+    PayrollMonthLock,
+    PayrollPaymentStatus,
     ShiftTemplate,
     WorkSchedule,
 )
@@ -68,6 +70,12 @@ DETAILS_HIGHLIGHT_TO_EXCEL_FILL = {
     "paid-leave": "FFE8F5E9",
     "unexcused": "FFFFB3B3",
     "missing-check": "FFFFF8CC",
+}
+
+PAYROLL_PAYMENT_FIELDS = {
+    "salary_received",
+    "meal_period_1_received",
+    "meal_period_2_received",
 }
 
 
@@ -117,6 +125,17 @@ def _safe_payment_method(value):
     if normalized in {"cash", "salary_day"}:
         return normalized
     return "cash"
+
+
+def _safe_payment_status_field(value):
+    field_name = (value or "").strip()
+    if field_name in PAYROLL_PAYMENT_FIELDS:
+        return field_name
+    return ""
+
+
+def _parse_checkbox_value(value):
+    return str(value or "").strip().lower() in {"1", "true", "on", "yes"}
 
 
 def _sanitize_next_path(value):
@@ -199,6 +218,40 @@ def _resolve_company_work_days(month_key):
         return legacy_value, config
 
     return 26.0, config
+
+
+def _query_locked_month_keys(month_keys=None):
+    query = PayrollMonthLock.query.filter(PayrollMonthLock.is_locked.is_(True))
+
+    if month_keys is not None:
+        keys = [item for item in month_keys if item]
+        if not keys:
+            return set()
+        query = query.filter(PayrollMonthLock.month_key.in_(keys))
+
+    return {row.month_key for row in query.all() if row.month_key}
+
+
+def _month_lock_enabled(month_key):
+    if not month_key:
+        return False
+    return bool(
+        PayrollMonthLock.query.filter_by(month_key=month_key, is_locked=True).first()
+    )
+
+
+def _load_saved_month_details(month_key, employee_id=None):
+    query = AttendanceDetail.query.options(joinedload(AttendanceDetail.employee)).filter(
+        AttendanceDetail.month_key == month_key
+    )
+    if employee_id is not None:
+        query = query.filter(AttendanceDetail.employee_id == employee_id)
+
+    return (
+        query
+        .order_by(AttendanceDetail.employee_id.asc(), AttendanceDetail.work_date.asc())
+        .all()
+    )
 
 
 def _get_holiday_library():
@@ -327,10 +380,15 @@ def _collect_details_view_data(query_args, emit_flash=True):
 
         return code_key, detail_row.work_date, detail_row.employee.id
 
+    def _resolve_rows_for_month(item_month):
+        if _month_lock_enabled(item_month) and not session.get("is_admin"):
+            return _load_saved_month_details(item_month, employee_id=selected_employee_id)
+        return build_live_month_details(item_month, employee_id=selected_employee_id)
+
     if is_range_mode:
         rows = []
         for item_month in _iter_month_keys(parsed_start_date, parsed_end_date):
-            month_rows = build_live_month_details(item_month, employee_id=selected_employee_id)
+            month_rows = _resolve_rows_for_month(item_month)
             rows.extend(
                 row for row in month_rows if parsed_start_date <= row.work_date <= parsed_end_date
             )
@@ -348,12 +406,12 @@ def _collect_details_view_data(query_args, emit_flash=True):
 
             rows = []
             for item_month in month_keys:
-                rows.extend(build_live_month_details(item_month, employee_id=selected_employee_id))
+                rows.extend(_resolve_rows_for_month(item_month))
 
             rows.sort(key=_sort_key)
             period_label = "Toàn bộ dữ liệu"
         else:
-            rows = build_live_month_details(month_key, employee_id=selected_employee_id)
+            rows = _resolve_rows_for_month(month_key)
             period_label = month_key
 
     if search_query:
@@ -449,6 +507,59 @@ def register_routes(app):
         flash("Bạn không có quyền truy cập chức năng này", "error")
         return redirect(url_for("dashboard"))
 
+    def _is_current_user_admin():
+        return bool(session.get("is_admin"))
+
+    def _get_month_lock_record(month_key):
+        if not month_key:
+            return None
+        return PayrollMonthLock.query.filter_by(month_key=month_key).first()
+
+    def _month_is_locked(month_key):
+        lock_row = _get_month_lock_record(month_key)
+        return bool(lock_row and lock_row.is_locked), lock_row
+
+    def _get_locked_month_keys(month_keys=None):
+        return _query_locked_month_keys(month_keys)
+
+    def _deny_if_month_locked(month_key, redirect_url, message=None):
+        is_locked, _ = _month_is_locked(month_key)
+        if not is_locked or _is_current_user_admin():
+            return None
+
+        flash(
+            message or f"Tháng {month_key} đã chốt sổ, chỉ admin mới được chỉnh sửa.",
+            "error",
+        )
+        return redirect(redirect_url)
+
+    def _deny_if_any_month_locked(month_keys, redirect_url, message=None):
+        if _is_current_user_admin():
+            return None
+
+        normalized_keys = sorted({str(item).strip() for item in (month_keys or []) if item})
+        if not normalized_keys:
+            return None
+
+        locked_keys = sorted(_get_locked_month_keys(normalized_keys))
+        if not locked_keys:
+            return None
+
+        lock_label = ", ".join(locked_keys)
+        flash(
+            message or f"Các tháng sau đã chốt sổ ({lock_label}), chỉ admin mới được chỉnh sửa.",
+            "error",
+        )
+        return redirect(redirect_url)
+
+    def _employee_records_locked():
+        return bool(
+            PayrollMonthLock.query.filter(PayrollMonthLock.is_locked.is_(True)).first()
+        )
+
+    def _employee_edit_blocked_for_current_user():
+        return _employee_records_locked() and not _is_current_user_admin()
+
     @app.context_processor
     def inject_auth_state():
         return {
@@ -526,6 +637,60 @@ def register_routes(app):
         session.clear()
         flash("Đã đăng xuất", "success")
         return redirect(url_for("login"))
+
+    @app.route("/account", methods=["GET", "POST"])
+    def account_profile():
+        user_id = session.get("user_id")
+        user = AppUser.query.get_or_404(user_id)
+
+        if request.method == "POST":
+            action = (request.form.get("action") or "change_password").strip().lower()
+            if action != "change_password":
+                flash("Thao tác tài khoản không hợp lệ", "error")
+                return redirect(url_for("account_profile"))
+
+            current_password = request.form.get("current_password") or ""
+            new_password = request.form.get("new_password") or ""
+            confirm_password = request.form.get("confirm_password") or ""
+
+            if not check_password_hash(user.password_hash, current_password):
+                flash("Mật khẩu hiện tại không đúng", "error")
+                return redirect(url_for("account_profile"))
+
+            if len(new_password) < 4:
+                flash("Mật khẩu mới tối thiểu 4 ký tự", "error")
+                return redirect(url_for("account_profile"))
+
+            if new_password != confirm_password:
+                flash("Xác nhận mật khẩu mới chưa khớp", "error")
+                return redirect(url_for("account_profile"))
+
+            actor = session.get("username") or user.username or "admin"
+            before_data = _user_audit_payload(user)
+
+            user.password_hash = generate_password_hash(new_password)
+            db.session.flush()
+
+            log_action(
+                "app_users",
+                str(user.id),
+                "UPDATE",
+                changed_by=actor,
+                before_data=before_data,
+                after_data=_user_audit_payload(user),
+                notes="User tự đổi mật khẩu",
+            )
+            db.session.commit()
+            _set_auth_session(user)
+
+            flash("Đã đổi mật khẩu", "success")
+            return redirect(url_for("account_profile"))
+
+        return render_template(
+            "account_profile.html",
+            title="Tài khoản",
+            user=user,
+        )
 
     @app.route("/users", methods=["GET"])
     def users():
@@ -832,7 +997,9 @@ def register_routes(app):
         warning_query = (request.args.get("q") or "").strip()
 
         # Keep dashboard numbers in sync with source tables (schedule, shifts, attendance, salary).
-        rebuild_month_details(month_key, actor="system-auto-sync", write_audit=False)
+        month_is_locked = _month_lock_enabled(month_key)
+        if not month_is_locked or _is_current_user_admin():
+            rebuild_month_details(month_key, actor="system-auto-sync", write_audit=False)
 
         total_employees = Employee.query.filter_by(is_active=True).count()
         detail_query = AttendanceDetail.query.filter_by(month_key=month_key)
@@ -936,6 +1103,8 @@ def register_routes(app):
         search_scope = (request.args.get("scope") or "current").strip().lower()
         if search_scope not in {"current", "all"}:
             search_scope = "current"
+        employee_records_locked = _employee_records_locked()
+        employee_edit_blocked = employee_records_locked and not _is_current_user_admin()
 
         rows_query = Employee.query
         if search_scope == "current":
@@ -970,10 +1139,16 @@ def register_routes(app):
             active_employees=len(active_rows),
             search_query=search_query,
             search_scope=search_scope,
+            employee_records_locked=employee_records_locked,
+            employee_edit_blocked=employee_edit_blocked,
         )
 
     @app.route("/employees/new", methods=["GET", "POST"])
     def create_employee():
+        if _employee_edit_blocked_for_current_user():
+            flash("Đã khóa", "error")
+            return redirect(url_for("employees"))
+
         shift_codes = [row.code for row in ShiftTemplate.query.order_by(ShiftTemplate.code.asc()).all()]
 
         form_values = {
@@ -1102,6 +1277,10 @@ def register_routes(app):
 
     @app.route("/employees/<int:employee_id>/edit", methods=["GET", "POST"])
     def edit_employee(employee_id):
+        if _employee_edit_blocked_for_current_user():
+            flash("Đã khóa", "error")
+            return redirect(url_for("employees"))
+
         employee = Employee.query.get_or_404(employee_id)
         shift_codes = [row.code for row in ShiftTemplate.query.order_by(ShiftTemplate.code.asc()).all()]
 
@@ -1242,7 +1421,10 @@ def register_routes(app):
         employee = Employee.query.get_or_404(employee_id)
         month_key = _safe_month_key(request.args.get("month"))
 
-        details = build_live_month_details(month_key, employee_id=employee_id)
+        if _month_lock_enabled(month_key) and not _is_current_user_admin():
+            details = _load_saved_month_details(month_key, employee_id=employee_id)
+        else:
+            details = build_live_month_details(month_key, employee_id=employee_id)
         salaries = (
             MonthlySalary.query.filter_by(employee_id=employee_id)
             .order_by(MonthlySalary.month_key.desc())
@@ -1425,10 +1607,17 @@ def register_routes(app):
         if search_scope not in {"current", "all"}:
             search_scope = "current"
 
+        month_is_locked, month_lock_record = _month_is_locked(month_key)
+        salary_edit_blocked = month_is_locked and not _is_current_user_admin()
+
         if request.method == "POST":
             actor = request.form.get("changed_by", "admin").strip() or "admin"
             action = request.form.get("action", "save_employee_salary").strip()
             target_month = _safe_month_key(request.form.get("month_key") or month_key)
+
+            blocked = _deny_if_month_locked(target_month, url_for("salaries", month=target_month))
+            if blocked:
+                return blocked
 
             if action == "save_month_workdays":
                 company_work_days = _to_float(request.form.get("company_work_days"), 0)
@@ -1597,6 +1786,9 @@ def register_routes(app):
             workday_config=workday_config,
             search_query=search_query,
             search_scope=search_scope,
+            month_is_locked=month_is_locked,
+            month_lock_record=month_lock_record,
+            salary_edit_blocked=salary_edit_blocked,
         )
 
     @app.route("/salary-overview")
@@ -1680,6 +1872,7 @@ def register_routes(app):
         summary_keys = list(summary_map.keys())
         employee_ids = sorted({employee_id for _, employee_id in summary_keys})
         summary_month_keys = sorted({item_month for item_month, _ in summary_keys if item_month})
+        is_admin_user = _is_current_user_admin()
 
         salary_by_key = {}
         if employee_ids and summary_month_keys:
@@ -1691,6 +1884,21 @@ def register_routes(app):
                 (row.month_key, row.employee_id): row
                 for row in salary_rows
             }
+
+        payment_status_by_key = {}
+        if employee_ids and summary_month_keys:
+            payment_rows = PayrollPaymentStatus.query.filter(
+                PayrollPaymentStatus.employee_id.in_(employee_ids),
+                PayrollPaymentStatus.month_key.in_(summary_month_keys),
+            ).all()
+            payment_status_by_key = {
+                (row.month_key, row.employee_id): row
+                for row in payment_rows
+            }
+
+        lock_month_keys = set(summary_month_keys)
+        lock_month_keys.add(month_key)
+        locked_month_keys = _get_locked_month_keys(lock_month_keys)
 
         advance_by_key = {}
         if employee_ids and summary_month_keys:
@@ -1748,6 +1956,8 @@ def register_routes(app):
             daily_rate = (monthly_wage / company_work_days) if company_work_days > 0 else 0.0
             salary_amount = round(daily_rate * salary_day_units, 2)
             advance_amount = round(_to_float(advance_by_key.get((item_month, employee_id), 0), 0), 2)
+            payment_status = payment_status_by_key.get((item_month, employee_id))
+            month_is_locked = item_month in locked_month_keys
 
             overview_rows.append(
                 {
@@ -1760,6 +1970,11 @@ def register_routes(app):
                     "overtime_remainder_hours": overtime_remainder_hours,
                     "advance_amount": advance_amount,
                     "salary_amount": salary_amount,
+                    "salary_received": bool(payment_status.salary_received) if payment_status else False,
+                    "meal_period_1_received": bool(payment_status.meal_period_1_received) if payment_status else False,
+                    "meal_period_2_received": bool(payment_status.meal_period_2_received) if payment_status else False,
+                    "month_is_locked": month_is_locked,
+                    "can_update_payment_status": is_admin_user or not month_is_locked,
                 }
             )
 
@@ -1786,6 +2001,20 @@ def register_routes(app):
             },
         ]
 
+        month_overview_rows = [item for item in overview_rows if item["month_key"] == month_key]
+        month_payment_summary = {
+            "employees": len(month_overview_rows),
+            "salary_received": sum(1 for item in month_overview_rows if item["salary_received"]),
+            "meal_period_1_received": sum(
+                1 for item in month_overview_rows if item["meal_period_1_received"]
+            ),
+            "meal_period_2_received": sum(
+                1 for item in month_overview_rows if item["meal_period_2_received"]
+            ),
+        }
+
+        is_month_locked, month_lock_record = _month_is_locked(month_key)
+
         if search_query:
             search_text = search_query.lower()
 
@@ -1801,6 +2030,9 @@ def register_routes(app):
                     item["overtime_remainder_hours"],
                     item["advance_amount"],
                     item["salary_amount"],
+                    item["salary_received"],
+                    item["meal_period_1_received"],
+                    item["meal_period_2_received"],
                 ]
                 return any(
                     search_text in str(value).lower()
@@ -1818,7 +2050,193 @@ def register_routes(app):
             search_scope=search_scope,
             overview_rows=overview_rows,
             meal_periods=meal_periods,
+            is_month_locked=is_month_locked,
+            month_lock_record=month_lock_record,
+            month_payment_summary=month_payment_summary,
+            can_manage_month_lock=is_admin_user,
         )
+
+    @app.route("/salary-overview/payment-status", methods=["POST"])
+    def update_salary_overview_payment_status():
+        month_key = _safe_month_key(request.form.get("month_key") or request.form.get("month"))
+        employee_id_raw = (request.form.get("employee_id") or "").strip()
+        field_name = _safe_payment_status_field(request.form.get("field"))
+        status_value = _parse_checkbox_value(request.form.get("value"))
+
+        view_month = _safe_month_key(request.form.get("view_month") or month_key)
+        view_scope = (request.form.get("view_scope") or "current").strip().lower()
+        view_query = (request.form.get("view_q") or "").strip()
+
+        redirect_params = {"month": view_month}
+        if view_scope == "all":
+            redirect_params["scope"] = "all"
+        if view_query:
+            redirect_params["q"] = view_query
+        redirect_url = url_for("salary_overview", **redirect_params)
+
+        if not employee_id_raw.isdigit():
+            flash("Nhân viên không hợp lệ", "error")
+            return redirect(redirect_url)
+
+        if not field_name:
+            flash("Trạng thái cập nhật không hợp lệ", "error")
+            return redirect(redirect_url)
+
+        blocked = _deny_if_month_locked(month_key, redirect_url)
+        if blocked:
+            return blocked
+
+        employee_id = int(employee_id_raw)
+        employee = Employee.query.get(employee_id)
+        if not employee:
+            flash("Không tìm thấy nhân viên", "error")
+            return redirect(redirect_url)
+
+        actor = (request.form.get("changed_by") or session.get("username") or "admin").strip() or "admin"
+
+        row = PayrollPaymentStatus.query.filter_by(
+            month_key=month_key,
+            employee_id=employee_id,
+        ).first()
+
+        field_label_map = {
+            "salary_received": "Đã nhận lương",
+            "meal_period_1_received": "Đã nhận tiền ăn đợt 1",
+            "meal_period_2_received": "Đã nhận tiền ăn đợt 2",
+        }
+
+        if row:
+            before = row.to_dict()
+            setattr(row, field_name, status_value)
+            row.updated_by = actor
+            log_action(
+                "payroll_payment_statuses",
+                row.id,
+                "UPDATE",
+                changed_by=actor,
+                before_data=before,
+                after_data=row.to_dict(),
+                notes=f"{field_label_map.get(field_name, field_name)} theo nhân viên",
+            )
+        else:
+            row = PayrollPaymentStatus(
+                month_key=month_key,
+                employee_id=employee_id,
+                updated_by=actor,
+            )
+            setattr(row, field_name, status_value)
+            db.session.add(row)
+            db.session.flush()
+            log_action(
+                "payroll_payment_statuses",
+                row.id,
+                "INSERT",
+                changed_by=actor,
+                after_data=row.to_dict(),
+                notes=f"{field_label_map.get(field_name, field_name)} theo nhân viên",
+            )
+
+        db.session.commit()
+        status_text = "Đã nhận" if status_value else "Chưa nhận"
+        flash(
+            f"{employee.full_name}: {field_label_map.get(field_name, field_name)} -> {status_text}",
+            "success",
+        )
+        return redirect(redirect_url)
+
+    @app.route("/salary-overview/month-lock", methods=["POST"])
+    def toggle_salary_overview_month_lock():
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        month_key = _safe_month_key(request.form.get("month_key") or request.form.get("month"))
+        action = (request.form.get("action") or "lock").strip().lower()
+        notes = (request.form.get("notes") or "").strip() or None
+        actor = (request.form.get("changed_by") or session.get("username") or "admin").strip() or "admin"
+
+        view_scope = (request.form.get("view_scope") or "current").strip().lower()
+        view_query = (request.form.get("view_q") or "").strip()
+
+        redirect_params = {"month": month_key}
+        if view_scope == "all":
+            redirect_params["scope"] = "all"
+        if view_query:
+            redirect_params["q"] = view_query
+        redirect_url = url_for("salary_overview", **redirect_params)
+
+        lock_row = PayrollMonthLock.query.filter_by(month_key=month_key).first()
+
+        if action == "unlock":
+            if not lock_row or not lock_row.is_locked:
+                flash(f"Tháng {month_key} hiện chưa chốt sổ", "warning")
+                return redirect(redirect_url)
+
+            before = lock_row.to_dict()
+            lock_row.is_locked = False
+            lock_row.locked_at = None
+            lock_row.locked_by = None
+            lock_row.notes = notes
+            log_action(
+                "payroll_month_locks",
+                lock_row.id,
+                "UNLOCK",
+                changed_by=actor,
+                before_data=before,
+                after_data=lock_row.to_dict(),
+                notes="Mở khóa sổ lương theo tháng",
+            )
+            db.session.commit()
+            flash(f"Đã mở khóa sổ tháng {month_key}", "success")
+            return redirect(redirect_url)
+
+        if action != "lock":
+            flash("Thao tác chốt sổ không hợp lệ", "error")
+            return redirect(redirect_url)
+
+        # Freeze latest salary + meal values into AttendanceDetail before locking.
+        rebuild_month_details(month_key, actor=actor)
+
+        if lock_row:
+            before = lock_row.to_dict()
+            lock_row.is_locked = True
+            lock_row.locked_at = datetime.utcnow()
+            lock_row.locked_by = actor
+            lock_row.notes = notes
+            log_action(
+                "payroll_month_locks",
+                lock_row.id,
+                "LOCK",
+                changed_by=actor,
+                before_data=before,
+                after_data=lock_row.to_dict(),
+                notes="Chốt sổ lương theo tháng",
+            )
+        else:
+            lock_row = PayrollMonthLock(
+                month_key=month_key,
+                is_locked=True,
+                locked_at=datetime.utcnow(),
+                locked_by=actor,
+                notes=notes,
+            )
+            db.session.add(lock_row)
+            db.session.flush()
+            log_action(
+                "payroll_month_locks",
+                lock_row.id,
+                "LOCK",
+                changed_by=actor,
+                after_data=lock_row.to_dict(),
+                notes="Chốt sổ lương theo tháng",
+            )
+
+        db.session.commit()
+        flash(
+            f"Đã chốt sổ tháng {month_key}. Dữ liệu lương + tiền ăn đợt 1/2 đã được khóa cho user thường.",
+            "success",
+        )
+        return redirect(redirect_url)
 
     @app.route("/salary-overview/meal")
     def salary_overview_meal():
@@ -2026,6 +2444,10 @@ def register_routes(app):
         month_key = _safe_month_key(request.form.get("month_key") or request.args.get("month"))
         replace_existing_month = request.form.get("replace_existing_month") == "on"
 
+        blocked = _deny_if_month_locked(month_key, url_for("salaries", month=month_key))
+        if blocked:
+            return blocked
+
         upload = request.files.get("salary_file")
         if not upload or upload.filename == "":
             flash("Cần chọn file hệ lương để import", "error")
@@ -2053,6 +2475,7 @@ def register_routes(app):
                 target_month=month_key,
                 default_company_work_days=default_work_days,
                 replace_existing=replace_existing_month,
+                blocked_month_keys=(None if _is_current_user_admin() else _get_locked_month_keys()),
             )
 
             rebuild_month_details(month_key, actor)
@@ -2091,8 +2514,14 @@ def register_routes(app):
         if search_scope not in {"current", "all"}:
             search_scope = "current"
         advance_filter = _safe_advance_filter(request.args.get("advance_filter"))
+        month_is_locked, _ = _month_is_locked(month_key)
+        advance_edit_blocked = month_is_locked and not _is_current_user_admin()
 
         if request.method == "POST":
+            if advance_edit_blocked:
+                flash("Đã khóa", "error")
+                return redirect(url_for("advances", month=month_key))
+
             actor = (request.form.get("changed_by") or session.get("username") or "admin").strip() or "admin"
             action = (request.form.get("action") or "create_advance").strip()
 
@@ -2134,6 +2563,13 @@ def register_routes(app):
                 target_month = month_key_for_date(advance_date)
                 redirect_params = _build_redirect_params(target_month)
                 redirect_params["month"] = target_month
+
+                blocked = _deny_if_month_locked(
+                    target_month,
+                    url_for("advances", **redirect_params),
+                )
+                if blocked:
+                    return blocked
 
                 salary_row = MonthlySalary.query.filter_by(
                     employee_id=employee_id,
@@ -2262,6 +2698,13 @@ def register_routes(app):
                 redirect_params = _build_redirect_params(target_month)
                 redirect_params["month"] = target_month
 
+                blocked = _deny_if_any_month_locked(
+                    [row.month_key, target_month],
+                    url_for("advances", **redirect_params),
+                )
+                if blocked:
+                    return blocked
+
                 salary_row = MonthlySalary.query.filter_by(
                     employee_id=row.employee_id,
                     month_key=target_month,
@@ -2347,6 +2790,13 @@ def register_routes(app):
                     return redirect(url_for("advances", **_build_redirect_params(month_key)))
 
                 target_month = row.month_key
+                blocked = _deny_if_month_locked(
+                    target_month,
+                    url_for("advances", **_build_redirect_params(target_month)),
+                )
+                if blocked:
+                    return blocked
+
                 before = row.to_dict()
                 db.session.delete(row)
                 log_action(
@@ -2485,6 +2935,8 @@ def register_routes(app):
             scope_total_amount=scope_total_amount,
             visible_total_amount=visible_total_amount,
             default_advance_date=date.today().isoformat(),
+            month_is_locked=month_is_locked,
+            advance_edit_blocked=advance_edit_blocked,
         )
 
     @app.route("/holidays", methods=["GET", "POST"])
@@ -2499,6 +2951,10 @@ def register_routes(app):
             action = request.form.get("action", "save_single").strip()
 
             if action == "generate_month":
+                blocked = _deny_if_month_locked(month_key, url_for("holidays", month=month_key))
+                if blocked:
+                    return blocked
+
                 created_count = 0
                 updated_count = 0
                 sunday_total = 0
@@ -2597,6 +3053,11 @@ def register_routes(app):
                     flash("Dòng ngày OFF/lễ không tồn tại", "error")
                     return redirect(url_for("holidays", month=month_key))
 
+                row_month_key = month_key_for_date(row.holiday_date)
+                blocked = _deny_if_month_locked(row_month_key, url_for("holidays", month=row_month_key))
+                if blocked:
+                    return blocked
+
                 name = request.form.get("name", "").strip()
                 notes = request.form.get("notes", "").strip() or None
                 is_paid = request.form.get("is_paid") == "on"
@@ -2629,6 +3090,11 @@ def register_routes(app):
             except (TypeError, ValueError):
                 flash("Ngày OFF không hợp lệ", "error")
                 return redirect(url_for("holidays", month=month_key))
+
+            holiday_month = month_key_for_date(holiday_date)
+            blocked = _deny_if_month_locked(holiday_month, url_for("holidays", month=holiday_month))
+            if blocked:
+                return blocked
 
             name = request.form.get("name", "").strip()
             is_paid = request.form.get("is_paid") == "on"
@@ -2698,8 +3164,12 @@ def register_routes(app):
                 flash("Mã ca không hợp lệ", "error")
                 return redirect(url_for("schedules", month=month_key_for_date(work_date)))
 
-            row = WorkSchedule.query.filter_by(employee_id=employee_id, work_date=work_date).first()
             target_month = month_key_for_date(work_date)
+            blocked = _deny_if_month_locked(target_month, url_for("schedules", month=target_month))
+            if blocked:
+                return blocked
+
+            row = WorkSchedule.query.filter_by(employee_id=employee_id, work_date=work_date).first()
 
             if row:
                 before = row.to_dict()
@@ -2786,6 +3256,11 @@ def register_routes(app):
         replace_existing_month = request.form.get("replace_existing_month") == "on"
         open_details_after_import = request.form.get("open_details_after_import") == "on"
 
+        if month_key:
+            blocked = _deny_if_month_locked(month_key, url_for("schedules", month=month_key))
+            if blocked:
+                return blocked
+
         upload = request.files.get("schedule_file")
         if not upload or upload.filename == "":
             flash("Cần chọn file lịch làm .xlsx", "error")
@@ -2811,6 +3286,7 @@ def register_routes(app):
                 actor=actor,
                 target_month=month_key,
                 replace_existing=replace_existing_month,
+                blocked_month_keys=(None if _is_current_user_admin() else _get_locked_month_keys()),
             )
 
             rebuilt = {}
@@ -2850,6 +3326,11 @@ def register_routes(app):
             month_key = _safe_month_key(month_key_input) if month_key_input else None
             replace_existing_month = request.form.get("replace_existing_month") == "on"
 
+            if month_key:
+                blocked = _deny_if_month_locked(month_key, url_for("imports"))
+                if blocked:
+                    return blocked
+
             upload = request.files.get("attendance_file")
             if not upload or upload.filename == "":
                 flash("Cần chọn file CSV/XLSX", "error")
@@ -2873,6 +3354,7 @@ def register_routes(app):
                     month_key=month_key,
                     replace_existing=replace_existing_month,
                     stored_file_relpath=stored_relpath,
+                    blocked_month_keys=(None if _is_current_user_admin() else _get_locked_month_keys()),
                 )
                 months = result["months"]
                 rebuilt = {}
@@ -2992,6 +3474,10 @@ def register_routes(app):
         affected_months = sorted(
             {month_key_for_date(row.event_time.date()) for row in log_rows}
         )
+
+        blocked = _deny_if_any_month_locked(affected_months, url_for("imports"))
+        if blocked:
+            return blocked
 
         removed_logs = AttendanceLog.query.filter_by(import_batch=batch_id).delete(
             synchronize_session=False

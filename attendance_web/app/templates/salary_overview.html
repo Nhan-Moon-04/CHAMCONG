@@ -8,6 +8,11 @@
         {% else %}
         <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong> | Hệ số công chuẩn công ty: <strong>{{ company_work_days }}</strong></p>
         {% endif %}
+        {% if is_month_locked %}
+        <p class="muted salary-lock-state is-locked">Đã khoá</p>
+        {% else %}
+        <p class="muted salary-lock-state is-open">Tháng này đang mở sổ, có thể cập nhật dữ liệu.</p>
+        {% endif %}
     </div>
     <div class="toolbar-actions">
         <form method="get" class="toolbar-month-form">
@@ -19,6 +24,21 @@
             {% endif %}
             <button type="submit">Xem</button>
         </form>
+        {% if can_manage_month_lock %}
+        <form method="post" action="{{ url_for('toggle_salary_overview_month_lock') }}" class="toolbar-lock-form" onsubmit="return confirm('{% if is_month_locked %}Mở khóa sổ tháng này?{% else %}Chốt sổ tháng này? Sau khi chốt, user thường không thể sửa dữ liệu.{% endif %}');">
+            <input type="hidden" name="month_key" value="{{ month_key }}">
+            <input type="hidden" name="view_scope" value="{{ search_scope }}">
+            <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+            <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+            {% if is_month_locked %}
+            <input type="hidden" name="action" value="unlock">
+            <button type="submit" class="secondary">Mở sổ tháng</button>
+            {% else %}
+            <input type="hidden" name="action" value="lock">
+            <button type="submit" class="danger">Chốt sổ tháng</button>
+            {% endif %}
+        </form>
+        {% endif %}
     </div>
 </section>
 
@@ -45,6 +65,11 @@
             {% endif %}
         {% endif %}
     </form>
+    <div class="salary-payment-summary">
+        <span>Lương: <strong>{{ month_payment_summary.salary_received }}/{{ month_payment_summary.employees }}</strong></span>
+        <span>Tiền ăn đợt 1: <strong>{{ month_payment_summary.meal_period_1_received }}/{{ month_payment_summary.employees }}</strong></span>
+        <span>Tiền ăn đợt 2: <strong>{{ month_payment_summary.meal_period_2_received }}/{{ month_payment_summary.employees }}</strong></span>
+    </div>
 </section>
 
 <section class="panel soft-panel">
@@ -92,6 +117,9 @@
                             </button>
                         </div>
                     </th>
+                    <th>Đã nhận lương</th>
+                    <th>Tiền ăn đợt 1</th>
+                    <th>Tiền ăn đợt 2</th>
                 </tr>
             </thead>
             <tbody>
@@ -117,10 +145,73 @@
                             <button type="button" class="secondary salary-mask-toggle" aria-expanded="false">Hiện</button>
                         </div>
                     </td>
+                    <td>
+                        <form method="post" action="{{ url_for('update_salary_overview_payment_status') }}" class="payment-toggle-form">
+                            <input type="hidden" name="month_key" value="{{ item.month_key }}">
+                            <input type="hidden" name="employee_id" value="{{ item.employee.id }}">
+                            <input type="hidden" name="field" value="salary_received">
+                            <input type="hidden" name="value" value="{{ '0' if item.salary_received else '1' }}">
+                            <input type="hidden" name="view_month" value="{{ month_key }}">
+                            <input type="hidden" name="view_scope" value="{{ search_scope }}">
+                            <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+                            <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+                            <label class="payment-toggle-label" title="{% if item.month_is_locked and not current_user_is_admin %}Tháng đã chốt sổ{% else %}Cập nhật trạng thái nhận lương{% endif %}">
+                                <input
+                                    type="checkbox"
+                                    class="payment-toggle-input"
+                                    {% if item.salary_received %}checked{% endif %}
+                                    {% if not item.can_update_payment_status %}disabled{% endif %}
+                                >
+                                <span>{% if item.salary_received %}Đã{% else %}Chưa{% endif %}</span>
+                            </label>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="post" action="{{ url_for('update_salary_overview_payment_status') }}" class="payment-toggle-form">
+                            <input type="hidden" name="month_key" value="{{ item.month_key }}">
+                            <input type="hidden" name="employee_id" value="{{ item.employee.id }}">
+                            <input type="hidden" name="field" value="meal_period_1_received">
+                            <input type="hidden" name="value" value="{{ '0' if item.meal_period_1_received else '1' }}">
+                            <input type="hidden" name="view_month" value="{{ month_key }}">
+                            <input type="hidden" name="view_scope" value="{{ search_scope }}">
+                            <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+                            <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+                            <label class="payment-toggle-label" title="{% if item.month_is_locked and not current_user_is_admin %}Tháng đã chốt sổ{% else %}Cập nhật trạng thái tiền ăn đợt 1{% endif %}">
+                                <input
+                                    type="checkbox"
+                                    class="payment-toggle-input"
+                                    {% if item.meal_period_1_received %}checked{% endif %}
+                                    {% if not item.can_update_payment_status %}disabled{% endif %}
+                                >
+                                <span>{% if item.meal_period_1_received %}Đã{% else %}Chưa{% endif %}</span>
+                            </label>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="post" action="{{ url_for('update_salary_overview_payment_status') }}" class="payment-toggle-form">
+                            <input type="hidden" name="month_key" value="{{ item.month_key }}">
+                            <input type="hidden" name="employee_id" value="{{ item.employee.id }}">
+                            <input type="hidden" name="field" value="meal_period_2_received">
+                            <input type="hidden" name="value" value="{{ '0' if item.meal_period_2_received else '1' }}">
+                            <input type="hidden" name="view_month" value="{{ month_key }}">
+                            <input type="hidden" name="view_scope" value="{{ search_scope }}">
+                            <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+                            <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+                            <label class="payment-toggle-label" title="{% if item.month_is_locked and not current_user_is_admin %}Tháng đã chốt sổ{% else %}Cập nhật trạng thái tiền ăn đợt 2{% endif %}">
+                                <input
+                                    type="checkbox"
+                                    class="payment-toggle-input"
+                                    {% if item.meal_period_2_received %}checked{% endif %}
+                                    {% if not item.can_update_payment_status %}disabled{% endif %}
+                                >
+                                <span>{% if item.meal_period_2_received %}Đã{% else %}Chưa{% endif %}</span>
+                            </label>
+                        </form>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="{{ 10 if search_scope == 'all' else 9 }}">Không có dữ liệu tổng quan lương theo bộ lọc hiện tại.</td>
+                    <td colspan="{{ 13 if search_scope == 'all' else 12 }}">Không có dữ liệu tổng quan lương theo bộ lọc hiện tại.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -132,6 +223,7 @@
 (() => {
     const maskButtons = Array.from(document.querySelectorAll(".salary-mask-toggle"));
     const maskAllButton = document.getElementById("salary-mask-toggle-all");
+    const paymentToggleInputs = Array.from(document.querySelectorAll(".payment-toggle-input"));
 
     const setMaskCellState = (cell, showValue) => {
         if (!cell) {
@@ -200,6 +292,17 @@
             updateMaskAllButtonState();
         });
     }
+
+    paymentToggleInputs.forEach((input) => {
+        if (input.disabled) {
+            return;
+        }
+        input.addEventListener("change", () => {
+            if (input.form) {
+                input.form.submit();
+            }
+        });
+    });
 
     updateMaskAllButtonState();
 })();

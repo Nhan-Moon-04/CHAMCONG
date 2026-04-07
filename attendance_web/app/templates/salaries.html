@@ -4,6 +4,9 @@
     <div>
         <h2>Bảng lương theo tháng</h2>
         <p class="muted">Công chuẩn tháng {{ month_key }}: <strong>{{ company_work_days }}</strong></p>
+        {% if month_is_locked %}
+        <p class="muted">Đã khóa</p>
+        {% endif %}
     </div>
     <div class="toolbar-actions">
         <form method="get" class="toolbar-month-form">
@@ -11,7 +14,11 @@
             <input id="month" type="month" name="month" value="{{ month_key }}">
             <button type="submit">Xem</button>
         </form>
+        {% if salary_edit_blocked %}
+        <span class="badge badge-warn">Đã khóa</span>
+        {% else %}
         <button type="button" id="salary-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
+        {% endif %}
     </div>
 </section>
 
@@ -43,7 +50,12 @@
     </p>
 </section>
 
-<section id="salary-tools-container" class="page-tools tools-collapsed">
+<section id="salary-tools-container" class="page-tools {% if not salary_edit_blocked %}tools-collapsed{% endif %}">
+    {% if salary_edit_blocked %}
+    <div class="panel soft-panel">
+        <h3>Đã khóa</h3>
+    </div>
+    {% else %}
     <div class="panel soft-panel">
         <h3>Cấu hình công chuẩn tháng (dùng cho tất cả nhân viên)</h3>
         <form method="post" class="form-grid">
@@ -84,6 +96,7 @@
             <button type="submit">Lưu lương tháng</button>
         </form>
     </div>
+    {% endif %}
 </section>
 
 <section class="panel data-panel" id="salaries-table-panel">

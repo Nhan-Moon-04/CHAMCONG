@@ -147,9 +147,14 @@ def import_salary_file(
     target_month=None,
     default_company_work_days=26.0,
     replace_existing=False,
+    blocked_month_keys=None,
 ):
     if not target_month:
         raise ValueError("Can chon thang de import he luong")
+
+    blocked_month_keys = {item for item in (blocked_month_keys or []) if item}
+    if target_month in blocked_month_keys:
+        raise ValueError(f"Khong the import he luong vi thang {target_month} da chot so")
 
     frame = _read_frame(file_path)
     columns = _find_columns(frame)

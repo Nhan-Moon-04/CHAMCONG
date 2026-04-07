@@ -104,6 +104,7 @@ def import_schedule_file(
     actor="system",
     target_month=None,
     replace_existing=True,
+    blocked_month_keys=None,
 ):
     workbook = load_workbook(file_path, data_only=True)
     worksheet = workbook[workbook.sheetnames[0]]
@@ -184,6 +185,14 @@ def import_schedule_file(
         if target_month:
             raise ValueError(f"Khong tim thay du lieu lich cho thang {target_month}")
         raise ValueError("Khong tim thay du lieu lich hop le trong file")
+
+    blocked_month_keys = {item for item in (blocked_month_keys or []) if item}
+    locked_touched_months = sorted(set(touched_month_list).intersection(blocked_month_keys))
+    if locked_touched_months:
+        raise ValueError(
+            "Khong the import lich vi cac thang da chot so: "
+            + ", ".join(locked_touched_months)
+        )
 
     replaced_months = []
     if replace_existing:

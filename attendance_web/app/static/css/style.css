@@ -296,6 +296,27 @@ body {
     gap: 2px;
 }
 
+.user-chip-link {
+    text-decoration: none;
+    color: #e2e8f0;
+    transition: all 0.16s ease;
+}
+
+.user-chip-link:hover {
+    color: #ffffff;
+    border-color: rgba(148, 163, 184, 0.45);
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.user-chip-link.active {
+    border-color: rgba(147, 197, 253, 0.52);
+    background: rgba(30, 64, 175, 0.32);
+}
+
+.user-chip-link strong {
+    color: inherit;
+}
+
 .user-chip .muted {
     color: rgba(226, 232, 240, 0.72);
     font-size: 0.82rem;
@@ -798,6 +819,61 @@ a:hover {
     grid-template-columns: minmax(220px, 260px) minmax(280px, 1fr) auto auto;
     gap: 8px;
     align-items: end;
+}
+
+.toolbar-lock-form {
+    display: flex;
+    align-items: end;
+}
+
+.toolbar-lock-form button {
+    width: auto;
+}
+
+.salary-lock-state.is-locked {
+    color: #9f1239;
+}
+
+.salary-lock-state.is-open {
+    color: #065f46;
+}
+
+.salary-payment-summary {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.salary-payment-summary span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid #dbe3ee;
+    border-radius: 999px;
+    padding: 6px 10px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.84rem;
+}
+
+.payment-toggle-form {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+}
+
+.payment-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.84rem;
+    color: #334155;
+}
+
+.payment-toggle-label input {
+    width: auto;
+    margin: 0;
 }
 
 .meal-period-actions {

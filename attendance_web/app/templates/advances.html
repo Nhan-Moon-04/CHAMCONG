@@ -4,6 +4,9 @@
     <div>
         <h2>Ứng tiền theo nhân viên</h2>
         <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong></p>
+        {% if month_is_locked %}
+        <p class="muted">Đã khóa</p>
+        {% endif %}
     </div>
     <div class="toolbar-actions">
         <form method="get" class="toolbar-month-form">
@@ -20,7 +23,11 @@
             {% endif %}
             <button type="submit">Xem</button>
         </form>
+        {% if advance_edit_blocked %}
+        <span class="badge badge-warn">Đã khóa</span>
+        {% else %}
         <button type="button" id="advance-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
+        {% endif %}
         <button type="button" id="advances-show-all-btn" class="secondary" data-expanded="false">Show all</button>
     </div>
 </section>
@@ -78,7 +85,12 @@
     </article>
 </section>
 
-<section id="advances-tools-container" class="page-tools tools-collapsed">
+<section id="advances-tools-container" class="page-tools {% if not advance_edit_blocked %}tools-collapsed{% endif %}">
+    {% if advance_edit_blocked %}
+    <div class="panel soft-panel">
+        <h3>Đã khóa</h3>
+    </div>
+    {% else %}
     <div class="panel soft-panel">
         <h3>Thêm giao dịch ứng tiền</h3>
         <form method="post" class="form-grid" id="advance-create-form">
@@ -123,6 +135,7 @@
         <p class="muted">Nếu để trống ngày ứng, hệ thống tự lấy ngày hiện tại.</p>
         <p class="muted">Hệ thống chặn khi tổng ứng vượt lương tháng; nếu vượt mốc 10% lương sẽ chỉ cảnh báo để bạn quyết định.</p>
     </div>
+    {% endif %}
 </section>
 
 <section class="panel data-panel" id="advances-table-panel">
@@ -219,6 +232,9 @@
                                         <td>{{ "{:,.0f}".format(tx.amount) }}</td>
                                         <td>{{ tx.notes or '-' }}</td>
                                         <td class="advances-actions-cell">
+                                            {% if advance_edit_blocked %}
+                                            <span class="badge badge-warn">Đã khóa</span>
+                                            {% else %}
                                             <form method="post" class="advance-inline-edit-form">
                                                 <input type="hidden" name="action" value="update_advance">
                                                 <input type="hidden" name="advance_id" value="{{ tx.id }}">
@@ -236,8 +252,12 @@
                                                 <input type="text" name="notes" value="{{ tx.notes or '' }}" placeholder="Ghi chú">
                                                 <button type="submit">Lưu</button>
                                             </form>
+                                            {% endif %}
                                         </td>
                                         <td>
+                                            {% if advance_edit_blocked %}
+                                            <span class="badge badge-warn">Đã khóa</span>
+                                            {% else %}
                                             <form method="post" class="advance-delete-form" onsubmit="return confirm('Xóa giao dịch ứng tiền này?');">
                                                 <input type="hidden" name="action" value="delete_advance">
                                                 <input type="hidden" name="advance_id" value="{{ tx.id }}">
@@ -248,6 +268,7 @@
                                                 <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
                                                 <button type="submit" class="danger">Xóa</button>
                                             </form>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}

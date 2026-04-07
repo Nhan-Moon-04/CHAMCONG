@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employee-form-shell">
+    <div class="employee-form-head">
+        <div>
+            <p class="dashboard-eyebrow">Tài khoản đăng nhập</p>
+            <h2>Thông tin người dùng</h2>
+            <p class="muted">Xem thông tin hiện tại và đổi mật khẩu đăng nhập.</p>
+        </div>
+        <a class="button-link button-link-secondary" href="{{ url_for('dashboard') }}">Quay lại</a>
+    </div>
+
+    <div class="panel soft-panel">
+        <div class="form-grid">
+            <div class="field-stack">
+                <label>Tên đăng nhập</label>
+                <input value="{{ user.username }}" readonly>
+            </div>
+            <div class="field-stack">
+                <label>Hiển thị</label>
+                <input value="{{ user.full_name or user.username }}" readonly>
+            </div>
+            <div class="field-stack">
+                <label>Quyền</label>
+                <input value="{{ 'Admin' if user.is_admin else 'User' }}" readonly>
+            </div>
+            <div class="field-stack">
+                <label>Trạng thái</label>
+                <input value="{{ 'Hoạt động' if user.is_active else 'Đã khóa' }}" readonly>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel soft-panel">
+        <h3>Đổi mật khẩu</h3>
+        <form method="post" class="employee-vertical-form">
+            <input type="hidden" name="action" value="change_password">
+
+            <div class="field-stack">
+                <label for="current_password">Mật khẩu hiện tại</label>
+                <input id="current_password" type="password" name="current_password" autocomplete="current-password" required>
+            </div>
+
+            <div class="field-stack">
+                <label for="new_password">Mật khẩu mới</label>
+                <input id="new_password" type="password" name="new_password" autocomplete="new-password" minlength="4" required>
+            </div>
+
+            <div class="field-stack">
+                <label for="confirm_password">Nhập lại mật khẩu mới</label>
+                <input id="confirm_password" type="password" name="confirm_password" autocomplete="new-password" minlength="4" required>
+            </div>
+
+            <div class="employee-form-actions">
+                <button type="submit">Đổi mật khẩu</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

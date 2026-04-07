@@ -200,3 +200,39 @@ git stash push -u -m temp-deploy
 git pull
 cd attendance_web
 docker compose up -d --build
+
+
+
+
+Bước 1 - Reset password ngay bây giờ:
+bashdocker compose exec -u postgres db psql -d postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+docker compose restart web
+Bước 2 - Tạo script auto fix sau reboot:
+bashcat > /root/fix-chamcong-db.sh << 'EOF'
+#!/bin/bash
+sleep 15
+cd /opt/CHAMCONG/attendance_web
+docker compose exec -T -u postgres db psql -d postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+docker compose restart web
+EOF
+chmod +x /root/fix-chamcong-db.sh
+Bước 3 - Tạo systemd service để chạy tự động sau reboot:
+bashcat > /etc/systemd/system/fix-chamcong-db.service << 'EOF'
+[Unit]
+Description=Fix CHAMCONG DB password after reboot
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/root/fix-chamcong-db.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable fix-chamcong-db.service
+Bước 4 - Test reboot:
+bashreboot

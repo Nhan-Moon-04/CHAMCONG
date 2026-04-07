@@ -101,10 +101,10 @@
             </nav>
 
             <div class="sidebar-footer">
-                <div class="user-chip">
+                <a class="user-chip user-chip-link{% if request.endpoint == 'account_profile' %} active{% endif %}" href="{{ url_for('account_profile') }}" title="Thông tin tài khoản">
                     <span class="user-chip-label">Đăng nhập bởi</span>
                     <strong>{{ current_user or 'admin' }}</strong>
-                </div>
+                </a>
                 <form method="post" action="{{ url_for('logout') }}" class="logout-form">
                     <button type="submit" class="secondary danger sidebar-logout-btn" title="Đăng xuất">
                         <i class="bi bi-box-arrow-right" aria-hidden="true"></i>

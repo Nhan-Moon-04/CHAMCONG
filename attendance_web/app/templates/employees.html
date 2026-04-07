@@ -4,8 +4,15 @@
     <div>
         <p class="dashboard-eyebrow">Danh mục nhân sự</p>
         <h2>Danh sách nhân viên</h2>
+        {% if employee_records_locked %}
+        <p class="muted">Đã khóa</p>
+        {% endif %}
     </div>
+    {% if employee_edit_blocked %}
+    <span class="badge badge-warn">Đã khóa</span>
+    {% else %}
     <a class="button-link" href="{{ url_for('create_employee') }}">Thêm nhân viên</a>
+    {% endif %}
 </section>
 
 <section class="panel soft-panel">
@@ -82,7 +89,11 @@
                         {% endif %}
                     </td>
                     <td class="employees-actions-cell">
+                        {% if employee_edit_blocked %}
+                        <span class="badge badge-warn">Đã khóa</span>
+                        {% else %}
                         <a class="link-pill" href="{{ url_for('edit_employee', employee_id=row.id) }}">Sửa thông tin</a>
+                        {% endif %}
                         <a class="link-pill link-pill-secondary" href="{{ url_for('employee_detail', employee_id=row.id) }}">Xem chi tiết</a>
                     </td>
                 </tr>

@@ -124,6 +124,39 @@ class MonthlyWorkdayConfig(db.Model, TimestampMixin, SerializableMixin):
     notes = db.Column(db.String(255), nullable=True)
 
 
+class PayrollPaymentStatus(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "payroll_payment_statuses"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=False, index=True)
+    month_key = db.Column(db.String(7), nullable=False, index=True)
+    salary_received = db.Column(db.Boolean, nullable=False, default=False)
+    meal_period_1_received = db.Column(db.Boolean, nullable=False, default=False)
+    meal_period_2_received = db.Column(db.Boolean, nullable=False, default=False)
+    updated_by = db.Column(db.String(64), nullable=True)
+
+    employee = db.relationship("Employee")
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "employee_id",
+            "month_key",
+            name="uq_payment_status_employee_month",
+        ),
+    )
+
+
+class PayrollMonthLock(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "payroll_month_locks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    month_key = db.Column(db.String(7), nullable=False, unique=True, index=True)
+    is_locked = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    locked_at = db.Column(db.DateTime, nullable=True)
+    locked_by = db.Column(db.String(64), nullable=True)
+    notes = db.Column(db.String(255), nullable=True)
+
+
 class Holiday(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = "holidays"
 

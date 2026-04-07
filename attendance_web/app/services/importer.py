@@ -155,6 +155,7 @@ def import_attendance_file(
     month_key=None,
     replace_existing=False,
     stored_file_relpath=None,
+    blocked_month_keys=None,
 ):
     frame = _read_dataframe(file_path, month_key=month_key)
 
@@ -168,6 +169,14 @@ def import_attendance_file(
     batch_id = str(uuid.uuid4())
 
     imported_months = sorted(frame["event_time"].dt.strftime("%Y-%m").unique().tolist())
+    blocked_month_keys = {item for item in (blocked_month_keys or []) if item}
+    locked_imported_months = sorted(set(imported_months).intersection(blocked_month_keys))
+    if locked_imported_months:
+        raise ValueError(
+            "Khong the import cham cong vi cac thang da chot so: "
+            + ", ".join(locked_imported_months)
+        )
+
     replaced_months = []
 
     if replace_existing:
