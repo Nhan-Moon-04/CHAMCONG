@@ -1080,24 +1080,30 @@ a:hover {
     gap: 8px;
 }
 
-.salary-mask-toggle-all {
+button.salary-mask-toggle-all {
     width: auto;
-    min-width: 0;
-    height: auto;
-    padding: 0;
-    border-radius: 0;
-    color: #ffffff;
-    background: transparent;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 8px;
+    border: 1px solid #94a3b8;
+    color: #0f172a;
+    background: #f8fafc;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 
-.salary-mask-toggle-all:hover {
-    background: transparent;
+button.salary-mask-toggle-all:hover {
+    background: #e2e8f0;
     box-shadow: none;
     transform: none;
+}
+
+button.salary-mask-toggle-all:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .salary-eye-icon {

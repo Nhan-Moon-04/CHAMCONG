@@ -246,6 +246,54 @@
     const maskButtons = Array.from(document.querySelectorAll(".salary-mask-toggle"));
     const maskAllButton = document.getElementById("salary-mask-toggle-all");
     const paymentToggleInputs = Array.from(document.querySelectorAll(".payment-toggle-input"));
+    const tableWrap = document.querySelector("#salary-overview-panel .table-wrap");
+    const scrollStateKey = `salaryOverviewScroll:${window.location.pathname}${window.location.search}`;
+
+    const persistScrollState = () => {
+        try {
+            const payload = {
+                windowY: window.scrollY || window.pageYOffset || 0,
+                tableTop: tableWrap ? tableWrap.scrollTop : 0,
+                tableLeft: tableWrap ? tableWrap.scrollLeft : 0,
+            };
+            sessionStorage.setItem(scrollStateKey, JSON.stringify(payload));
+        } catch (error) {
+            // Ignore storage issues.
+        }
+    };
+
+    const restoreScrollState = () => {
+        try {
+            const raw = sessionStorage.getItem(scrollStateKey);
+            if (!raw) {
+                return;
+            }
+
+            sessionStorage.removeItem(scrollStateKey);
+            const payload = JSON.parse(raw);
+
+            window.requestAnimationFrame(() => {
+                const windowY = Number(payload.windowY || 0);
+                const tableTop = Number(payload.tableTop || 0);
+                const tableLeft = Number(payload.tableLeft || 0);
+
+                if (windowY > 0) {
+                    window.scrollTo(0, windowY);
+                }
+
+                if (tableWrap) {
+                    tableWrap.scrollTop = tableTop;
+                    tableWrap.scrollLeft = tableLeft;
+                }
+            });
+        } catch (error) {
+            try {
+                sessionStorage.removeItem(scrollStateKey);
+            } catch (storageError) {
+                // Ignore cleanup failure.
+            }
+        }
+    };
 
     const setMaskCellState = (cell, showValue) => {
         if (!cell) {
@@ -279,13 +327,16 @@
             return;
         }
 
+        const visibleCount = maskButtons.filter(
+            (button) => button.getAttribute("aria-expanded") === "true"
+        ).length;
         const allVisible = maskButtons.every(
             (button) => button.getAttribute("aria-expanded") === "true"
         );
 
         maskAllButton.disabled = false;
         maskAllButton.setAttribute("aria-expanded", String(allVisible));
-        maskAllButton.title = allVisible
+        maskAllButton.title = visibleCount > 0
             ? "Ẩn toàn bộ tiền lương"
             : "Hiện toàn bộ tiền lương";
     };
@@ -301,10 +352,10 @@
 
     if (maskAllButton) {
         maskAllButton.addEventListener("click", () => {
-            const allVisible = maskButtons.every(
+            const visibleCount = maskButtons.filter(
                 (button) => button.getAttribute("aria-expanded") === "true"
-            );
-            const targetVisible = !allVisible;
+            ).length;
+            const targetVisible = visibleCount === 0;
 
             maskButtons.forEach((button) => {
                 const cell = button.closest(".salary-mask-cell");
@@ -321,11 +372,13 @@
         }
         input.addEventListener("change", () => {
             if (input.form) {
+                persistScrollState();
                 input.form.submit();
             }
         });
     });
 
+    restoreScrollState();
     updateMaskAllButtonState();
 })();
 </script>
