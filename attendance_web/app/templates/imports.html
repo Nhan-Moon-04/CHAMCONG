@@ -74,7 +74,7 @@
                             <a class="link-pill link-pill-secondary" href="{{ url_for('download_import_file', batch_id=row.record_id) }}">Tải file đã up</a>
                             {% endif %}
                             {% if row.record_id not in deleted_batch_ids %}
-                            <form method="post" action="{{ url_for('delete_import_batch', batch_id=row.record_id) }}" onsubmit="return confirm('Xóa vĩnh viễn dữ liệu và file upload của batch này?');">
+                            <form method="post" action="{{ url_for('delete_import_batch', batch_id=row.record_id) }}" data-confirm="Xóa vĩnh viễn dữ liệu và file upload của batch này?">
                                 <input type="hidden" name="changed_by" value="admin">
                                 <button type="submit" class="danger">Xóa vĩnh viễn</button>
                             </form>

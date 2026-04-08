@@ -139,6 +139,9 @@
                     <th>Tăng ca</th>
                     <th>Số giờ</th>
                     <th>Ghi chú</th>
+                    {% if current_user_is_admin %}
+                    <th>Thao tác</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -171,10 +174,26 @@
                             {{ row.notes or '-' }}
                         {% endif %}
                     </td>
+                    {% if current_user_is_admin %}
+                    <td class="row-actions">
+                        {% set remaining_leave = leave_remaining_by_year.get(row.work_date.year, 0) %}
+                        {% if status_code == 'N' and remaining_leave >= 1 %}
+                        <form method="post" action="{{ url_for('convert_employee_unexcused_to_paid_leave', employee_id=employee.id) }}" class="row-action-form" data-confirm="Đổi ngày này sang nghỉ có phép và trừ 1 ngày phép năm?">
+                            <input type="hidden" name="month_key" value="{{ month_key }}">
+                            <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
+                            <button type="submit" class="secondary">Đổi thành có phép</button>
+                        </form>
+                        {% elif status_code == 'N' %}
+                        <span class="muted">Hết phép</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    {% endif %}
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8">Chưa có dữ liệu.</td>
+                    <td colspan="{{ 9 if current_user_is_admin else 8 }}">Chưa có dữ liệu.</td>
                 </tr>
                 {% endfor %}
             </tbody>

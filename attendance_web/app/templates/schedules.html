@@ -98,12 +98,55 @@
 const validShiftCodes = JSON.parse(document.getElementById("valid-shift-codes").textContent);
 const form = document.getElementById("schedule-form");
 
+const showClientToast = (message, category = "error") => {
+    let zone = document.querySelector(".client-toast-zone");
+    if (!zone) {
+        zone = document.createElement("div");
+        zone.className = "flash-zone floating-toast-zone client-toast-zone";
+        zone.setAttribute("aria-live", "polite");
+        document.body.appendChild(zone);
+    }
+
+    const flash = document.createElement("div");
+    flash.className = `flash ${category}`;
+
+    const text = document.createElement("span");
+    text.textContent = message;
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "flash-close";
+    closeButton.setAttribute("aria-label", "Đóng thông báo");
+    closeButton.textContent = "×";
+
+    flash.appendChild(text);
+    flash.appendChild(closeButton);
+    zone.appendChild(flash);
+
+    const removeFlash = () => {
+        if (flash.classList.contains("flash-hide")) {
+            return;
+        }
+
+        flash.classList.add("flash-hide");
+        window.setTimeout(() => {
+            flash.remove();
+            if (!zone.querySelector(".flash")) {
+                zone.remove();
+            }
+        }, 260);
+    };
+
+    closeButton.addEventListener("click", removeFlash);
+    window.setTimeout(removeFlash, 3200);
+};
+
 form.addEventListener("submit", function (event) {
     const rawCode = form.elements["shift_code"].value.trim().toUpperCase();
     form.elements["shift_code"].value = rawCode;
 
     if (!validShiftCodes.includes(rawCode)) {
-        alert("Mã ca không hợp lệ. Vui lòng chọn mã trong danh sách gợi ý.");
+        showClientToast("Mã ca không hợp lệ. Vui lòng chọn mã trong danh sách gợi ý.", "error");
         event.preventDefault();
     }
 });

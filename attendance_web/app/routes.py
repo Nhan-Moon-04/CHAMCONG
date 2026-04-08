@@ -564,6 +564,16 @@ def register_routes(app):
     def _employee_edit_blocked_for_current_user():
         return _employee_records_locked() and not _is_current_user_admin()
 
+    def _leave_balance_snapshot(employee_id, year):
+        balance = LeaveBalance.query.filter_by(employee_id=employee_id, year=year).first()
+        total_days = _to_float(balance.total_days if balance else None, 12.0)
+        if total_days <= 0:
+            total_days = 12.0
+
+        used_days = _to_float(balance.used_days if balance else None, 0.0)
+        remaining_days = round(max(total_days - used_days, 0.0), 2)
+        return balance, total_days, used_days, remaining_days
+
     @app.context_processor
     def inject_auth_state():
         return {
@@ -1420,6 +1430,90 @@ def register_routes(app):
             employee=employee,
         )
 
+    @app.route("/employees/<int:employee_id>/convert-unexcused-to-paid-leave", methods=["POST"])
+    def convert_employee_unexcused_to_paid_leave(employee_id):
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        employee = Employee.query.get_or_404(employee_id)
+        month_key = _safe_month_key(request.form.get("month_key") or request.args.get("month"))
+        work_date_raw = (request.form.get("work_date") or "").strip()
+
+        try:
+            work_date = _parse_date(work_date_raw)
+        except (TypeError, ValueError):
+            flash("Ngày nghỉ không hợp lệ", "error")
+            return redirect(url_for("employee_detail", employee_id=employee.id, month=month_key))
+
+        target_month = month_key_for_date(work_date)
+        redirect_url = url_for("employee_detail", employee_id=employee.id, month=target_month)
+
+        live_rows = build_live_month_details(target_month, employee_id=employee.id)
+        target_row = next((row for row in live_rows if row.work_date == work_date), None)
+        if not target_row:
+            flash("Không tìm thấy dữ liệu chấm công của ngày cần đổi", "error")
+            return redirect(redirect_url)
+
+        status_code = str(target_row.status_code or "").upper()
+        if status_code != "N":
+            flash("Ngày này không phải nghỉ không phép nên không thể đổi", "error")
+            return redirect(redirect_url)
+
+        _, _, _, remaining_days = _leave_balance_snapshot(employee.id, work_date.year)
+        if remaining_days < 1:
+            flash("Hết phép năm, không thể đổi ngày nghỉ không phép", "error")
+            return redirect(redirect_url)
+
+        paid_leave_shift = ShiftTemplate.query.filter_by(code="P").first()
+        if not paid_leave_shift:
+            flash("Chưa cấu hình mã ca P (Nghỉ phép)", "error")
+            return redirect(redirect_url)
+
+        actor = session.get("username") or "admin"
+        schedule = WorkSchedule.query.filter_by(employee_id=employee.id, work_date=work_date).first()
+
+        if schedule:
+            before = schedule.to_dict()
+            schedule.shift_id = paid_leave_shift.id
+            schedule.month_key = target_month
+            schedule.absence_hours = 0
+            if schedule.overtime:
+                db.session.delete(schedule.overtime)
+            log_action(
+                "work_schedules",
+                schedule.id,
+                "UPDATE",
+                changed_by=actor,
+                before_data=before,
+                after_data=schedule.to_dict(),
+                notes="Admin doi nghi khong phep sang nghi co phep",
+            )
+        else:
+            schedule = WorkSchedule(
+                employee_id=employee.id,
+                work_date=work_date,
+                month_key=target_month,
+                shift_id=paid_leave_shift.id,
+                absence_hours=0,
+                notes="Admin doi nghi khong phep sang nghi co phep",
+            )
+            db.session.add(schedule)
+            db.session.flush()
+            log_action(
+                "work_schedules",
+                schedule.id,
+                "INSERT",
+                changed_by=actor,
+                after_data=schedule.to_dict(),
+                notes="Admin doi nghi khong phep sang nghi co phep",
+            )
+
+        db.session.commit()
+        rebuild_month_details(target_month, actor)
+        flash("Đã đổi sang nghỉ có phép và trừ 1 ngày phép năm", "success")
+        return redirect(redirect_url)
+
     @app.route("/employees/<int:employee_id>")
     def employee_detail(employee_id):
         employee = Employee.query.get_or_404(employee_id)
@@ -1439,6 +1533,17 @@ def register_routes(app):
             .order_by(LeaveBalance.year.desc())
             .all()
         )
+
+        balance_by_year = {row.year: row for row in balances}
+        detail_years = {row.work_date.year for row in details}
+        leave_remaining_by_year = {}
+        for year in sorted(detail_years.union(balance_by_year.keys())):
+            balance_row = balance_by_year.get(year)
+            total_days = _to_float(balance_row.total_days if balance_row else None, 12.0)
+            if total_days <= 0:
+                total_days = 12.0
+            used_days = _to_float(balance_row.used_days if balance_row else None, 0.0)
+            leave_remaining_by_year[year] = round(max(total_days - used_days, 0.0), 2)
 
         month_keys = [row.month_key for row in salaries]
         config_rows = (
@@ -1519,6 +1624,7 @@ def register_routes(app):
             details=details,
             salary_history_rows=salary_history_rows,
             balances=balances,
+            leave_remaining_by_year=leave_remaining_by_year,
             summary_paid_hours=summary_paid_hours,
             summary_wage=summary_wage,
             shift_summary_rows=shift_summary_rows,

@@ -129,7 +129,7 @@
     <div class="panel soft-panel shift-edit-danger-zone">
         <h3>Thao tác</h3>
         <div class="row-actions">
-            <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=shift.id) }}" onsubmit="return confirm('Xóa mã ca này?');">
+            <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=shift.id) }}" data-confirm="Xóa mã ca này?">
                 <input type="hidden" name="changed_by" value="admin">
                 <button type="submit" class="secondary">Xóa mã ca này</button>
             </form>

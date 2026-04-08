@@ -258,7 +258,7 @@
                                             {% if advance_edit_blocked %}
                                             <span class="badge badge-warn">Đã khóa</span>
                                             {% else %}
-                                            <form method="post" class="advance-delete-form" onsubmit="return confirm('Xóa giao dịch ứng tiền này?');">
+                                            <form method="post" class="advance-delete-form" data-confirm="Xóa giao dịch ứng tiền này?">
                                                 <input type="hidden" name="action" value="delete_advance">
                                                 <input type="hidden" name="advance_id" value="{{ tx.id }}">
                                                 <input type="hidden" name="view_month" value="{{ month_key }}">

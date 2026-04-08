@@ -1291,11 +1291,58 @@ tr.employee-divider td {
     margin-bottom: 12px;
 }
 
+.floating-toast-zone {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: min(420px, calc(100vw - 20px));
+    z-index: 1600;
+    margin-bottom: 0;
+    pointer-events: none;
+}
+
 .flash {
     padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid;
     font-size: 0.92rem;
+}
+
+.floating-toast-zone .flash {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.16);
+    animation: flash-slide-in 0.2s ease;
+}
+
+.flash-hide {
+    opacity: 0;
+    transform: translateX(20px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.flash-close {
+    width: auto;
+    min-width: 0;
+    line-height: 1;
+    border: none;
+    border-radius: 8px;
+    padding: 2px 6px;
+    background: transparent;
+    color: inherit;
+    box-shadow: none;
+    transform: none;
+    opacity: 0.68;
+}
+
+.flash-close:hover {
+    opacity: 1;
+    background: rgba(15, 23, 42, 0.08);
+    box-shadow: none;
+    transform: none;
 }
 
 .flash.success {
@@ -1314,6 +1361,75 @@ tr.employee-divider td {
     color: #92400e;
     border-color: #fcd34d;
     background: #fffbeb;
+}
+
+.confirm-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 1700;
+    display: grid;
+    place-items: center;
+}
+
+.confirm-dialog[hidden] {
+    display: none;
+}
+
+.confirm-dialog-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.46);
+}
+
+.confirm-dialog-card {
+    position: relative;
+    width: min(460px, calc(100vw - 24px));
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    padding: 14px;
+    background: #ffffff;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.3);
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+    transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.confirm-dialog.open .confirm-dialog-card {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.confirm-dialog-card h3 {
+    margin: 0;
+    font-size: 1.02rem;
+}
+
+.confirm-dialog-card p {
+    margin: 10px 0 0;
+    color: #334155;
+}
+
+.confirm-dialog-actions {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.confirm-dialog-actions button {
+    width: auto;
+    min-width: 94px;
+}
+
+@keyframes flash-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .badge {

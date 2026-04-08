@@ -181,9 +181,12 @@
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="flash-zone">
+                <div class="flash-zone floating-toast-zone" aria-live="polite">
                     {% for category, message in messages %}
-                        <div class="flash {{ category }}">{{ message }}</div>
+                        <div class="flash {{ category }}" data-flash>
+                            <span>{{ message }}</span>
+                            <button type="button" class="flash-close" aria-label="Đóng thông báo">×</button>
+                        </div>
                     {% endfor %}
                 </div>
             {% endif %}
@@ -197,6 +200,148 @@
     {% else %}
     </main>
     {% endif %}
+
+    <div id="confirm-dialog" class="confirm-dialog" hidden>
+        <div class="confirm-dialog-backdrop" data-confirm-cancel></div>
+        <div class="confirm-dialog-card" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message">
+            <h3 id="confirm-dialog-title">Xác nhận</h3>
+            <p id="confirm-dialog-message"></p>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="secondary" data-confirm-cancel>Hủy</button>
+                <button type="button" class="danger" id="confirm-dialog-ok">Đồng ý</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        const flashZone = document.querySelector(".flash-zone");
+        if (!flashZone) {
+            return;
+        }
+
+        const removeFlash = (flash) => {
+            if (!flash || flash.classList.contains("flash-hide")) {
+                return;
+            }
+
+            flash.classList.add("flash-hide");
+            window.setTimeout(() => {
+                flash.remove();
+                if (!flashZone.querySelector(".flash")) {
+                    flashZone.remove();
+                }
+            }, 260);
+        };
+
+        const flashes = Array.from(flashZone.querySelectorAll(".flash"));
+        flashes.forEach((flash, index) => {
+            let timeoutMs = 2600;
+            if (flash.classList.contains("error")) {
+                timeoutMs = 4200;
+            } else if (flash.classList.contains("warning")) {
+                timeoutMs = 3400;
+            }
+
+            window.setTimeout(() => removeFlash(flash), timeoutMs + (index * 180));
+        });
+
+        flashZone.addEventListener("click", (event) => {
+            const closeButton = event.target.closest(".flash-close");
+            if (!closeButton) {
+                return;
+            }
+            const flash = closeButton.closest(".flash");
+            removeFlash(flash);
+        });
+    })();
+
+    (() => {
+        const dialog = document.getElementById("confirm-dialog");
+        if (!dialog) {
+            return;
+        }
+
+        const messageNode = document.getElementById("confirm-dialog-message");
+        const confirmButton = document.getElementById("confirm-dialog-ok");
+        const cancelTargets = Array.from(dialog.querySelectorAll("[data-confirm-cancel]"));
+        let activeForm = null;
+        let previouslyFocused = null;
+
+        const closeDialog = () => {
+            dialog.classList.remove("open");
+            window.setTimeout(() => {
+                dialog.hidden = true;
+            }, 120);
+            activeForm = null;
+
+            if (previouslyFocused && typeof previouslyFocused.focus === "function") {
+                previouslyFocused.focus();
+            }
+        };
+
+        const openDialog = (form, message) => {
+            activeForm = form;
+            previouslyFocused = document.activeElement;
+            messageNode.textContent = message || "Bạn có chắc muốn thực hiện thao tác này?";
+            dialog.hidden = false;
+            window.requestAnimationFrame(() => {
+                dialog.classList.add("open");
+                confirmButton.focus();
+            });
+        };
+
+        document.addEventListener("submit", (event) => {
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement)) {
+                return;
+            }
+
+            const confirmMessage = form.getAttribute("data-confirm");
+            if (!confirmMessage) {
+                return;
+            }
+
+            if (form.dataset.confirmed === "1") {
+                form.dataset.confirmed = "";
+                return;
+            }
+
+            event.preventDefault();
+            openDialog(form, confirmMessage);
+        }, true);
+
+        confirmButton.addEventListener("click", () => {
+            if (!activeForm) {
+                closeDialog();
+                return;
+            }
+
+            const formToSubmit = activeForm;
+            formToSubmit.dataset.confirmed = "1";
+            closeDialog();
+
+            if (typeof formToSubmit.requestSubmit === "function") {
+                formToSubmit.requestSubmit();
+            } else {
+                formToSubmit.submit();
+            }
+        });
+
+        cancelTargets.forEach((element) => {
+            element.addEventListener("click", () => {
+                closeDialog();
+            });
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !dialog.hidden) {
+                event.preventDefault();
+                closeDialog();
+            }
+        });
+    })();
+    </script>
 
 </body>
 </html>

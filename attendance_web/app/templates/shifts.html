@@ -117,7 +117,7 @@
                     <td>{{ row.notes or '-' }}</td>
                     <td class="row-actions">
                         <a href="{{ url_for('edit_shift', shift_id=row.id) }}">Sửa</a>
-                        <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=row.id) }}" onsubmit="return confirm('Xóa mã ca này?');">
+                        <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=row.id) }}" data-confirm="Xóa mã ca này?">
                             <input type="hidden" name="changed_by" value="admin">
                             <button type="submit" class="secondary">Xóa</button>
                         </form>
