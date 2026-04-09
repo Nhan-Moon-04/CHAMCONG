@@ -44,8 +44,10 @@ from .models import (
     WorkSchedule,
 )
 from .services.attendance import (
+    MANUAL_WORK_OVERRIDE_NOTE,
     build_live_month_details,
     current_month_key,
+    has_manual_work_override,
     month_key_for_date,
     parse_month_key,
     rebuild_month_details,
@@ -74,6 +76,7 @@ DETAILS_HIGHLIGHT_TO_EXCEL_FILL = {
     "paid-leave": "FFE8F5E9",
     "unexcused": "FFFFB3B3",
     "missing-check": "FFFFF8CC",
+    "manual-work-fixed": "FFE5E7EB",
 }
 
 PAYROLL_PAYMENT_FIELDS = {
@@ -81,6 +84,8 @@ PAYROLL_PAYMENT_FIELDS = {
     "meal_period_1_received",
     "meal_period_2_received",
 }
+
+UNEXCUSED_TO_PAID_LEAVE_NOTE = "Admin doi nghi khong phep sang nghi co phep"
 
 
 def _safe_month_key(value):
@@ -310,6 +315,10 @@ def _is_missing_check_event(detail_row):
 
 def _get_details_highlight_tag(detail_row):
     status_code = str(getattr(detail_row, "status_code", "") or "").upper()
+    notes = getattr(detail_row, "notes", "")
+
+    if has_manual_work_override(notes):
+        return "manual-work-fixed"
 
     if _is_missing_check_event(detail_row):
         return "missing-check"
@@ -1571,7 +1580,7 @@ def register_routes(app):
                 changed_by=actor,
                 before_data=before,
                 after_data=schedule.to_dict(),
-                notes="Admin doi nghi khong phep sang nghi co phep",
+                notes=UNEXCUSED_TO_PAID_LEAVE_NOTE,
             )
         else:
             schedule = WorkSchedule(
@@ -1580,7 +1589,7 @@ def register_routes(app):
                 month_key=target_month,
                 shift_id=paid_leave_shift.id,
                 absence_hours=0,
-                notes="Admin doi nghi khong phep sang nghi co phep",
+                notes=UNEXCUSED_TO_PAID_LEAVE_NOTE,
             )
             db.session.add(schedule)
             db.session.flush()
@@ -1590,12 +1599,171 @@ def register_routes(app):
                 "INSERT",
                 changed_by=actor,
                 after_data=schedule.to_dict(),
-                notes="Admin doi nghi khong phep sang nghi co phep",
+                notes=UNEXCUSED_TO_PAID_LEAVE_NOTE,
             )
 
         db.session.commit()
         rebuild_month_details(target_month, actor)
         flash("Đã đổi sang nghỉ có phép và trừ 1 ngày phép năm", "success")
+        return redirect(redirect_url)
+
+    @app.route("/employees/<int:employee_id>/convert-missing-to-worked", methods=["POST"])
+    def convert_employee_missing_to_worked(employee_id):
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        employee = Employee.query.get_or_404(employee_id)
+        month_key = _safe_month_key(request.form.get("month_key") or request.args.get("month"))
+        work_date_raw = (request.form.get("work_date") or "").strip()
+
+        try:
+            work_date = _parse_date(work_date_raw)
+        except (TypeError, ValueError):
+            flash("Ngày chấm công không hợp lệ", "error")
+            return redirect(url_for("employee_detail", employee_id=employee.id, month=month_key))
+
+        target_month = month_key_for_date(work_date)
+        redirect_url = url_for("employee_detail", employee_id=employee.id, month=target_month)
+
+        live_rows = build_live_month_details(target_month, employee_id=employee.id)
+        target_row = next((row for row in live_rows if row.work_date == work_date), None)
+        if not target_row:
+            flash("Không tìm thấy dữ liệu chấm công của ngày cần đổi", "error")
+            return redirect(redirect_url)
+
+        status_code = str(target_row.status_code or "").upper()
+        if status_code != "N":
+            flash("Ngày này không phải nghỉ không phép nên không cần đổi", "warning")
+            return redirect(redirect_url)
+
+        target_shift = None
+        preferred_shift_code = str(target_row.shift_code or "").strip().upper()
+        if preferred_shift_code and preferred_shift_code not in {"OFF", "N", "S", "C", "P", "L"}:
+            target_shift = ShiftTemplate.query.filter_by(code=preferred_shift_code).first()
+            if target_shift and target_shift.is_leave_code:
+                target_shift = None
+
+        if not target_shift:
+            default_shift_code = str(employee.default_shift_code or "").strip().upper()
+            target_shift = ShiftTemplate.query.filter_by(code=default_shift_code).first()
+            if target_shift and target_shift.is_leave_code:
+                target_shift = None
+
+        if not target_shift:
+            target_shift = ShiftTemplate.query.filter_by(code="X").first()
+            if target_shift and target_shift.is_leave_code:
+                target_shift = None
+
+        if not target_shift:
+            flash("Chưa cấu hình ca làm hợp lệ để đổi sang có đi làm", "error")
+            return redirect(redirect_url)
+
+        actor = session.get("username") or "admin"
+        schedule = WorkSchedule.query.filter_by(employee_id=employee.id, work_date=work_date).first()
+
+        if schedule:
+            before = schedule.to_dict()
+            schedule.shift_id = target_shift.id
+            schedule.month_key = target_month
+            schedule.absence_hours = 0
+
+            note_value = (schedule.notes or "").strip()
+            if has_manual_work_override(note_value):
+                schedule.notes = note_value
+            else:
+                schedule.notes = (
+                    f"{note_value}; {MANUAL_WORK_OVERRIDE_NOTE}"
+                    if note_value
+                    else MANUAL_WORK_OVERRIDE_NOTE
+                )
+
+            log_action(
+                "work_schedules",
+                schedule.id,
+                "UPDATE",
+                changed_by=actor,
+                before_data=before,
+                after_data=schedule.to_dict(),
+                notes="Admin xac nhan co di lam do mat cham cong",
+            )
+        else:
+            schedule = WorkSchedule(
+                employee_id=employee.id,
+                work_date=work_date,
+                month_key=target_month,
+                shift_id=target_shift.id,
+                absence_hours=0,
+                notes=MANUAL_WORK_OVERRIDE_NOTE,
+            )
+            db.session.add(schedule)
+            db.session.flush()
+            log_action(
+                "work_schedules",
+                schedule.id,
+                "INSERT",
+                changed_by=actor,
+                after_data=schedule.to_dict(),
+                notes="Admin xac nhan co di lam do mat cham cong",
+            )
+
+        db.session.commit()
+        rebuild_month_details(target_month, actor)
+        flash("Đã đổi thành có đi làm và tô xám để nhận biết chỉnh tay", "success")
+        return redirect(redirect_url)
+
+    @app.route("/employees/<int:employee_id>/reset-day-override", methods=["POST"])
+    def reset_employee_day_override(employee_id):
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+
+        employee = Employee.query.get_or_404(employee_id)
+        month_key = _safe_month_key(request.form.get("month_key") or request.args.get("month"))
+        work_date_raw = (request.form.get("work_date") or "").strip()
+
+        try:
+            work_date = _parse_date(work_date_raw)
+        except (TypeError, ValueError):
+            flash("Ngày chấm công không hợp lệ", "error")
+            return redirect(url_for("employee_detail", employee_id=employee.id, month=month_key))
+
+        target_month = month_key_for_date(work_date)
+        redirect_url = url_for("employee_detail", employee_id=employee.id, month=target_month)
+
+        schedule = WorkSchedule.query.filter_by(employee_id=employee.id, work_date=work_date).first()
+        if not schedule:
+            flash("Ngày này không có dữ liệu chỉnh tay để reset", "warning")
+            return redirect(redirect_url)
+
+        note_text = str(schedule.notes or "")
+        note_text_lower = note_text.lower()
+        is_manual_work_override = has_manual_work_override(note_text)
+        is_paid_leave_override = UNEXCUSED_TO_PAID_LEAVE_NOTE.lower() in note_text_lower
+        if not is_manual_work_override and not is_paid_leave_override:
+            flash("Ngày này không phải dữ liệu chỉnh tay từ admin, không thể reset", "warning")
+            return redirect(redirect_url)
+
+        actor = session.get("username") or "admin"
+        before = schedule.to_dict()
+
+        if schedule.overtime:
+            db.session.delete(schedule.overtime)
+        db.session.delete(schedule)
+
+        reset_label = "đi làm" if is_manual_work_override else "có phép"
+        log_action(
+            "work_schedules",
+            schedule.id,
+            "DELETE",
+            changed_by=actor,
+            before_data=before,
+            notes=f"Admin reset ngay da doi {reset_label} ve trang thai ban dau",
+        )
+
+        db.session.commit()
+        rebuild_month_details(target_month, actor)
+        flash("Đã reset ngày này về trạng thái ban đầu", "success")
         return redirect(redirect_url)
 
     @app.route("/employees/<int:employee_id>")
@@ -1607,6 +1775,16 @@ def register_routes(app):
             details = _load_saved_month_details(month_key, employee_id=employee_id)
         else:
             details = build_live_month_details(month_key, employee_id=employee_id)
+
+        for row in details:
+            setattr(row, "highlight_tag", _get_details_highlight_tag(row))
+            notes_text = str(getattr(row, "notes", "") or "")
+            notes_text_lower = notes_text.lower()
+            can_reset_override = has_manual_work_override(notes_text) or (
+                UNEXCUSED_TO_PAID_LEAVE_NOTE.lower() in notes_text_lower
+            )
+            setattr(row, "can_reset_override", can_reset_override)
+
         salaries = (
             MonthlySalary.query.filter_by(employee_id=employee_id)
             .order_by(MonthlySalary.month_key.desc())

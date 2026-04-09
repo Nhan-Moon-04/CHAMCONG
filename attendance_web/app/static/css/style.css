@@ -1287,6 +1287,14 @@ tr.details-status-missing-check:hover td {
     background: #fff1ad;
 }
 
+tr.details-status-manual-work-fixed td {
+    background: #e5e7eb;
+}
+
+tr.details-status-manual-work-fixed:hover td {
+    background: #d1d5db;
+}
+
 tr.employee-divider td {
     border-top: 2px solid #cbd5e1;
 }

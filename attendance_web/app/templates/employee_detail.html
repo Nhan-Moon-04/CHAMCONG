@@ -90,6 +90,7 @@
 
 <div class="panel">
     <h3>Chi tiết chấm công tháng {{ month_key }}</h3>
+    <p class="muted">Dòng màu xám là ngày admin đã xác nhận có đi làm do máy chấm công bị lỗi/mất log.</p>
 
     <div class="table-wrap" style="margin-bottom: 12px;">
         <table>
@@ -148,10 +149,16 @@
                 {% for row in details %}
                 {% set status_code = (row.status_code or '')|upper %}
                 {% set row_class = '' %}
-                {% if status_code == 'N' %}
-                    {% set row_class = 'details-status-unexcused' %}
-                {% elif status_code in ['P', 'S', 'C', 'L'] %}
+                {% if row.highlight_tag == 'manual-work-fixed' %}
+                    {% set row_class = 'details-status-manual-work-fixed' %}
+                {% elif row.highlight_tag == 'half-leave' %}
+                    {% set row_class = 'details-status-half-leave' %}
+                {% elif row.highlight_tag == 'paid-leave' %}
                     {% set row_class = 'details-status-paid-leave' %}
+                {% elif row.highlight_tag == 'unexcused' %}
+                    {% set row_class = 'details-status-unexcused' %}
+                {% elif row.highlight_tag == 'missing-check' %}
+                    {% set row_class = 'details-status-missing-check' %}
                 {% elif row.work_date.weekday() == 6 or status_code == 'OFF' %}
                     {% set row_class = 'sunday-row' %}
                 {% endif %}
@@ -177,16 +184,32 @@
                     {% if current_user_is_admin %}
                     <td class="row-actions">
                         {% set remaining_leave = leave_remaining_by_year.get(row.work_date.year, 0) %}
-                        {% if status_code == 'N' and remaining_leave >= 1 %}
+                        {% if row.can_reset_override %}
+                        <form method="post" action="{{ url_for('reset_employee_day_override', employee_id=employee.id) }}" class="row-action-form" data-confirm="Reset ngày {{ row.work_date }} về trạng thái ban đầu trước khi admin chỉnh tay?">
+                            <input type="hidden" name="month_key" value="{{ month_key }}">
+                            <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
+                            <button type="submit" class="secondary danger">Reset về ban đầu</button>
+                        </form>
+                        {% endif %}
+                        {% if status_code == 'N' %}
+                        <form method="post" action="{{ url_for('convert_employee_missing_to_worked', employee_id=employee.id) }}" class="row-action-form" data-confirm="Xác nhận ngày {{ row.work_date }} có đi làm dù máy chấm công bị mất dữ liệu? Dòng này sẽ được tô xám để nhận biết chỉnh tay.">
+                            <input type="hidden" name="month_key" value="{{ month_key }}">
+                            <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
+                            <button type="submit" class="secondary">Đổi thành có đi làm</button>
+                        </form>
+                        {% if remaining_leave >= 1 %}
                         <form method="post" action="{{ url_for('convert_employee_unexcused_to_paid_leave', employee_id=employee.id) }}" class="row-action-form" data-confirm="Đổi ngày này sang nghỉ có phép và trừ 1 ngày phép năm?">
                             <input type="hidden" name="month_key" value="{{ month_key }}">
                             <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
                             <button type="submit" class="secondary">Đổi thành có phép</button>
                         </form>
-                        {% elif status_code == 'N' %}
-                        <span class="muted">Hết phép</span>
                         {% else %}
+                        <span class="muted">Hết phép</span>
+                        {% endif %}
+                        {% else %}
+                        {% if not row.can_reset_override %}
                         -
+                        {% endif %}
                         {% endif %}
                     </td>
                     {% endif %}

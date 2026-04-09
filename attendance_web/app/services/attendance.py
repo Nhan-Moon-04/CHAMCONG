@@ -64,6 +64,15 @@ STATUS_NOTE_LABELS = {
     "L": "Ngay le",
 }
 
+MANUAL_WORK_OVERRIDE_NOTE = "Xac nhan co di lam do mat cham cong"
+
+
+def has_manual_work_override(notes):
+    note_text = str(notes or "").lower()
+    if not note_text:
+        return False
+    return MANUAL_WORK_OVERRIDE_NOTE.lower() in note_text
+
 
 def _append_note(note_list, text):
     value = (text or "").strip()
@@ -367,6 +376,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
         while current <= end_date:
             schedule = schedule_map.get((employee.id, current))
             has_explicit_schedule = schedule is not None
+            manual_work_override = bool(schedule and has_manual_work_override(schedule.notes))
             is_sunday = current.weekday() == 6
             is_holiday = current in holidays
             row_notes = []
@@ -427,7 +437,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 base_paid_hours = max(standard_hours - remaining_absence, 0.0)
 
             should_have_attendance = bool(shift and not shift.is_leave_code)
-            if should_have_attendance and (not check_in or not check_out):
+            if should_have_attendance and (not check_in or not check_out) and not manual_work_override:
                 status_code = "N"
                 base_paid_hours = 0.0
                 adjusted_overtime = 0.0
@@ -484,7 +494,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             note_issue = None
             if not has_scan:
-                if should_have_attendance:
+                if should_have_attendance and not manual_work_override:
                     if has_explicit_schedule:
                         note_issue = "Bo ca"
                     elif not (is_sunday or is_holiday):

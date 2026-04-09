@@ -14,7 +14,7 @@
                 <p class="muted">Đang xem tháng: <strong>{{ month_key }}</strong></p>
                 {% endif %}
                 <p class="muted">Dòng tô màu vàng nhạt là ngày Chủ nhật.</p>
-                <p class="muted">Màu dòng: Nghỉ nửa buổi (cam nhạt), Nghỉ có phép (xanh lá nhạt), Nghỉ không phép (đỏ), Quên checkin/checkout (vàng nhạt).</p>
+                <p class="muted">Màu dòng: Nghỉ nửa buổi (cam nhạt), Nghỉ có phép (xanh lá nhạt), Nghỉ không phép (đỏ), Quên checkin/checkout (vàng nhạt), Sửa tay do mất chấm công (xám).</p>
                 <p class="muted">Giữa mỗi nhân viên có thêm gạch ngăn để dễ phân biệt theo người.</p>
                 <p class="muted">Nếu nhập Từ ngày/Đến ngày thì hệ thống ưu tiên lọc theo khoảng thời gian (có thể qua nhiều tháng).</p>
             </div>
@@ -101,7 +101,9 @@
                 {% for row in details %}
                 {% set is_new_employee = ns.prev_employee_id is not none and ns.prev_employee_id != row.employee.id %}
                 {% set highlight_class = "" %}
-                {% if row.highlight_tag == "half-leave" %}
+                {% if row.highlight_tag == "manual-work-fixed" %}
+                    {% set highlight_class = "details-status-manual-work-fixed" %}
+                {% elif row.highlight_tag == "half-leave" %}
                     {% set highlight_class = "details-status-half-leave" %}
                 {% elif row.highlight_tag == "paid-leave" %}
                     {% set highlight_class = "details-status-paid-leave" %}
