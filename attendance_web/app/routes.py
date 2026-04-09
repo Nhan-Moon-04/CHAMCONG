@@ -1430,6 +1430,90 @@ def register_routes(app):
             employee=employee,
         )
 
+    @app.route("/employees/<int:employee_id>/delete", methods=["POST"])
+    def delete_employee(employee_id):
+        if _employee_edit_blocked_for_current_user():
+            flash("Đã khóa", "error")
+            return redirect(url_for("employees"))
+
+        search_query = (request.form.get("q") or "").strip()
+        search_scope = (request.form.get("scope") or "current").strip().lower()
+        if search_scope not in {"current", "all"}:
+            search_scope = "current"
+
+        redirect_args = {}
+        if search_query:
+            redirect_args["q"] = search_query
+        if search_scope == "all":
+            redirect_args["scope"] = "all"
+
+        employee = Employee.query.get_or_404(employee_id)
+        actor = (request.form.get("changed_by") or session.get("username") or "admin").strip() or "admin"
+        before_data = employee.to_dict()
+
+        try:
+            schedule_ids = [
+                row[0]
+                for row in db.session.query(WorkSchedule.id)
+                .filter(WorkSchedule.employee_id == employee.id)
+                .all()
+            ]
+
+            deleted_counts = {
+                "monthly_salaries": MonthlySalary.query.filter_by(employee_id=employee.id).delete(
+                    synchronize_session=False
+                ),
+                "advance_payments": AdvancePayment.query.filter_by(employee_id=employee.id).delete(
+                    synchronize_session=False
+                ),
+                "payroll_payment_statuses": PayrollPaymentStatus.query.filter_by(employee_id=employee.id).delete(
+                    synchronize_session=False
+                ),
+                "attendance_daily": AttendanceDaily.query.filter_by(employee_id=employee.id).delete(
+                    synchronize_session=False
+                ),
+                "attendance_details": AttendanceDetail.query.filter_by(employee_id=employee.id).delete(
+                    synchronize_session=False
+                ),
+                "leave_balances": LeaveBalance.query.filter_by(employee_id=employee.id).delete(
+                    synchronize_session=False
+                ),
+            }
+
+            overtime_deleted = 0
+            if schedule_ids:
+                overtime_deleted = OvertimeEntry.query.filter(
+                    OvertimeEntry.schedule_id.in_(schedule_ids)
+                ).delete(synchronize_session=False)
+
+            deleted_counts["overtime_entries"] = overtime_deleted
+            deleted_counts["work_schedules"] = WorkSchedule.query.filter_by(employee_id=employee.id).delete(
+                synchronize_session=False
+            )
+
+            total_related_deleted = sum(deleted_counts.values())
+
+            db.session.delete(employee)
+            log_action(
+                "employees",
+                employee.id,
+                "DELETE",
+                changed_by=actor,
+                before_data=before_data,
+                notes=f"Xóa nhân viên và {total_related_deleted} bản ghi liên quan",
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            flash(
+                "Không thể xóa nhân viên. Vui lòng thử lại hoặc kiểm tra dữ liệu liên quan.",
+                "error",
+            )
+            return redirect(url_for("employees", **redirect_args))
+
+        flash("Đã xóa nhân viên và dữ liệu liên quan", "success")
+        return redirect(url_for("employees", **redirect_args))
+
     @app.route("/employees/<int:employee_id>/convert-unexcused-to-paid-leave", methods=["POST"])
     def convert_employee_unexcused_to_paid_leave(employee_id):
         blocked = _require_admin()
