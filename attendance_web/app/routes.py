@@ -3739,10 +3739,16 @@ def register_routes(app):
                     f" Đã xóa lịch cũ trước khi import: {result['replaced_months']}."
                 )
 
+            default_shift_info = ""
+            if result.get("default_shift_applied", 0):
+                default_shift_info = (
+                    f" Đã tự điền ca mặc định cho {result['default_shift_applied']} ô trống."
+                )
+
             flash(
                 f"Import lịch xong {result['rows_imported']} dòng ca "
                 f"(tạo mới {result['created']}, cập nhật {result['updated']}). "
-                f"Đã tái tạo chi tiết: {rebuilt}.{replaced_info}",
+                f"Đã tái tạo chi tiết: {rebuilt}.{replaced_info}{default_shift_info}",
                 "success",
             )
 
