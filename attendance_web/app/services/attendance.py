@@ -331,8 +331,8 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
         Holiday.holiday_date >= start_date,
         Holiday.holiday_date <= end_date,
     ).all()
-    # is_paid is used by UI as a "tick nghi" flag: checked dates are treated as OFF/le.
-    holidays = {row.holiday_date for row in holiday_rows if row.is_paid}
+    # is_paid is used by UI as a "tick nghi" flag: checked dates are treated as OFF.
+    holiday_map = {row.holiday_date: row for row in holiday_rows}
 
     salary_rows = MonthlySalary.query.filter_by(month_key=month_key).all()
     salary_map = {row.employee_id: row for row in salary_rows}
@@ -378,7 +378,9 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
             has_explicit_schedule = schedule is not None
             manual_work_override = bool(schedule and has_manual_work_override(schedule.notes))
             is_sunday = current.weekday() == 6
-            is_holiday = current in holidays
+            holiday_row = holiday_map.get(current)
+            is_holiday_off = bool(holiday_row and holiday_row.is_paid)
+            is_sunday_off = is_sunday and (holiday_row.is_paid if holiday_row is not None else True)
             row_notes = []
 
             shift = None
@@ -392,8 +394,8 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
             else:
                 if is_sunday:
                     shift = None
-                elif is_holiday:
-                    shift = shift_by_code.get("L")
+                elif is_holiday_off:
+                    shift = None
                 else:
                     shift = shift_by_code.get((employee.default_shift_code or "X").upper())
                     if not shift:
@@ -477,14 +479,16 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             context_note = None
             if has_scan and not has_explicit_schedule:
-                if is_holiday:
-                    context_note = "Ngay le"
+                if is_sunday_off:
+                    context_note = "Khong co lich lam van cham cong (Chu nhat OFF)"
                 elif is_sunday:
-                    context_note = "Ngay OFF, co log"
+                    context_note = "Khong co lich lam van cham cong (Chu nhat, chi ai co ca moi lam)"
+                elif is_holiday_off:
+                    context_note = "Khong co lich lam van cham cong (Ngay le OFF)"
                 else:
                     context_note = "Khong co lich"
-            elif not has_scan and not has_explicit_schedule and is_holiday:
-                context_note = "Ngay le"
+            elif not has_scan and not has_explicit_schedule and is_holiday_off:
+                context_note = "Ngay le OFF"
 
             if context_note:
                 _append_note(row_notes, context_note)
@@ -497,7 +501,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 if should_have_attendance and not manual_work_override:
                     if has_explicit_schedule:
                         note_issue = "Bo ca"
-                    elif not (is_sunday or is_holiday):
+                    elif not (is_sunday or is_holiday_off):
                         note_issue = "Khong quet the"
             elif check_in and check_out and check_in == check_out:
                 note_issue = "Quen checkout" if check_in.hour < 12 else "Quen checkin"
