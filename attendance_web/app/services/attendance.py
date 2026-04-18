@@ -416,6 +416,13 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             has_scan = bool(check_in or check_out)
 
+            # OFF day from Holidays/Sunday takes precedence when there is no attendance scan.
+            # This prevents OFF dates from being converted to "Nghi khong phep".
+            if (is_sunday_off or is_holiday_off) and not has_scan and not manual_work_override:
+                shift = None
+                planned_shift_code = "OFF"
+                status_code = "OFF"
+
             total_span_hours = _hours_between(check_in, check_out)
 
             standard_hours = _to_float(shift.standard_hours if shift else 0)
@@ -487,6 +494,8 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                     context_note = "Khong co lich lam van cham cong (Ngay le OFF)"
                 else:
                     context_note = "Khong co lich"
+            elif not has_scan and has_explicit_schedule and (is_sunday_off or is_holiday_off):
+                context_note = "Ngay OFF theo Holidays"
             elif not has_scan and not has_explicit_schedule and is_holiday_off:
                 context_note = "Ngay le OFF"
 
