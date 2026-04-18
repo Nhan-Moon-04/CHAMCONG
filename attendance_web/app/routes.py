@@ -3745,10 +3745,16 @@ def register_routes(app):
                     f" Đã tự điền ca mặc định cho {result['default_shift_applied']} ô trống."
                 )
 
+            off_day_skipped_info = ""
+            if result.get("off_day_blank_skipped", 0):
+                off_day_skipped_info = (
+                    f" Đã để OFF {result['off_day_blank_skipped']} ô trống rơi vào Chủ nhật/ngày lễ tick nghỉ."
+                )
+
             flash(
                 f"Import lịch xong {result['rows_imported']} dòng ca "
                 f"(tạo mới {result['created']}, cập nhật {result['updated']}). "
-                f"Đã tái tạo chi tiết: {rebuilt}.{replaced_info}{default_shift_info}",
+                f"Đã tái tạo chi tiết: {rebuilt}.{replaced_info}{default_shift_info}{off_day_skipped_info}",
                 "success",
             )
 

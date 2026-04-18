@@ -6,7 +6,7 @@ from datetime import date, datetime
 from openpyxl import load_workbook
 
 from ..database import db
-from ..models import AttendanceDetail, Employee, OvertimeEntry, ShiftTemplate, WorkSchedule
+from ..models import AttendanceDetail, Employee, Holiday, OvertimeEntry, ShiftTemplate, WorkSchedule
 from .attendance import month_key_for_date, parse_month_key
 from .audit import log_action
 
@@ -132,6 +132,12 @@ def _coerce_employee_code(value):
     return text
 
 
+def _should_skip_default_shift_for_blank_day(work_date, holiday_off_dates):
+    if work_date.weekday() == 6:
+        return True
+    return work_date in holiday_off_dates
+
+
 def _resolve_schedule_worksheet(workbook):
     for sheet_name in workbook.sheetnames:
         if _fold_text(sheet_name) == PREFERRED_SCHEDULE_SHEET_NAME:
@@ -234,6 +240,10 @@ def import_schedule_file(
     touched_months = set()
     invalid_shift_rows = []
     default_shift_applied = 0
+    off_day_blank_skipped = 0
+    holiday_off_dates = {
+        row.holiday_date for row in Holiday.query.filter(Holiday.is_paid.is_(True)).all()
+    }
 
     grid_header_row, day_columns = _detect_grid_schedule_layout(worksheet)
 
@@ -323,6 +333,10 @@ def import_schedule_file(
                     if not _is_blank_cell(cell_value):
                         continue
 
+                    if _should_skip_default_shift_for_blank_day(work_date, holiday_off_dates):
+                        off_day_blank_skipped += 1
+                        continue
+
                     shift_code = _normalize_shift_code(employee.default_shift_code)
                     if not shift_code:
                         continue
@@ -393,6 +407,10 @@ def import_schedule_file(
                 shift_code = _normalize_shift_code(cell_value)
                 if not shift_code:
                     if not _is_blank_cell(cell_value):
+                        continue
+
+                    if _should_skip_default_shift_for_blank_day(work_date, holiday_off_dates):
+                        off_day_blank_skipped += 1
                         continue
 
                     employee = employee_map[employee_code]
@@ -477,6 +495,7 @@ def import_schedule_file(
             "created": created_count,
             "updated": updated_count,
             "default_shift_applied": default_shift_applied,
+            "off_day_blank_skipped": off_day_blank_skipped,
         },
         notes="Import lich lam tu file xlsx",
     )
@@ -492,4 +511,5 @@ def import_schedule_file(
         "created": created_count,
         "updated": updated_count,
         "default_shift_applied": default_shift_applied,
+        "off_day_blank_skipped": off_day_blank_skipped,
     }
