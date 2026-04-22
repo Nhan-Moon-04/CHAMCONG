@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block content %}
+{% set union_page_title = "Chi tiết sự kiện lễ" %}
+{% set union_page_desc = "Sửa số tiền theo từng nhân viên, xóa nhân viên khỏi danh sách nhận, hoặc làm mới toàn bộ danh sách theo tháng." %}
+{% include "union_header_nav.html" %}
+
+<section class="panel soft-panel unionv2-section unionv2-breadcrumb">
+    <a href="{{ url_for('union_events_page', year=year, month_key=month_key) }}">← Quay lại danh sách sự kiện</a>
+    <h3>{{ event_row.event_name }}</h3>
+    <p class="muted">Ngày: {{ event_row.event_date or 'Chưa chốt ngày' }} | Quý: {% if event_row.quarter %}Q{{ event_row.quarter }}{% else %}-{% endif %}</p>
+</section>
+
+<section class="unionv2-card-grid">
+    <article class="card unionv2-kpi-card">
+        <p class="kpi-title">Số nhân viên nhận</p>
+        <p class="kpi-value">{{ recipients|length }}</p>
+    </article>
+    <article class="card unionv2-kpi-card">
+        <p class="kpi-title">Đơn giá mặc định</p>
+        <p class="kpi-value">{{ "{:,.0f}".format(event_row.planned_amount or 0) }}</p>
+    </article>
+    <article class="card unionv2-kpi-card">
+        <p class="kpi-title">Tổng chi hiện tại</p>
+        <p class="kpi-value">{{ "{:,.0f}".format(total_amount) }}</p>
+    </article>
+</section>
+
+<section class="unionv2-split-grid">
+    <article class="panel soft-panel unionv2-section">
+        <div class="unionv2-section-head">
+            <div>
+                <h3>Cập nhật thông tin sự kiện</h3>
+                <p class="muted">Đổi tên, đổi ngày, đổi đơn giá mặc định.</p>
+            </div>
+        </div>
+
+        <form method="post" class="unionv2-form-grid">
+            <input type="hidden" name="action" value="update_event_meta">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="month_key" value="{{ month_key }}">
+
+            <div class="field-stack unionv2-span-2">
+                <label for="event-name">Tên sự kiện</label>
+                <input id="event-name" name="event_name" value="{{ event_row.event_name }}" required>
+            </div>
+
+            <div class="field-stack">
+                <label for="event-date">Ngày sự kiện</label>
+                <input id="event-date" type="date" name="event_date" value="{{ event_row.event_date or '' }}">
+            </div>
+
+            <div class="field-stack">
+                <label for="default-amount">Đơn giá mặc định</label>
+                <input id="default-amount" type="number" step="0.01" min="0" name="default_amount" value="{{ event_row.planned_amount or 0 }}">
+            </div>
+
+            <div class="field-stack unionv2-span-2">
+                <label for="event-notes">Ghi chú</label>
+                <input id="event-notes" name="holiday_notes" value="{{ event_row.notes or '' }}">
+            </div>
+
+            <button type="submit">Lưu thông tin sự kiện</button>
+        </form>
+
+        <form method="post" class="unionv2-form-grid unionv2-top-gap">
+            <input type="hidden" name="action" value="regenerate_recipients">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="month_key" value="{{ month_key }}">
+
+            <div class="field-stack">
+                <label for="regen-scope">Làm mới danh sách từ</label>
+                <select id="regen-scope" name="roster_scope">
+                    <option value="ACTIVE">Nhân viên đang hoạt động</option>
+                    <option value="SCHEDULED">Nhân viên có lịch trong tháng tham chiếu</option>
+                </select>
+            </div>
+
+            <div class="field-stack">
+                <label for="regen-amount">Đơn giá khi làm mới</label>
+                <input id="regen-amount" type="number" step="0.01" min="0" name="default_amount" value="{{ event_row.planned_amount or 0 }}">
+            </div>
+
+            <button type="submit" class="secondary">Làm mới toàn bộ danh sách</button>
+        </form>
+
+        <form method="post" class="unionv2-inline-form-top">
+            <input type="hidden" name="action" value="apply_amount_all">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="month_key" value="{{ month_key }}">
+            <input type="number" step="0.01" min="0" name="amount" value="{{ event_row.planned_amount or 0 }}" required>
+            <button type="submit" class="secondary">Áp dụng đồng loạt số tiền</button>
+        </form>
+    </article>
+
+    <article class="panel soft-panel unionv2-section">
+        <div class="unionv2-section-head">
+            <div>
+                <h3>Thêm nhân viên vào danh sách nhận</h3>
+                <p class="muted">Dùng khi cần bổ sung nhân viên mới sau khi đã tạo sự kiện.</p>
+            </div>
+        </div>
+        <form method="post" class="unionv2-form-grid">
+            <input type="hidden" name="action" value="add_recipient">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="month_key" value="{{ month_key }}">
+
+            <div class="field-stack unionv2-span-2">
+                <label for="employee-id">Nhân viên</label>
+                <select id="employee-id" name="employee_id" required>
+                    <option value="">-- Chọn nhân viên --</option>
+                    {% for employee in available_employees %}
+                    <option value="{{ employee.id }}">{{ employee.employee_code }} - {{ employee.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field-stack">
+                <label for="amount">Số tiền</label>
+                <input id="amount" type="number" step="0.01" min="0" name="amount" value="{{ event_row.planned_amount or 0 }}" required>
+            </div>
+
+            <div class="field-stack">
+                <label for="recipient-notes">Ghi chú</label>
+                <input id="recipient-notes" name="recipient_notes" placeholder="Ghi chú thêm">
+            </div>
+
+            <button type="submit">Thêm nhân viên</button>
+        </form>
+    </article>
+</section>
+
+<section class="panel unionv2-section">
+    <div class="unionv2-section-head">
+        <div>
+            <h3>Danh sách chi theo nhân viên</h3>
+            <p class="muted">Bạn có thể sửa tiền từng người hoặc xóa hẳn người đó khỏi danh sách.</p>
+        </div>
+    </div>
+
+    <div class="table-wrap unionv2-table-wrap-lg">
+        <table class="unionv2-table">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th>Giới tính</th>
+                    <th class="num">Số tiền</th>
+                    <th>Ghi chú</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in recipients %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ row.employee_code }}</td>
+                    <td>{{ row.full_name }}</td>
+                    <td>{{ row.gender or '-' }}</td>
+                    <td class="num">{{ "{:,.0f}".format(row.amount or 0) }}</td>
+                    <td>{{ row.notes or '-' }}</td>
+                    <td class="unionv2-action-col">
+                        <form method="post" class="unionv2-inline-form">
+                            <input type="hidden" name="action" value="update_recipient_amount">
+                            <input type="hidden" name="year" value="{{ year }}">
+                            <input type="hidden" name="month_key" value="{{ month_key }}">
+                            <input type="hidden" name="recipient_id" value="{{ row.id }}">
+                            <input type="number" step="0.01" min="0" name="amount" value="{{ row.amount or 0 }}" required>
+                            <input name="recipient_notes" value="{{ row.notes or '' }}" placeholder="Ghi chú">
+                            <button type="submit" class="unionv2-btn-sm">Lưu</button>
+                        </form>
+                        <form method="post" data-confirm="Bạn có chắc muốn xóa nhân viên này khỏi danh sách nhận?">
+                            <input type="hidden" name="action" value="delete_recipient">
+                            <input type="hidden" name="year" value="{{ year }}">
+                            <input type="hidden" name="month_key" value="{{ month_key }}">
+                            <input type="hidden" name="recipient_id" value="{{ row.id }}">
+                            <button type="submit" class="danger unionv2-btn-sm">Xóa</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">Danh sách đang trống. Hãy làm mới danh sách hoặc thêm nhân viên thủ công.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

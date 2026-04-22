@@ -1848,6 +1848,642 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
     margin: 0;
 }
 
+.union-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    gap: 14px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 58, 138, 0.95) 54%, rgba(20, 83, 45, 0.9) 100%);
+    color: #e2e8f0;
+    border: none;
+}
+
+.union-hero .muted {
+    color: rgba(226, 232, 240, 0.84);
+}
+
+.union-hero-copy {
+    display: grid;
+    gap: 10px;
+}
+
+.union-eyebrow {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #bfdbfe;
+}
+
+.union-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+.union-quick-card {
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.24);
+    padding: 10px;
+    display: grid;
+    gap: 4px;
+}
+
+.union-quick-label {
+    font-size: 0.79rem;
+    color: rgba(226, 232, 240, 0.82);
+}
+
+.union-quick-value {
+    font-family: "Manrope", sans-serif;
+    font-size: 1.1rem;
+}
+
+.union-hero-actions {
+    display: grid;
+    gap: 10px;
+}
+
+.union-filter-form {
+    display: grid;
+    gap: 7px;
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.28);
+    padding: 10px;
+}
+
+.union-filter-form label {
+    color: rgba(226, 232, 240, 0.9);
+    font-size: 0.84rem;
+}
+
+.union-filter-form button {
+    margin-top: 2px;
+}
+
+.union-anchor-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.union-anchor-list a {
+    color: #e2e8f0;
+    text-decoration: none;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 9px;
+    font-size: 0.82rem;
+    padding: 7px 8px;
+    background: rgba(15, 23, 42, 0.24);
+}
+
+.union-anchor-list a:hover {
+    color: #ffffff;
+    border-color: rgba(191, 219, 254, 0.72);
+    background: rgba(15, 23, 42, 0.36);
+}
+
+.union-layout-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.union-block {
+    margin-bottom: 10px;
+}
+
+.union-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.union-link-stack {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.union-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.union-metric-card {
+    border: 1px solid #cbd5e1;
+    border-radius: 11px;
+    padding: 10px;
+    display: grid;
+    gap: 4px;
+    background: #ffffff;
+}
+
+.union-metric-card span {
+    font-size: 0.8rem;
+    color: #475569;
+}
+
+.union-metric-card strong {
+    font-family: "Manrope", sans-serif;
+    font-size: 1.05rem;
+}
+
+.union-entry-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.union-entry-wide {
+    grid-column: span 2;
+}
+
+.union-entry-form-grid button {
+    width: auto;
+    align-self: end;
+}
+
+.union-sheet-panel {
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.union-sheet-head {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.union-sheet-eyebrow {
+    margin: 0 0 4px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: #475569;
+}
+
+.union-balance-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.union-balance-chips span {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #dbe3ee;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 0.82rem;
+    background: #ffffff;
+}
+
+.union-balance-chips strong {
+    margin-left: 5px;
+    font-family: "Manrope", sans-serif;
+}
+
+.union-sheet-table {
+    font-size: 0.87rem;
+    border: 1px solid #cbd5e1;
+}
+
+.union-sheet-table th,
+.union-sheet-table td {
+    border: 1px solid #dbe3ee;
+    padding: 7px 9px;
+}
+
+.union-sheet-table th {
+    background: #e2e8f0;
+    color: #1e293b;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.union-sheet-table tbody tr:nth-child(even) td {
+    background: #f8fbff;
+}
+
+.union-sheet-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.union-sheet-mini {
+    min-width: 720px;
+}
+
+.union-table-wrap-sm {
+    max-height: 300px;
+}
+
+.union-table-wrap-md {
+    max-height: 420px;
+}
+
+.union-table-wrap-lg {
+    max-height: 520px;
+}
+
+.union-quarter-wrap {
+    margin-top: 10px;
+}
+
+.union-quarter-wrap h4 {
+    margin: 0 0 8px;
+    font-size: 0.92rem;
+}
+
+.union-action-cell {
+    white-space: nowrap;
+}
+
+.union-action-cell form {
+    margin: 0;
+}
+
+.union-action-cell button {
+    width: auto;
+    padding: 5px 9px;
+}
+
+.union-event-actions {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.union-event-form {
+    background: #ffffff;
+    border: 1px solid #dbe3ee;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.union-default-form {
+    margin: 0;
+}
+
+.union-default-form button {
+    width: auto;
+}
+
+.union-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.union-preview-card {
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 10px;
+    background: #ffffff;
+    display: grid;
+    gap: 8px;
+}
+
+.union-preview-head {
+    display: grid;
+    gap: 4px;
+}
+
+.union-preview-head p {
+    margin: 0;
+    font-size: 0.8rem;
+}
+
+.union-sign-cell {
+    min-width: 80px;
+}
+
+.union-preview-note {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.union-rules-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.union-rules-grid h4 {
+    margin: 0 0 8px;
+    font-size: 0.92rem;
+}
+
+.union-summary-metric-grid {
+    margin-bottom: 10px;
+}
+
+.unionv2-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 370px);
+    gap: 14px;
+    border: none;
+    color: #e2e8f0;
+    background: linear-gradient(130deg, #0f172a 0%, #1d4f91 56%, #0f766e 100%);
+}
+
+.unionv2-header .muted {
+    color: rgba(226, 232, 240, 0.86);
+}
+
+.unionv2-header-copy {
+    display: grid;
+    gap: 8px;
+}
+
+.unionv2-eyebrow {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #bfdbfe;
+}
+
+.unionv2-period-form {
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    border-radius: 12px;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.26);
+}
+
+.unionv2-period-form label {
+    color: rgba(226, 232, 240, 0.92);
+    font-size: 0.84rem;
+}
+
+.unionv2-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.unionv2-tabs a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 0.87rem;
+    color: #1e3a8a;
+    background: #eff6ff;
+}
+
+.unionv2-tabs a:hover {
+    color: #1e3a8a;
+    background: #dbeafe;
+    border-color: #93c5fd;
+}
+
+.unionv2-tabs a.active {
+    color: #ffffff;
+    border-color: #1d4ed8;
+    background: linear-gradient(120deg, #1d4ed8, #1e40af);
+}
+
+.unionv2-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.unionv2-kpi-card {
+    border-color: rgba(148, 163, 184, 0.28);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.unionv2-section {
+    margin-bottom: 10px;
+}
+
+.unionv2-section-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.unionv2-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.unionv2-span-2 {
+    grid-column: span 2;
+}
+
+.unionv2-form-grid button {
+    width: auto;
+    align-self: end;
+}
+
+.unionv2-top-gap {
+    margin-top: 8px;
+}
+
+.unionv2-inline-form-top {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.unionv2-inline-form-top input {
+    width: 180px;
+}
+
+.unionv2-inline-form-top button {
+    width: auto;
+}
+
+.unionv2-mini-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.unionv2-mini-metrics span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid #dbe3ee;
+    border-radius: 999px;
+    padding: 5px 10px;
+    background: #ffffff;
+    font-size: 0.82rem;
+}
+
+.unionv2-mini-metrics strong {
+    font-family: "Manrope", sans-serif;
+}
+
+.unionv2-link-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.unionv2-split-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.unionv2-nav-cards {
+    display: grid;
+    gap: 8px;
+}
+
+.unionv2-nav-card {
+    display: grid;
+    gap: 4px;
+    border: 1px solid #dbe3ee;
+    border-radius: 12px;
+    padding: 10px;
+    text-decoration: none;
+    color: #0f172a;
+    background: #ffffff;
+}
+
+.unionv2-nav-card:hover {
+    color: #0f172a;
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.unionv2-nav-card h4 {
+    margin: 0;
+    font-size: 0.92rem;
+}
+
+.unionv2-nav-card p {
+    margin: 0;
+    color: #475569;
+    font-size: 0.84rem;
+}
+
+.unionv2-breadcrumb {
+    display: grid;
+    gap: 4px;
+}
+
+.unionv2-breadcrumb h3 {
+    margin: 0;
+}
+
+.unionv2-breadcrumb p {
+    margin: 0;
+}
+
+.unionv2-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    background: #ffffff;
+    border: 1px solid #dbe3ee;
+}
+
+.unionv2-table th,
+.unionv2-table td {
+    border: 1px solid #e2e8f0;
+    padding: 7px 9px;
+    vertical-align: top;
+}
+
+.unionv2-table th {
+    background: #e2e8f0;
+    color: #1e293b;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.unionv2-table tbody tr:nth-child(even) td {
+    background: #f8fbff;
+}
+
+.unionv2-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.unionv2-action-col {
+    white-space: nowrap;
+}
+
+.unionv2-action-col form {
+    margin: 0;
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.unionv2-inline-form {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.unionv2-inline-form input[type="number"] {
+    width: 120px;
+}
+
+.unionv2-inline-form input {
+    min-width: 140px;
+}
+
+.unionv2-btn-sm {
+    width: auto;
+    padding: 5px 9px;
+}
+
+.unionv2-subtitle {
+    margin: 10px 0 8px;
+    font-size: 0.92rem;
+}
+
+.unionv2-table-wrap {
+    max-height: 360px;
+}
+
+.unionv2-table-wrap-sm {
+    max-height: 300px;
+}
+
+.unionv2-table-wrap-lg {
+    max-height: 560px;
+}
+
 @media (max-width: 1100px) {
     .layout {
         grid-template-columns: 240px 1fr;
@@ -1862,6 +2498,31 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
     }
 
     .toolbar-inline-form {
+        grid-template-columns: 1fr;
+    }
+
+    .union-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .union-layout-grid,
+    .union-rules-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .union-entry-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .unionv2-header {
+        grid-template-columns: 1fr;
+    }
+
+    .unionv2-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .unionv2-split-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -1986,6 +2647,74 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap {
     .employee-form-head {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .union-panel-head {
+        flex-direction: column;
+    }
+
+    .union-entry-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .union-entry-wide {
+        grid-column: auto;
+    }
+
+    .union-entry-form-grid button,
+    .union-default-form button {
+        width: 100%;
+    }
+
+    .union-anchor-list {
+        grid-template-columns: 1fr;
+    }
+
+    .unionv2-section-head {
+        flex-direction: column;
+    }
+
+    .unionv2-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .unionv2-span-2 {
+        grid-column: auto;
+    }
+
+    .unionv2-form-grid button,
+    .unionv2-inline-form-top button {
+        width: 100%;
+    }
+
+    .unionv2-inline-form-top {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .unionv2-inline-form-top input {
+        width: 100%;
+    }
+
+    .unionv2-inline-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .unionv2-inline-form input[type="number"],
+    .unionv2-inline-form input {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .unionv2-action-col form {
+        display: flex;
+        width: 100%;
+        margin-top: 6px;
+    }
+
+    .unionv2-action-col form:first-child {
+        margin-top: 0;
     }
 }
 

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block content %}
+{% set union_page_title = "Quản lý sự kiện lễ" %}
+{% set union_page_desc = "Khi tạo sự kiện, hệ thống tự sinh mức tiền đồng loạt cho toàn bộ nhân viên trong danh sách. Sau đó bạn có thể sửa hoặc xóa từng người." %}
+{% include "union_header_nav.html" %}
+
+<section class="unionv2-card-grid">
+    <article class="card unionv2-kpi-card">
+        <p class="kpi-title">NV active</p>
+        <p class="kpi-value">{{ month_ref.active_total }}</p>
+    </article>
+    <article class="card unionv2-kpi-card">
+        <p class="kpi-title">NV có lịch tháng</p>
+        <p class="kpi-value">{{ month_ref.scheduled_total }}</p>
+    </article>
+    <article class="card unionv2-kpi-card">
+        <p class="kpi-title">Số sự kiện hiện có</p>
+        <p class="kpi-value">{{ holiday_rows|length }}</p>
+    </article>
+</section>
+
+<section class="panel soft-panel unionv2-section">
+    <div class="unionv2-section-head">
+        <div>
+            <h3>Tạo sự kiện lễ mới</h3>
+            <p class="muted">Số tiền mặc định sẽ được áp cho toàn bộ nhân viên của danh sách đã chọn.</p>
+        </div>
+    </div>
+    <form method="post" class="unionv2-form-grid">
+        <input type="hidden" name="action" value="create_holiday_event">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month_key" value="{{ month_key }}">
+
+        <div class="field-stack unionv2-span-2">
+            <label for="holiday-name">Tên sự kiện</label>
+            <input id="holiday-name" name="event_name" placeholder="Ví dụ: Quà lễ tháng 04" required>
+        </div>
+
+        <div class="field-stack">
+            <label for="holiday-date">Ngày sự kiện</label>
+            <input id="holiday-date" type="date" name="event_date">
+        </div>
+
+        <div class="field-stack">
+            <label for="default-amount">Số tiền mặc định / nhân viên</label>
+            <input id="default-amount" type="number" step="0.01" min="0" name="default_amount" value="0" required>
+        </div>
+
+        <div class="field-stack">
+            <label for="roster-scope">Sinh danh sách từ</label>
+            <select id="roster-scope" name="roster_scope">
+                <option value="ACTIVE">Nhân viên đang hoạt động</option>
+                <option value="SCHEDULED">Nhân viên có lịch trong tháng tham chiếu</option>
+            </select>
+        </div>
+
+        <div class="field-stack unionv2-span-2">
+            <label for="holiday-notes">Ghi chú</label>
+            <input id="holiday-notes" name="holiday_notes" placeholder="Ghi chú thêm">
+        </div>
+
+        <button type="submit">Tạo sự kiện và sinh danh sách</button>
+    </form>
+
+    <form method="post" class="unionv2-inline-form-top">
+        <input type="hidden" name="action" value="fill_default_holidays">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month_key" value="{{ month_key }}">
+        <button type="submit" class="secondary">Bổ sung sự kiện mặc định còn thiếu</button>
+    </form>
+</section>
+
+<section class="panel unionv2-section">
+    <div class="unionv2-section-head">
+        <div>
+            <h3>Danh sách sự kiện lễ năm {{ year }}</h3>
+            <p class="muted">Bấm mở chi tiết để sửa tiền từng nhân viên hoặc xóa nhân viên khỏi danh sách nhận.</p>
+        </div>
+    </div>
+    <div class="table-wrap unionv2-table-wrap-lg">
+        <table class="unionv2-table">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Tên sự kiện</th>
+                    <th>Ngày</th>
+                    <th>Quý</th>
+                    <th class="num">Đơn giá mặc định</th>
+                    <th>Số nhân viên</th>
+                    <th class="num">Tổng dự chi</th>
+                    <th>Loại</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in holiday_rows %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ item.event.event_name }}</td>
+                    <td>{{ item.event.event_date or '-' }}</td>
+                    <td>{% if item.event.quarter %}Q{{ item.event.quarter }}{% else %}-{% endif %}</td>
+                    <td class="num">{{ "{:,.0f}".format(item.event.planned_amount or 0) }}</td>
+                    <td>{{ item.recipient_count }}</td>
+                    <td class="num">{{ "{:,.0f}".format(item.total_amount) }}</td>
+                    <td>{% if item.event.is_default %}Mặc định{% else %}Tự tạo{% endif %}</td>
+                    <td class="unionv2-action-col">
+                        <a class="link-pill" href="{{ url_for('union_event_detail', event_id=item.event.id, year=year, month_key=month_key) }}">Mở danh sách chi</a>
+                        <form method="post" data-confirm="Bạn có chắc muốn xóa sự kiện này?">
+                            <input type="hidden" name="action" value="delete_holiday_event">
+                            <input type="hidden" name="year" value="{{ year }}">
+                            <input type="hidden" name="month_key" value="{{ month_key }}">
+                            <input type="hidden" name="holiday_id" value="{{ item.event.id }}">
+                            <button type="submit" class="danger unionv2-btn-sm">Xóa</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9">Chưa có sự kiện lễ.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

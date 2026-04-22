@@ -93,6 +93,10 @@
                     <span class="nav-label">Nhật ký audit</span>
                 </a>
                 {% if current_user_is_admin %}
+                <a class="{% if request.endpoint in ['union_index', 'union_bank_page', 'union_cash_page', 'union_events_page', 'union_event_detail'] %}active{% endif %}" href="{{ url_for('union_index') }}" title="Công đoàn">
+                    <i class="bi bi-bank" aria-hidden="true"></i>
+                    <span class="nav-label">Công đoàn</span>
+                </a>
                 <a class="{% if request.endpoint in ['users', 'create_user', 'edit_user', 'delete_user'] %}active{% endif %}" href="{{ url_for('users') }}" title="Quản lý user">
                     <i class="bi bi-person-gear" aria-hidden="true"></i>
                     <span class="nav-label">Quản lý user</span>

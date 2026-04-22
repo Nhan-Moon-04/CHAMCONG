@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block content %}
+{% set union_page_title = "Sổ chuyển khoản công đoàn" %}
+{% set union_page_desc = "Trang riêng để quản lý các giao dịch ngân hàng, đối chiếu theo quý và theo năm." %}
+{% include "union_header_nav.html" %}
+
+<section class="panel soft-panel unionv2-section">
+    <div class="unionv2-section-head">
+        <div>
+            <h3>Thêm giao dịch chuyển khoản</h3>
+            <p class="muted">Nhập giao dịch phát sinh trong năm {{ year }} để hệ thống tự tính số dư lũy kế.</p>
+        </div>
+    </div>
+    <form method="post" class="unionv2-form-grid">
+        <input type="hidden" name="action" value="add_bank_ledger">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month_key" value="{{ month_key }}">
+
+        <div class="field-stack">
+            <label for="event-date">Ngày phát sinh</label>
+            <input id="event-date" type="date" name="event_date" required>
+        </div>
+
+        <div class="field-stack">
+            <label for="quarter">Quý</label>
+            <select id="quarter" name="quarter">
+                <option value="">Tự tính theo ngày</option>
+                <option value="1">Quý I</option>
+                <option value="2">Quý II</option>
+                <option value="3">Quý III</option>
+                <option value="4">Quý IV</option>
+            </select>
+        </div>
+
+        <div class="field-stack">
+            <label for="voucher">Số hiệu chứng từ</label>
+            <input id="voucher" name="voucher_code" placeholder="VD: CK2026-001">
+        </div>
+
+        <div class="field-stack unionv2-span-2">
+            <label for="desc">Nội dung</label>
+            <input id="desc" name="description" placeholder="Nội dung giao dịch" required>
+        </div>
+
+        <div class="field-stack">
+            <label for="amount-in">Tiền vào</label>
+            <input id="amount-in" type="number" step="0.01" name="amount_in" value="0">
+        </div>
+
+        <div class="field-stack">
+            <label for="amount-out">Tiền ra</label>
+            <input id="amount-out" type="number" step="0.01" name="amount_out" value="0">
+        </div>
+
+        <div class="field-stack unionv2-span-2">
+            <label for="entry-notes">Ghi chú</label>
+            <input id="entry-notes" name="entry_notes" placeholder="Ghi chú thêm">
+        </div>
+
+        <button type="submit">Thêm giao dịch</button>
+    </form>
+</section>
+
+<section class="panel unionv2-section">
+    <div class="unionv2-section-head">
+        <div>
+            <h3>Sổ chuyển khoản năm {{ year }}</h3>
+            <p class="muted">Số dư đầu năm: <strong>{{ "{:,.0f}".format(config_row.opening_bank_balance if config_row else 0) }}</strong> | Số dư cuối: <strong>{{ "{:,.0f}".format(bank_view.closing_balance) }}</strong></p>
+        </div>
+    </div>
+
+    <div class="table-wrap unionv2-table-wrap-lg">
+        <table class="unionv2-table">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Ngày</th>
+                    <th>Quý</th>
+                    <th>Số hiệu</th>
+                    <th>Nội dung</th>
+                    <th class="num">Tiền vào</th>
+                    <th class="num">Tiền ra</th>
+                    <th class="num">Còn lại</th>
+                    <th>Ghi chú</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in bank_view.rows %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ item.entry.event_date }}</td>
+                    <td>Q{{ item.quarter }}</td>
+                    <td>{{ item.entry.voucher_code or '-' }}</td>
+                    <td>{{ item.entry.description }}</td>
+                    <td class="num">{{ "{:,.0f}".format(item.amount_in) }}</td>
+                    <td class="num">{{ "{:,.0f}".format(item.amount_out) }}</td>
+                    <td class="num">{{ "{:,.0f}".format(item.running_balance) }}</td>
+                    <td>{{ item.entry.notes or '-' }}</td>
+                    <td>
+                        <form method="post" data-confirm="Bạn có chắc muốn xóa giao dịch này?">
+                            <input type="hidden" name="action" value="delete_ledger">
+                            <input type="hidden" name="year" value="{{ year }}">
+                            <input type="hidden" name="month_key" value="{{ month_key }}">
+                            <input type="hidden" name="entry_id" value="{{ item.entry.id }}">
+                            <button type="submit" class="danger unionv2-btn-sm">Xóa</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10">Chưa có giao dịch chuyển khoản.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h4 class="unionv2-subtitle">Tổng hợp theo quý</h4>
+    <div class="table-wrap unionv2-table-wrap-sm">
+        <table class="unionv2-table">
+            <thead>
+                <tr>
+                    <th>Quý</th>
+                    <th class="num">Tổng thu</th>
+                    <th class="num">Tổng chi</th>
+                    <th class="num">Chênh lệch</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in [1,2,3,4] %}
+                <tr>
+                    <td>Q{{ q }}</td>
+                    <td class="num">{{ "{:,.0f}".format(bank_view.quarter_summary[q]["in"]) }}</td>
+                    <td class="num">{{ "{:,.0f}".format(bank_view.quarter_summary[q]["out"]) }}</td>
+                    <td class="num">{{ "{:,.0f}".format(bank_view.quarter_summary[q]["net"]) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

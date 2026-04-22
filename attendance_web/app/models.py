@@ -295,3 +295,101 @@ class AuditLog(db.Model, SerializableMixin):
     before_data = db.Column(db.JSON, nullable=True)
     after_data = db.Column(db.JSON, nullable=True)
     notes = db.Column(db.String(255), nullable=True)
+
+
+class UnionYearConfig(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "union_year_configs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer, nullable=False, unique=True, index=True)
+    opening_bank_balance = db.Column(db.Numeric(14, 2), nullable=False, default=0)
+    opening_cash_balance = db.Column(db.Numeric(14, 2), nullable=False, default=0)
+    notes = db.Column(db.String(255), nullable=True)
+
+
+class UnionHdRule(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "union_hd_rules"
+
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+    direction = db.Column(db.String(8), nullable=False, index=True)  # CHI / THU
+    nv_code = db.Column(db.String(16), nullable=False, index=True)
+    nv_description = db.Column(db.String(255), nullable=False)
+    operation_type_code = db.Column(db.String(32), nullable=True)
+    operation_type_name = db.Column(db.String(255), nullable=True)
+    fund_source_code = db.Column(db.String(32), nullable=True)
+    fund_source_name = db.Column(db.String(255), nullable=True)
+    budget_code = db.Column(db.String(32), nullable=True)
+    budget_name = db.Column(db.String(255), nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint("year", "direction", "nv_code", name="uq_union_hd_rule_year_dir_nv"),
+    )
+
+
+class UnionLedgerEntry(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "union_ledger_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+    source = db.Column(db.String(16), nullable=False, index=True)  # BANK / CASH
+    quarter = db.Column(db.Integer, nullable=False, index=True)
+    event_date = db.Column(db.Date, nullable=False, index=True)
+    voucher_code = db.Column(db.String(64), nullable=True)
+    receipt_code = db.Column(db.String(64), nullable=True)
+    payment_code = db.Column(db.String(64), nullable=True)
+    description = db.Column(db.String(255), nullable=False)
+    amount_in = db.Column(db.Numeric(14, 2), nullable=False, default=0)
+    amount_out = db.Column(db.Numeric(14, 2), nullable=False, default=0)
+    notes = db.Column(db.String(255), nullable=True)
+
+
+class UnionHolidayEvent(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "union_holiday_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+    quarter = db.Column(db.Integer, nullable=True, index=True)
+    event_date = db.Column(db.Date, nullable=True, index=True)
+    event_name = db.Column(db.String(255), nullable=False)
+    planned_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0)
+    is_default = db.Column(db.Boolean, nullable=False, default=False)
+    notes = db.Column(db.String(255), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("year", "event_name", name="uq_union_holiday_event_year_name"),
+    )
+
+
+class UnionHolidayRecipient(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "union_holiday_recipients"
+
+    id = db.Column(db.Integer, primary_key=True)
+    holiday_event_id = db.Column(
+        db.Integer,
+        db.ForeignKey("union_holiday_events.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=True, index=True)
+    employee_code = db.Column(db.String(32), nullable=False, index=True)
+    full_name = db.Column(db.String(120), nullable=False)
+    gender = db.Column(db.String(16), nullable=True)
+    amount = db.Column(db.Numeric(14, 2), nullable=False, default=0)
+    notes = db.Column(db.String(255), nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+
+    event = db.relationship(
+        "UnionHolidayEvent",
+        backref=db.backref("recipients", lazy="dynamic", cascade="all, delete-orphan"),
+    )
+    employee = db.relationship("Employee")
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "holiday_event_id",
+            "employee_id",
+            name="uq_union_holiday_recipient_event_employee",
+        ),
+    )
