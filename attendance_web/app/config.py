@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from sqlalchemy.engine import make_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -40,6 +41,37 @@ def normalize_database_url(url):
     return url
 
 
+def _is_running_in_docker():
+    if _get_bool_env("RUNNING_IN_DOCKER", False):
+        return True
+    return os.path.exists("/.dockerenv")
+
+
+def _adapt_database_host_for_runtime(url):
+    if not url:
+        return url
+
+    try:
+        parsed_url = make_url(url)
+    except Exception:
+        return url
+
+    if parsed_url.get_backend_name() == "sqlite":
+        return url
+
+    override_host = (os.getenv("DB_HOST_OVERRIDE") or "").strip()
+    if override_host:
+        return parsed_url.set(host=override_host).render_as_string(hide_password=False)
+
+    if parsed_url.host != "db":
+        return url
+
+    if _is_running_in_docker():
+        return url
+
+    return parsed_url.set(host="localhost").render_as_string(hide_password=False)
+
+
 def build_engine_options(database_url):
     if database_url.startswith("sqlite:"):
         return {}
@@ -60,10 +92,12 @@ def build_engine_options(database_url):
     }
 
 
-DATABASE_URL = normalize_database_url(
-    os.getenv(
-        "DATABASE_URL",
-        "postgresql+psycopg://postgres:postgres@localhost:5432/attendance_db",
+DATABASE_URL = _adapt_database_host_for_runtime(
+    normalize_database_url(
+        os.getenv(
+            "DATABASE_URL",
+            "postgresql+psycopg://postgres:postgres@localhost:5432/attendance_db",
+        )
     )
 )
 
