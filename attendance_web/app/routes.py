@@ -117,6 +117,13 @@ def _to_float(value, default=0.0):
         return default
 
 
+def _is_paid_off_detail(detail_row):
+    status_code = str(getattr(detail_row, "status_code", "") or "").strip().upper()
+    if status_code != "OFF":
+        return False
+    return _to_float(getattr(detail_row, "paid_hours", 0), 0.0) > 0
+
+
 def _safe_advance_filter(value):
     normalized = (value or "all").strip().lower()
     if normalized in {"all", "has", "none"}:
@@ -1845,10 +1852,11 @@ def register_routes(app):
         shift_summary_map = {}
         for row in details:
             status_code = str(row.status_code or "").upper()
+            is_paid_off = _is_paid_off_detail(row)
             if status_code == "N":
                 shift_code = "N"
             elif status_code == "OFF":
-                shift_code = "OFF"
+                shift_code = "OFF_PAID" if is_paid_off else "OFF"
             else:
                 shift_code = str(row.shift_code or "").upper()
                 if not shift_code:
@@ -1860,6 +1868,8 @@ def register_routes(app):
                     shift_display_name = "Nghi khong phep"
                 elif shift_code == "OFF":
                     shift_display_name = "Nghi ca OFF"
+                elif shift_code == "OFF_PAID":
+                    shift_display_name = (row.shift_name or "").strip() or "Ca OFF huong luong"
                 else:
                     shift_display_name = shift_name_map.get(shift_code, "")
                 summary_item = {
@@ -2254,8 +2264,8 @@ def register_routes(app):
             .all()
         )
 
-        def _apply_status(summary_obj, status_code):
-            normalized = str(status_code or "").upper()
+        def _apply_status(summary_obj, detail_row):
+            normalized = str(getattr(detail_row, "status_code", "") or "").upper()
             if normalized == "P":
                 summary_obj["paid_leave_days"] += 1.0
             elif normalized in {"S", "C"}:
@@ -2264,6 +2274,8 @@ def register_routes(app):
             elif normalized == "N":
                 summary_obj["unpaid_leave_days"] += 1.0
             elif normalized == "OFF":
+                if _is_paid_off_detail(detail_row):
+                    summary_obj["worked_days"] += 1.0
                 return
             else:
                 summary_obj["worked_days"] += 1.0
@@ -2286,7 +2298,7 @@ def register_routes(app):
                 }
                 summary_map[summary_key] = summary
 
-            _apply_status(summary, row.status_code)
+            _apply_status(summary, row)
             summary["overtime_hours"] += _to_float(row.overtime_hours)
 
         summary_keys = list(summary_map.keys())
@@ -2818,6 +2830,7 @@ def register_routes(app):
 
         for row in detail_rows:
             status_code = str(row.status_code or "").upper()
+            is_paid_off = _is_paid_off_detail(row)
             if status_code == "P":
                 summary["paid_leave_days"] += 1.0
             elif status_code in {"S", "C"}:
@@ -2826,7 +2839,8 @@ def register_routes(app):
             elif status_code == "N":
                 summary["unpaid_leave_days"] += 1.0
             elif status_code == "OFF":
-                pass
+                if is_paid_off:
+                    summary["worked_days"] += 1.0
             else:
                 summary["worked_days"] += 1.0
 
@@ -2835,7 +2849,7 @@ def register_routes(app):
             if status_code == "N":
                 shift_code = "N"
             elif status_code == "OFF":
-                shift_code = "OFF"
+                shift_code = "OFF_PAID" if is_paid_off else "OFF"
             else:
                 shift_code = str(row.shift_code or "").upper()
                 if not shift_code:
@@ -2847,6 +2861,8 @@ def register_routes(app):
                     shift_display_name = "Nghi khong phep"
                 elif shift_code == "OFF":
                     shift_display_name = "Nghi ca OFF"
+                elif shift_code == "OFF_PAID":
+                    shift_display_name = (row.shift_name or "").strip() or "Ca OFF huong luong"
                 else:
                     shift_display_name = shift_name_map.get(shift_code, "")
                 shift_summary_item = {

@@ -18,7 +18,13 @@ from ..models import (
     WorkSchedule,
 )
 from .audit import log_action
-from .nu_shift import NU_SHIFT_CODE, NU_NIGHT_MODE, build_nu_shift_day_results
+from .nu_shift import (
+    NU_NIGHT_MODE,
+    NU_STANDARD_HOURS,
+    NU_STANDARD_HOURS_DEDUCTION_BY_CODE,
+    build_nu_shift_day_results,
+    is_nu_dynamic_shift_code,
+)
 
 
 def month_key_for_date(value):
@@ -49,11 +55,23 @@ def _hours_between(start_at, end_at):
     return max(value, 0.0)
 
 
-def leave_deduction(status_code):
-    if status_code == "P":
+def leave_deduction(status_code, shift_code=None):
+    status = str(status_code or "").strip().upper()
+    shift = str(shift_code or "").strip().upper()
+
+    if status == "P":
         return 1.0
-    if status_code in {"S", "C"}:
+    if status in {"S", "C"}:
         return 0.5
+
+    if status in {"N", "OFF"}:
+        return 0.0
+
+    nu_shift_code = shift or status
+    leave_hours = NU_STANDARD_HOURS_DEDUCTION_BY_CODE.get(nu_shift_code)
+    if leave_hours and NU_STANDARD_HOURS > 0:
+        return leave_hours / NU_STANDARD_HOURS
+
     return 0.0
 
 
@@ -67,6 +85,8 @@ STATUS_NOTE_LABELS = {
 }
 
 MANUAL_WORK_OVERRIDE_NOTE = "Xac nhan co di lam do mat cham cong"
+DRIVER_AUTO_OT_SHIFT_CODES = {"TX1", "TX2"}
+PAID_OFF_SHIFT_CODE = "OFF"
 
 
 def has_manual_work_override(notes):
@@ -89,6 +109,18 @@ def _format_hours_text(value):
     if number.is_integer():
         return str(int(number))
     return f"{number:.2f}".rstrip("0").rstrip(".")
+
+
+def _compute_late_checkout_overtime(shift, work_date, check_out):
+    if not shift or not shift.start_time or not shift.end_time or not check_out:
+        return 0.0
+
+    scheduled_end_date = work_date
+    if shift.end_time <= shift.start_time:
+        scheduled_end_date = work_date + timedelta(days=1)
+
+    scheduled_end_at = datetime.combine(scheduled_end_date, shift.end_time)
+    return max((check_out - scheduled_end_at).total_seconds() / 3600, 0.0)
 
 
 def ensure_default_data(actor="system"):
@@ -114,10 +146,36 @@ def ensure_default_data(actor="system"):
             "break_minutes": 60,
             "standard_hours": 8,
             "default_overtime_hours": 0,
-            "meal_allowance": 30000,
+            "meal_allowance": 35000,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "8h-17h, nghi 1h",
+        },
+        {
+            "code": "TX1",
+            "name": "Ca tai xe TX1",
+            "start_time": time(7, 30),
+            "end_time": time(16, 30),
+            "break_minutes": 60,
+            "standard_hours": 8,
+            "default_overtime_hours": 0,
+            "meal_allowance": 0,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "7h30-16h30. Tu dong tinh OT neu checkout tre hon 16h30",
+        },
+        {
+            "code": "TX2",
+            "name": "Ca tai xe TX2",
+            "start_time": time(7, 0),
+            "end_time": time(16, 0),
+            "break_minutes": 60,
+            "standard_hours": 8,
+            "default_overtime_hours": 0,
+            "meal_allowance": 0,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "7h-16h. Tu dong tinh OT neu checkout tre hon 16h",
         },
         {
             "code": "N4",
@@ -127,7 +185,7 @@ def ensure_default_data(actor="system"):
             "break_minutes": 30,
             "standard_hours": 11.5,
             "default_overtime_hours": 0,
-            "meal_allowance": 30000,
+            "meal_allowance": 35000,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "6h-18h, nghi 30p",
@@ -143,7 +201,85 @@ def ensure_default_data(actor="system"):
             "meal_allowance": 0,
             "is_leave_code": False,
             "is_paid_leave": False,
-            "notes": "Tu dong nhan ca sang/toi theo cham cong. Sang: 6h-18h, OT 3.5, tien an 30000. Toi: 18h-6h, OT 4, tien an 135000.",
+            "notes": "Tu dong nhan ca sang/toi theo cham cong. Sang: 6h-18h, OT 3.5, tien an 35000. Toi: 18h-6h, OT 4, tien an 135000.",
+        },
+        {
+            "code": "NUT1",
+            "name": "Ca nu luan phien +1h OT",
+            "start_time": time(6, 0),
+            "end_time": time(18, 0),
+            "break_minutes": 30,
+            "standard_hours": 8,
+            "default_overtime_hours": 0,
+            "meal_allowance": 35000,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "Ca NU +1h OT. Tu dong nhan ca sang/toi theo cham cong.",
+        },
+        {
+            "code": "NUT2",
+            "name": "Ca nu luan phien +2h OT",
+            "start_time": time(6, 0),
+            "end_time": time(18, 0),
+            "break_minutes": 30,
+            "standard_hours": 8,
+            "default_overtime_hours": 0,
+            "meal_allowance": 35000,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "Ca NU +2h OT. Tu dong nhan ca sang/toi theo cham cong.",
+        },
+        {
+            "code": "NU1",
+            "name": "Ca nu luan phien nghi 1h",
+            "start_time": time(6, 0),
+            "end_time": time(18, 0),
+            "break_minutes": 30,
+            "standard_hours": 7,
+            "default_overtime_hours": 0,
+            "meal_allowance": 35000,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "Ca NU tru 1h cong va tru 1/8 ngay phep nam.",
+        },
+        {
+            "code": "NU2",
+            "name": "Ca nu luan phien nghi 2h",
+            "start_time": time(6, 0),
+            "end_time": time(18, 0),
+            "break_minutes": 30,
+            "standard_hours": 6,
+            "default_overtime_hours": 0,
+            "meal_allowance": 35000,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "Ca NU tru 2h cong va tru 2/8 ngay phep nam.",
+        },
+        {
+            "code": "NU3",
+            "name": "Ca nu luan phien nghi 3h",
+            "start_time": time(6, 0),
+            "end_time": time(18, 0),
+            "break_minutes": 30,
+            "standard_hours": 5,
+            "default_overtime_hours": 0,
+            "meal_allowance": 35000,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "Ca NU tru 3h cong va tru 3/8 ngay phep nam.",
+        },
+        {
+            "code": "NUN",
+            "name": "Ca nu luan phien nghi nua buoi (4h)",
+            "start_time": time(6, 0),
+            "end_time": time(18, 0),
+            "break_minutes": 30,
+            "standard_hours": 4,
+            "default_overtime_hours": 0,
+            "meal_allowance": 35000,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "Ca NU tru 4h cong (nghi nua buoi) va tru 0.5 ngay phep nam.",
         },
         {
             "code": "XT",
@@ -183,6 +319,19 @@ def ensure_default_data(actor="system"):
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Mac dinh 8h lam + 4h tang ca",
+        },
+        {
+            "code": "OFF",
+            "name": "Ca OFF huong luong (chu tich/giam doc)",
+            "start_time": None,
+            "end_time": None,
+            "break_minutes": 0,
+            "standard_hours": 8,
+            "default_overtime_hours": 0,
+            "meal_allowance": 0,
+            "is_leave_code": True,
+            "is_paid_leave": True,
+            "notes": "Nghi OFF huong luong, khong tru phep nam, tinh du 1 ngay cong.",
         },
         {
             "code": "N",
@@ -259,6 +408,34 @@ def ensure_default_data(actor="system"):
         db.session.add(shift)
         log_action("shift_templates", data["code"], "INSERT", changed_by=actor, after_data=data)
 
+    shifts_with_30000_meal = ShiftTemplate.query.filter(ShiftTemplate.meal_allowance == 30000).all()
+    for shift in shifts_with_30000_meal:
+        before = shift.to_dict()
+        shift.meal_allowance = 35000
+        log_action(
+            "shift_templates",
+            shift.id,
+            "UPDATE",
+            changed_by=actor,
+            before_data=before,
+            after_data=shift.to_dict(),
+            notes="Cap nhat tien an 30000 -> 35000 theo yeu cau",
+        )
+
+    nu_shift = ShiftTemplate.query.filter_by(code="NU").first()
+    if nu_shift and isinstance(nu_shift.notes, str) and "tien an 30000" in nu_shift.notes:
+        before = nu_shift.to_dict()
+        nu_shift.notes = nu_shift.notes.replace("tien an 30000", "tien an 35000")
+        log_action(
+            "shift_templates",
+            nu_shift.id,
+            "UPDATE",
+            changed_by=actor,
+            before_data=before,
+            after_data=nu_shift.to_dict(),
+            notes="Dong bo ghi chu ca NU theo muc tien an moi",
+        )
+
     sample_employees = [
         {
             "employee_code": "1",
@@ -311,7 +488,7 @@ def rebuild_leave_balances(year):
 
         used_days = 0.0
         for detail in details:
-            used_days += leave_deduction(detail.status_code)
+            used_days += leave_deduction(detail.status_code, detail.shift_code)
 
         balance = LeaveBalance.query.filter_by(employee_id=employee.id, year=year).first()
         if not balance:
@@ -386,7 +563,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
     employee_by_id = {row.id: row for row in employees}
 
-    nu_dates_by_employee = {}
+    nu_shift_code_map = {}
     for employee in employees:
         current = start_date
         while current <= end_date:
@@ -402,24 +579,25 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
                 if is_holiday_off:
                     planned_shift = None
-                elif is_sunday and default_shift_code != NU_SHIFT_CODE:
+                elif is_sunday and not is_nu_dynamic_shift_code(default_shift_code):
                     planned_shift = None
                 else:
                     planned_shift = shift_by_code.get(default_shift_code)
-                    if not planned_shift and not (is_sunday and default_shift_code == NU_SHIFT_CODE):
+                    if not planned_shift and not (is_sunday and is_nu_dynamic_shift_code(default_shift_code)):
                         planned_shift = shift_by_code.get("X")
 
-            if planned_shift and (planned_shift.code or "").upper() == NU_SHIFT_CODE:
-                nu_dates_by_employee.setdefault(employee.id, set()).add(current)
+            planned_shift_code = (planned_shift.code or "").upper() if planned_shift else ""
+            if is_nu_dynamic_shift_code(planned_shift_code):
+                nu_shift_code_map[(employee.id, current)] = planned_shift_code
 
             current += timedelta(days=1)
 
     nu_shift_day_map = {}
-    if nu_dates_by_employee:
+    if nu_shift_code_map:
         employee_id_by_code = {}
         candidate_employee_codes = set()
 
-        for employee_id in nu_dates_by_employee.keys():
+        for employee_id, _ in nu_shift_code_map.keys():
             employee = employee_by_id.get(employee_id)
             raw_code = str(employee.employee_code or "").strip() if employee else ""
             normalized_code = raw_code.replace("'", "").strip()
@@ -446,7 +624,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
         )
 
         nu_shift_day_map = build_nu_shift_day_results(
-            nu_dates_by_employee=nu_dates_by_employee,
+            nu_shift_code_map=nu_shift_code_map,
             employee_id_by_code=employee_id_by_code,
             attendance_log_rows=log_rows,
         )
@@ -478,18 +656,24 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
                 if is_holiday_off:
                     shift = None
-                elif is_sunday and default_shift_code != NU_SHIFT_CODE:
+                elif is_sunday and not is_nu_dynamic_shift_code(default_shift_code):
                     shift = None
                 else:
                     shift = shift_by_code.get(default_shift_code)
-                    if not shift and not (is_sunday and default_shift_code == NU_SHIFT_CODE):
+                    if not shift and not (is_sunday and is_nu_dynamic_shift_code(default_shift_code)):
                         shift = shift_by_code.get("X")
 
             planned_shift_code = "OFF" if shift is None else shift.code.upper()
             status_code = "OFF" if shift is None else shift.code.upper()
+            is_paid_off_shift = bool(
+                shift
+                and (shift.code or "").upper() == PAID_OFF_SHIFT_CODE
+                and shift.is_leave_code
+                and shift.is_paid_leave
+            )
 
             nu_shift_result = None
-            if shift and (shift.code or "").upper() == NU_SHIFT_CODE:
+            if shift and is_nu_dynamic_shift_code((shift.code or "").upper()):
                 nu_shift_result = nu_shift_day_map.get((employee.id, current))
 
             is_nu_night_week_sunday_off = bool(
@@ -540,7 +724,12 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             # OFF day from Holidays/Sunday takes precedence when there is no attendance scan.
             # This prevents OFF dates from being converted to "Nghi khong phep".
-            if (is_effective_sunday_off or is_holiday_off) and not has_scan and not manual_work_override:
+            if (
+                (is_effective_sunday_off or is_holiday_off)
+                and not has_scan
+                and not manual_work_override
+                and not is_paid_off_shift
+            ):
                 shift = None
                 planned_shift_code = "OFF"
                 status_code = "OFF"
@@ -556,6 +745,12 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 overtime_hours = _to_float(schedule.overtime.hours)
             elif nu_shift_result and status_code != "OFF":
                 overtime_hours = _to_float(nu_shift_result.default_overtime_hours)
+            elif (
+                shift
+                and (shift.code or "").upper() in DRIVER_AUTO_OT_SHIFT_CODES
+                and status_code != "OFF"
+            ):
+                overtime_hours = _compute_late_checkout_overtime(shift, current, check_out)
             elif shift:
                 overtime_hours = _to_float(shift.default_overtime_hours)
 
@@ -567,7 +762,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
             elif status_code in {"S", "C"}:
                 base_paid_hours = max((standard_hours / 2.0) - remaining_absence, 0.0)
             elif status_code == "OFF":
-                base_paid_hours = 0.0
+                base_paid_hours = max(standard_hours - remaining_absence, 0.0) if is_paid_off_shift else 0.0
             else:
                 base_paid_hours = max(standard_hours - remaining_absence, 0.0)
 
@@ -589,7 +784,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 paid_hours = standard_hours
             if status_code in {"S", "C"} and paid_hours == 0 and standard_hours > 0:
                 paid_hours = standard_hours / 2.0
-            if status_code in {"N", "OFF"}:
+            if status_code in {"N", "OFF"} and not is_paid_off_shift:
                 paid_hours = 0.0
 
             salary = salary_map.get(employee.id)
@@ -632,7 +827,10 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
             if context_note:
                 _append_note(row_notes, context_note)
             else:
-                status_note = STATUS_NOTE_LABELS.get((status_code or "").upper())
+                if status_code == "OFF" and is_paid_off_shift:
+                    status_note = "OFF huong luong"
+                else:
+                    status_note = STATUS_NOTE_LABELS.get((status_code or "").upper())
                 _append_note(row_notes, status_note)
 
             note_issue = None

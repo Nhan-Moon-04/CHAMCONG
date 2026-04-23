@@ -8,11 +8,25 @@ NU_SHIFT_CODE = "NU"
 NU_MORNING_MODE = "morning"
 NU_NIGHT_MODE = "night"
 
+NU_DYNAMIC_SHIFT_CODES = {"NU", "NUT1", "NUT2", "NU1", "NU2", "NU3", "NUN"}
+
 NU_STANDARD_HOURS = 8.0
 NU_MORNING_DEFAULT_OT_HOURS = 3.5
 NU_NIGHT_DEFAULT_OT_HOURS = 4.0
-NU_MORNING_MEAL_ALLOWANCE = 30000.0
+NU_MORNING_MEAL_ALLOWANCE = 35000.0
 NU_NIGHT_MEAL_ALLOWANCE = 135000.0
+
+NU_EXTRA_OT_BY_CODE = {
+    "NUT1": 1.0,
+    "NUT2": 2.0,
+}
+
+NU_STANDARD_HOURS_DEDUCTION_BY_CODE = {
+    "NU1": 1.0,
+    "NU2": 2.0,
+    "NU3": 3.0,
+    "NUN": 4.0,
+}
 
 NU_WARNING_NOTE_PREFIX = "Canh bao NU:"
 
@@ -21,6 +35,7 @@ NU_WARNING_NOTE_PREFIX = "Canh bao NU:"
 class NuShiftDayResult:
     mode: str
     week_mode: str
+    shift_code: str
     has_midday_check: bool
     warning_note: Optional[str]
     check_in: Optional[datetime]
@@ -33,6 +48,10 @@ class NuShiftDayResult:
 
 def _normalize_employee_code(value):
     return str(value or "").replace("'", "").strip()
+
+
+def is_nu_dynamic_shift_code(code):
+    return str(code or "").strip().upper() in NU_DYNAMIC_SHIFT_CODES
 
 
 def _is_midday_check(event_time):
@@ -106,32 +125,52 @@ def _pick_check_times(mode, today_events, next_day_events):
     return check_in, check_out
 
 
-def _build_result(mode, week_mode, has_midday_check, warning_note, check_in, check_out):
-    if mode == NU_NIGHT_MODE:
-        return NuShiftDayResult(
-            mode=mode,
-            week_mode=week_mode,
-            has_midday_check=has_midday_check,
-            warning_note=warning_note,
-            check_in=check_in,
-            check_out=check_out,
-            standard_hours=NU_STANDARD_HOURS,
-            default_overtime_hours=NU_NIGHT_DEFAULT_OT_HOURS,
-            meal_allowance=NU_NIGHT_MEAL_ALLOWANCE,
-            shift_name="Ca nu toi (NU)",
-        )
+def _build_shift_name(mode, shift_code):
+    mode_label = "sang" if mode == NU_MORNING_MODE else "toi"
+    code = (shift_code or NU_SHIFT_CODE).upper()
+
+    if code == "NUT1":
+        return f"Ca nu {mode_label} +1h OT (NUT1)"
+    if code == "NUT2":
+        return f"Ca nu {mode_label} +2h OT (NUT2)"
+    if code == "NU1":
+        return f"Ca nu {mode_label} tru 1h cong (NU1)"
+    if code == "NU2":
+        return f"Ca nu {mode_label} tru 2h cong (NU2)"
+    if code == "NU3":
+        return f"Ca nu {mode_label} tru 3h cong (NU3)"
+    if code == "NUN":
+        return f"Ca nu {mode_label} tru 4h cong (NUN)"
+
+    return f"Ca nu {mode_label} (NU)"
+
+
+def _build_result(mode, week_mode, shift_code, has_midday_check, warning_note, check_in, check_out):
+    code = (shift_code or NU_SHIFT_CODE).upper()
+    standard_hours = max(
+        NU_STANDARD_HOURS - NU_STANDARD_HOURS_DEDUCTION_BY_CODE.get(code, 0.0),
+        0.0,
+    )
+    base_overtime = (
+        NU_NIGHT_DEFAULT_OT_HOURS if mode == NU_NIGHT_MODE else NU_MORNING_DEFAULT_OT_HOURS
+    )
+    overtime_hours = base_overtime + NU_EXTRA_OT_BY_CODE.get(code, 0.0)
+    meal_allowance = (
+        NU_NIGHT_MEAL_ALLOWANCE if mode == NU_NIGHT_MODE else NU_MORNING_MEAL_ALLOWANCE
+    )
 
     return NuShiftDayResult(
-        mode=NU_MORNING_MODE,
+        mode=mode,
         week_mode=week_mode,
+        shift_code=code,
         has_midday_check=has_midday_check,
         warning_note=warning_note,
         check_in=check_in,
         check_out=check_out,
-        standard_hours=NU_STANDARD_HOURS,
-        default_overtime_hours=NU_MORNING_DEFAULT_OT_HOURS,
-        meal_allowance=NU_MORNING_MEAL_ALLOWANCE,
-        shift_name="Ca nu sang (NU)",
+        standard_hours=standard_hours,
+        default_overtime_hours=overtime_hours,
+        meal_allowance=meal_allowance,
+        shift_name=_build_shift_name(mode, code),
     )
 
 
@@ -141,7 +180,7 @@ def is_nu_warning_note(notes):
 
 
 def build_nu_shift_day_results(
-    nu_dates_by_employee,
+    nu_shift_code_map,
     employee_id_by_code,
     attendance_log_rows,
 ):
@@ -160,9 +199,15 @@ def build_nu_shift_day_results(
     for event_list in events_by_employee_date.values():
         event_list.sort()
 
+    work_dates_by_employee = defaultdict(set)
+    for key, shift_code in nu_shift_code_map.items():
+        employee_id, work_date = key
+        if is_nu_dynamic_shift_code(shift_code):
+            work_dates_by_employee[employee_id].add(work_date)
+
     results = {}
 
-    for employee_id, work_dates in nu_dates_by_employee.items():
+    for employee_id, work_dates in work_dates_by_employee.items():
         if not work_dates:
             continue
 
@@ -199,11 +244,16 @@ def build_nu_shift_day_results(
                 week_mode_map[week_key] = Counter(detected_modes).most_common(1)[0][0]
                 continue
 
-            week_days = [item for item in sorted_dates if (item.isocalendar().year, item.isocalendar().week) == week_key]
+            week_days = [
+                item
+                for item in sorted_dates
+                if (item.isocalendar().year, item.isocalendar().week) == week_key
+            ]
             fallback_modes = [day_mode_candidates[item]["fallback_mode"] for item in week_days]
             week_mode_map[week_key] = Counter(fallback_modes).most_common(1)[0][0]
 
         for work_date in sorted_dates:
+            shift_code = str(nu_shift_code_map.get((employee_id, work_date), NU_SHIFT_CODE)).upper()
             data = day_mode_candidates[work_date]
             detected_mode = data["detected_mode"]
             week_key = (work_date.isocalendar().year, work_date.isocalendar().week)
@@ -221,7 +271,12 @@ def build_nu_shift_day_results(
             if detected_mode and detected_mode != effective_mode:
                 warning_parts.append("Lech mode tuan")
 
-            if week_mode == NU_MORNING_MODE and work_date.weekday() != 6 and today_events and not has_midday:
+            if (
+                week_mode == NU_MORNING_MODE
+                and work_date.weekday() != 6
+                and today_events
+                and not has_midday
+            ):
                 warning_parts.append("Tuan sang thieu check giua ca (10h-13h)")
 
             warning_note = None
@@ -233,6 +288,7 @@ def build_nu_shift_day_results(
             results[(employee_id, work_date)] = _build_result(
                 effective_mode,
                 week_mode,
+                shift_code,
                 has_midday_check=has_midday,
                 warning_note=warning_note,
                 check_in=check_in,
