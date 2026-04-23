@@ -3,7 +3,7 @@
 <section class="panel page-toolbar">
     <div>
         <h2>Bảng mã ca làm</h2>
-        <p class="muted">Danh sách mã ca chuẩn của hệ thống.</p>
+        <p class="muted">Danh sách mã ca chuẩn của hệ thống. Dòng mã NU được tô đỏ để dễ nhận biết.</p>
     </div>
     <div class="toolbar-actions">
         <button type="button" id="shift-tools-toggle-btn" class="secondary" aria-expanded="false">Mở form tạo ca</button>
@@ -93,7 +93,7 @@
             </thead>
             <tbody>
                 {% for row in shifts %}
-                <tr>
+                <tr class="{% if row.code and row.code.upper() == 'NU' %}shift-row-nu{% endif %}">
                     <td>{{ row.code }}</td>
                     <td>{{ row.name }}</td>
                     <td>

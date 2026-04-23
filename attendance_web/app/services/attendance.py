@@ -8,6 +8,7 @@ from ..database import db
 from ..models import (
     AttendanceDaily,
     AttendanceDetail,
+    AttendanceLog,
     Employee,
     Holiday,
     LeaveBalance,
@@ -17,6 +18,7 @@ from ..models import (
     WorkSchedule,
 )
 from .audit import log_action
+from .nu_shift import NU_SHIFT_CODE, NU_NIGHT_MODE, build_nu_shift_day_results
 
 
 def month_key_for_date(value):
@@ -129,6 +131,19 @@ def ensure_default_data(actor="system"):
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "6h-18h, nghi 30p",
+        },
+        {
+            "code": "NU",
+            "name": "Ca nu luan phien (tu dong sang/toi)",
+            "start_time": time(6, 0),
+            "end_time": time(18, 0),
+            "break_minutes": 30,
+            "standard_hours": 8,
+            "default_overtime_hours": 0,
+            "meal_allowance": 0,
+            "is_leave_code": False,
+            "is_paid_leave": False,
+            "notes": "Tu dong nhan ca sang/toi theo cham cong. Sang: 6h-18h, OT 3.5, tien an 30000. Toi: 18h-6h, OT 4, tien an 135000.",
         },
         {
             "code": "XT",
@@ -369,6 +384,73 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
     ).all()
     attendance_map = {(row.employee_id, row.work_date): row for row in daily_rows}
 
+    employee_by_id = {row.id: row for row in employees}
+
+    nu_dates_by_employee = {}
+    for employee in employees:
+        current = start_date
+        while current <= end_date:
+            schedule = schedule_map.get((employee.id, current))
+            is_sunday = current.weekday() == 6
+            holiday_row = holiday_map.get(current)
+            is_holiday_off = bool(holiday_row and holiday_row.is_paid)
+
+            if schedule:
+                planned_shift = schedule.shift
+            else:
+                default_shift_code = (employee.default_shift_code or "X").upper()
+
+                if is_holiday_off:
+                    planned_shift = None
+                elif is_sunday and default_shift_code != NU_SHIFT_CODE:
+                    planned_shift = None
+                else:
+                    planned_shift = shift_by_code.get(default_shift_code)
+                    if not planned_shift and not (is_sunday and default_shift_code == NU_SHIFT_CODE):
+                        planned_shift = shift_by_code.get("X")
+
+            if planned_shift and (planned_shift.code or "").upper() == NU_SHIFT_CODE:
+                nu_dates_by_employee.setdefault(employee.id, set()).add(current)
+
+            current += timedelta(days=1)
+
+    nu_shift_day_map = {}
+    if nu_dates_by_employee:
+        employee_id_by_code = {}
+        candidate_employee_codes = set()
+
+        for employee_id in nu_dates_by_employee.keys():
+            employee = employee_by_id.get(employee_id)
+            raw_code = str(employee.employee_code or "").strip() if employee else ""
+            normalized_code = raw_code.replace("'", "").strip()
+
+            if normalized_code:
+                employee_id_by_code[normalized_code] = employee_id
+
+            if raw_code:
+                candidate_employee_codes.add(raw_code)
+            if normalized_code:
+                candidate_employee_codes.add(normalized_code)
+
+        start_dt = datetime.combine(start_date, time.min)
+        end_dt = datetime.combine(end_date + timedelta(days=2), time.min)
+
+        log_rows = (
+            AttendanceLog.query.filter(
+                AttendanceLog.employee_code.in_(sorted(candidate_employee_codes)),
+                AttendanceLog.event_time >= start_dt,
+                AttendanceLog.event_time < end_dt,
+            )
+            .order_by(AttendanceLog.employee_code.asc(), AttendanceLog.event_time.asc())
+            .all()
+        )
+
+        nu_shift_day_map = build_nu_shift_day_results(
+            nu_dates_by_employee=nu_dates_by_employee,
+            employee_id_by_code=employee_id_by_code,
+            attendance_log_rows=log_rows,
+        )
+
     payload_rows = []
 
     for employee in employees:
@@ -392,21 +474,61 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 if schedule.notes:
                     row_notes.append(schedule.notes)
             else:
-                if is_sunday:
+                default_shift_code = (employee.default_shift_code or "X").upper()
+
+                if is_holiday_off:
                     shift = None
-                elif is_holiday_off:
+                elif is_sunday and default_shift_code != NU_SHIFT_CODE:
                     shift = None
                 else:
-                    shift = shift_by_code.get((employee.default_shift_code or "X").upper())
-                    if not shift:
+                    shift = shift_by_code.get(default_shift_code)
+                    if not shift and not (is_sunday and default_shift_code == NU_SHIFT_CODE):
                         shift = shift_by_code.get("X")
 
             planned_shift_code = "OFF" if shift is None else shift.code.upper()
             status_code = "OFF" if shift is None else shift.code.upper()
 
+            nu_shift_result = None
+            if shift and (shift.code or "").upper() == NU_SHIFT_CODE:
+                nu_shift_result = nu_shift_day_map.get((employee.id, current))
+
+            is_nu_night_week_sunday_off = bool(
+                nu_shift_result and is_sunday and nu_shift_result.week_mode == NU_NIGHT_MODE
+            )
+            if nu_shift_result and is_sunday:
+                is_effective_sunday_off = is_nu_night_week_sunday_off
+            else:
+                is_effective_sunday_off = is_sunday_off
+
             attendance = attendance_map.get((employee.id, current))
             check_in = attendance.first_check_in if attendance else None
             check_out = attendance.last_check_out if attendance else None
+
+            if nu_shift_result:
+                if nu_shift_result.check_in:
+                    check_in = nu_shift_result.check_in
+                if nu_shift_result.check_out:
+                    check_out = nu_shift_result.check_out
+                elif nu_shift_result.mode == NU_NIGHT_MODE:
+                    next_day = attendance_map.get((employee.id, current + timedelta(days=1)))
+                    if next_day and next_day.first_check_in and next_day.first_check_in.hour < 12:
+                        check_out = next_day.first_check_in
+
+            if is_nu_night_week_sunday_off and not manual_work_override:
+                shift = None
+                planned_shift_code = "OFF"
+                status_code = "OFF"
+
+                # Ignore a single early-morning punch that belongs to Saturday night completion.
+                if check_in and check_out and check_in == check_out and check_in.hour <= 8:
+                    check_in = None
+                    check_out = None
+                elif check_in and not check_out and check_in.hour <= 8:
+                    check_in = None
+                elif check_out and not check_in and check_out.hour <= 8:
+                    check_out = None
+
+                _append_note(row_notes, "Chu nhat nghi theo tuan ca toi (NU)")
 
             if shift and shift.start_time and shift.end_time and shift.end_time <= shift.start_time:
                 next_day = attendance_map.get((employee.id, current + timedelta(days=1)))
@@ -418,7 +540,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             # OFF day from Holidays/Sunday takes precedence when there is no attendance scan.
             # This prevents OFF dates from being converted to "Nghi khong phep".
-            if (is_sunday_off or is_holiday_off) and not has_scan and not manual_work_override:
+            if (is_effective_sunday_off or is_holiday_off) and not has_scan and not manual_work_override:
                 shift = None
                 planned_shift_code = "OFF"
                 status_code = "OFF"
@@ -426,10 +548,14 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
             total_span_hours = _hours_between(check_in, check_out)
 
             standard_hours = _to_float(shift.standard_hours if shift else 0)
+            if nu_shift_result and status_code != "OFF":
+                standard_hours = _to_float(nu_shift_result.standard_hours)
 
             overtime_hours = 0.0
             if schedule and schedule.overtime is not None:
                 overtime_hours = _to_float(schedule.overtime.hours)
+            elif nu_shift_result and status_code != "OFF":
+                overtime_hours = _to_float(nu_shift_result.default_overtime_hours)
             elif shift:
                 overtime_hours = _to_float(shift.default_overtime_hours)
 
@@ -479,14 +605,18 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 daily_wage = 0.0
 
             meal_allowance = (
-                _to_float(shift.meal_allowance)
-                if shift and not shift.is_leave_code and status_code not in {"N"}
-                else 0.0
+                _to_float(nu_shift_result.meal_allowance)
+                if nu_shift_result and shift and not shift.is_leave_code and status_code not in {"N", "OFF"}
+                else (
+                    _to_float(shift.meal_allowance)
+                    if shift and not shift.is_leave_code and status_code not in {"N"}
+                    else 0.0
+                )
             )
 
             context_note = None
             if has_scan and not has_explicit_schedule:
-                if is_sunday_off:
+                if is_effective_sunday_off:
                     context_note = "Khong co lich lam van cham cong (Chu nhat OFF)"
                 elif is_sunday:
                     context_note = "Khong co lich lam van cham cong (Chu nhat, chi ai co ca moi lam)"
@@ -494,7 +624,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                     context_note = "Khong co lich lam van cham cong (Ngay le OFF)"
                 else:
                     context_note = "Khong co lich"
-            elif not has_scan and has_explicit_schedule and (is_sunday_off or is_holiday_off):
+            elif not has_scan and has_explicit_schedule and (is_effective_sunday_off or is_holiday_off):
                 context_note = "Ngay OFF theo Holidays"
             elif not has_scan and not has_explicit_schedule and is_holiday_off:
                 context_note = "Ngay le OFF"
@@ -510,7 +640,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 if should_have_attendance and not manual_work_override:
                     if has_explicit_schedule:
                         note_issue = "Bo ca"
-                    elif not (is_sunday or is_holiday_off):
+                    elif not (is_effective_sunday_off or is_holiday_off):
                         note_issue = "Khong quet the"
             elif check_in and check_out and check_in == check_out:
                 note_issue = "Quen checkout" if check_in.hour < 12 else "Quen checkin"
@@ -521,6 +651,9 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             _append_note(row_notes, note_issue)
 
+            if nu_shift_result and nu_shift_result.warning_note:
+                _append_note(row_notes, nu_shift_result.warning_note)
+
             if absence_hours > 0:
                 _append_note(row_notes, f"Nghi {_format_hours_text(absence_hours)} gio")
 
@@ -530,7 +663,11 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                     "work_date": current,
                     "month_key": month_key,
                     "shift_code": planned_shift_code,
-                    "shift_name": shift.name if shift else "Nghi",
+                    "shift_name": (
+                        nu_shift_result.shift_name
+                        if nu_shift_result and status_code != "OFF"
+                        else (shift.name if shift else "Nghi")
+                    ),
                     "check_in": check_in,
                     "check_out": check_out,
                     "standard_hours": round(standard_hours, 2),

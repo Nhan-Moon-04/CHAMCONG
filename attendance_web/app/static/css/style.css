@@ -1287,12 +1287,30 @@ tr.details-status-missing-check:hover td {
     background: #fff1ad;
 }
 
+tr.details-status-nu-warning td {
+    background: #fff8cc;
+}
+
+tr.details-status-nu-warning:hover td {
+    background: #fff1ad;
+}
+
 tr.details-status-manual-work-fixed td {
     background: #e5e7eb;
 }
 
 tr.details-status-manual-work-fixed:hover td {
     background: #d1d5db;
+}
+
+tr.schedule-row-nu td,
+tr.shift-row-nu td {
+    background: #ffe3e3;
+}
+
+tr.schedule-row-nu:hover td,
+tr.shift-row-nu:hover td {
+    background: #ffd0d0;
 }
 
 tr.employee-divider td {

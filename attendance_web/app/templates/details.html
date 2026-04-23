@@ -14,7 +14,7 @@
                 <p class="muted">Đang xem tháng: <strong>{{ month_key }}</strong></p>
                 {% endif %}
                 <p class="muted">Dòng tô màu vàng nhạt là ngày Chủ nhật.</p>
-                <p class="muted">Màu dòng: Nghỉ nửa buổi (cam nhạt), Nghỉ có phép (xanh lá nhạt), Nghỉ không phép (đỏ), Quên checkin/checkout (vàng nhạt), Sửa tay do mất chấm công (xám).</p>
+                <p class="muted">Màu dòng: Nghỉ nửa buổi (cam nhạt), Nghỉ có phép (xanh lá nhạt), Nghỉ không phép (đỏ), Quên checkin/checkout (vàng nhạt), Cảnh báo ca NU (vàng nhạt), Sửa tay do mất chấm công (xám).</p>
                 <p class="muted">Giữa mỗi nhân viên có thêm gạch ngăn để dễ phân biệt theo người.</p>
                 <p class="muted">Nếu nhập Từ ngày/Đến ngày thì hệ thống ưu tiên lọc theo khoảng thời gian (có thể qua nhiều tháng).</p>
             </div>
@@ -109,6 +109,8 @@
                     {% set highlight_class = "details-status-paid-leave" %}
                 {% elif row.highlight_tag == "unexcused" %}
                     {% set highlight_class = "details-status-unexcused" %}
+                {% elif row.highlight_tag == "nu-warning" %}
+                    {% set highlight_class = "details-status-nu-warning" %}
                 {% elif row.highlight_tag == "missing-check" %}
                     {% set highlight_class = "details-status-missing-check" %}
                 {% endif %}

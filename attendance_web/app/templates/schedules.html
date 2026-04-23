@@ -51,7 +51,7 @@
             <input name="changed_by" placeholder="Người sửa" value="admin">
             <button type="submit">Lưu lịch</button>
         </form>
-        <p class="muted">Mã X4 mặc định 8h + 4h tăng ca, mã X3 mặc định 8h + 3h tăng ca.</p>
+        <p class="muted">Mã X4 mặc định 8h + 4h tăng ca, mã X3 mặc định 8h + 3h tăng ca. Dòng ca NU được tô đỏ để dễ nhận biết.</p>
     </div>
 </section>
 
@@ -72,7 +72,7 @@
             </thead>
             <tbody>
                 {% for row in schedules %}
-                <tr>
+                <tr class="{% if row.shift and row.shift.code and row.shift.code.upper() == 'NU' %}schedule-row-nu{% endif %}">
                     <td>{{ row.work_date }}</td>
                     <td>{{ row.employee.employee_code }}</td>
                     <td><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=month_key) }}">{{ row.employee.full_name }}</a></td>

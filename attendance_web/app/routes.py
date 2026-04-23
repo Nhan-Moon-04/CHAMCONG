@@ -66,6 +66,7 @@ from .services.salary_meal_export import (
 )
 from .services.salary_importer import import_salary_file
 from .services.schedule_importer import import_schedule_file
+from .services.nu_shift import is_nu_warning_note
 
 
 _holiday_lib = None
@@ -76,6 +77,7 @@ DETAILS_HIGHLIGHT_TO_EXCEL_FILL = {
     "paid-leave": "FFE8F5E9",
     "unexcused": "FFFFB3B3",
     "missing-check": "FFFFF8CC",
+    "nu-warning": "FFFFF8CC",
     "manual-work-fixed": "FFE5E7EB",
 }
 
@@ -319,6 +321,9 @@ def _get_details_highlight_tag(detail_row):
 
     if has_manual_work_override(notes):
         return "manual-work-fixed"
+
+    if is_nu_warning_note(notes):
+        return "nu-warning"
 
     if _is_missing_check_event(detail_row):
         return "missing-check"
