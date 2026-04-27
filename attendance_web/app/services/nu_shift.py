@@ -315,8 +315,6 @@ def build_nu_shift_day_results(
             has_midday = data["has_midday"]
 
             warning_parts = []
-            if detected_mode and detected_mode != effective_mode:
-                warning_parts.append("Lech mode tuan")
 
             if (
                 week_mode == NU_MORNING_MODE

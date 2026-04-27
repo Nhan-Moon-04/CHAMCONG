@@ -709,14 +709,9 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 planned_shift_code = "OFF"
                 status_code = "OFF"
 
-                # Ignore a single early-morning punch that belongs to Saturday night completion.
-                if check_in and check_out and check_in == check_out and check_in.hour <= 8:
-                    check_in = None
-                    check_out = None
-                elif check_in and not check_out and check_in.hour <= 8:
-                    check_in = None
-                elif check_out and not check_in and check_out.hour <= 8:
-                    check_out = None
+                # Sunday OFF in NU night week should not accumulate any carried punches.
+                check_in = None
+                check_out = None
 
                 _append_note(row_notes, "Chu nhat nghi theo tuan ca toi (NU)")
 
