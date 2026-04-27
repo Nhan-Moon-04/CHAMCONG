@@ -261,6 +261,7 @@ def build_nu_shift_day_results(
         sorted_dates = sorted(work_dates)
         day_mode_candidates = {}
         week_to_modes = defaultdict(list)
+        week_to_days = defaultdict(list)
 
         for work_date in sorted_dates:
             today_events = events_by_employee_date.get((employee_id, work_date), [])
@@ -277,27 +278,26 @@ def build_nu_shift_day_results(
             }
 
             week_key = (work_date.isocalendar().year, work_date.isocalendar().week)
+            week_to_days[week_key].append(work_date)
             if detected_mode:
                 week_to_modes[week_key].append(detected_mode)
 
         week_mode_map = {}
-        for work_date in sorted_dates:
-            week_key = (work_date.isocalendar().year, work_date.isocalendar().week)
-            if week_key in week_mode_map:
-                continue
-
+        previous_week_mode = None
+        for week_key in sorted(week_to_days.keys()):
             detected_modes = week_to_modes.get(week_key, [])
             if detected_modes:
-                week_mode_map[week_key] = Counter(detected_modes).most_common(1)[0][0]
-                continue
+                # Week mode follows the first clear signal in that week (start-of-week behavior).
+                week_mode_map[week_key] = detected_modes[0]
+            elif previous_week_mode:
+                # Keep continuity when punches in this week are ambiguous.
+                week_mode_map[week_key] = previous_week_mode
+            else:
+                week_days = week_to_days.get(week_key, [])
+                fallback_modes = [day_mode_candidates[item]["fallback_mode"] for item in week_days]
+                week_mode_map[week_key] = Counter(fallback_modes).most_common(1)[0][0]
 
-            week_days = [
-                item
-                for item in sorted_dates
-                if (item.isocalendar().year, item.isocalendar().week) == week_key
-            ]
-            fallback_modes = [day_mode_candidates[item]["fallback_mode"] for item in week_days]
-            week_mode_map[week_key] = Counter(fallback_modes).most_common(1)[0][0]
+            previous_week_mode = week_mode_map[week_key]
 
         for work_date in sorted_dates:
             shift_code = str(nu_shift_code_map.get((employee_id, work_date), NU_SHIFT_CODE)).upper()
@@ -305,10 +305,8 @@ def build_nu_shift_day_results(
             detected_mode = data["detected_mode"]
             week_key = (work_date.isocalendar().year, work_date.isocalendar().week)
             week_mode = week_mode_map.get(week_key) or data["fallback_mode"]
-            effective_mode = week_mode
-            if work_date.weekday() == 6 and week_mode == NU_MORNING_MODE:
-                # Sunday is the transition point from morning week to night mode.
-                effective_mode = NU_NIGHT_MODE
+            # Per-day real punches always win over weekly default.
+            effective_mode = detected_mode or week_mode
 
             today_events = data["today_events"]
             next_day_events = data["next_day_events"]
@@ -317,7 +315,7 @@ def build_nu_shift_day_results(
             warning_parts = []
 
             if (
-                week_mode == NU_MORNING_MODE
+                effective_mode == NU_MORNING_MODE
                 and work_date.weekday() != 6
                 and today_events
                 and not has_midday
