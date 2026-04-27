@@ -13,8 +13,14 @@ NU_DYNAMIC_SHIFT_CODES = {"NU", "NUT1", "NUT2", "NU1", "NU2", "NU3", "NUN"}
 NU_STANDARD_HOURS = 8.0
 NU_MORNING_DEFAULT_OT_HOURS = 3.5
 NU_NIGHT_DEFAULT_OT_HOURS = 4.0
-NU_MORNING_MEAL_ALLOWANCE = 70000.0
+NU_MORNING_MEAL_ALLOWANCE = 35000.0
+NU_MORNING_MEAL_ALLOWANCE_OT_BONUS = 35000.0
 NU_NIGHT_MEAL_ALLOWANCE = 135000.0
+
+NU_OT_TARGET_HOURS = 4.0
+NU_OT_GRACE_10_MINUTES = 10.0 / 60.0
+NU_OT_GRACE_30_MINUTES = 30.0 / 60.0
+
 
 NU_EXTRA_OT_BY_CODE = {
     "NUT1": 1.0,
@@ -145,6 +151,36 @@ def _build_shift_name(mode, shift_code):
     return f"Ca nu {mode_label} (NU)"
 
 
+def _hours_between(start_at, end_at):
+    if not start_at or not end_at or end_at <= start_at:
+        return 0.0
+    return (end_at - start_at).total_seconds() / 3600.0
+
+
+def _normalize_nu_overtime_hours(raw_overtime_hours):
+    if raw_overtime_hours <= 0:
+        return 0.0
+
+    lower_with_grace = NU_OT_TARGET_HOURS - NU_OT_GRACE_10_MINUTES
+    upper_with_grace = NU_OT_TARGET_HOURS + NU_OT_GRACE_30_MINUTES
+
+    # Grace window requested by payroll: 3h50-4h30 is paid as 4h OT.
+    if lower_with_grace <= raw_overtime_hours <= upper_with_grace:
+        return NU_OT_TARGET_HOURS
+
+    # Keep OT in 30-minute increments outside the grace window.
+    return round(raw_overtime_hours * 2.0) / 2.0
+
+
+def _compute_dynamic_nu_overtime_hours(check_in, check_out):
+    worked_hours = _hours_between(check_in, check_out)
+    if worked_hours <= 0:
+        return None
+
+    raw_overtime_hours = max(worked_hours - NU_STANDARD_HOURS, 0.0)
+    return _normalize_nu_overtime_hours(raw_overtime_hours)
+
+
 def _build_result(mode, week_mode, shift_code, has_midday_check, warning_note, check_in, check_out):
     code = (shift_code or NU_SHIFT_CODE).upper()
     standard_hours = max(
@@ -154,10 +190,18 @@ def _build_result(mode, week_mode, shift_code, has_midday_check, warning_note, c
     base_overtime = (
         NU_NIGHT_DEFAULT_OT_HOURS if mode == NU_NIGHT_MODE else NU_MORNING_DEFAULT_OT_HOURS
     )
-    overtime_hours = base_overtime + NU_EXTRA_OT_BY_CODE.get(code, 0.0)
-    meal_allowance = (
-        NU_NIGHT_MEAL_ALLOWANCE if mode == NU_NIGHT_MODE else NU_MORNING_MEAL_ALLOWANCE
+    dynamic_overtime = _compute_dynamic_nu_overtime_hours(check_in, check_out)
+    overtime_hours = (
+        dynamic_overtime if dynamic_overtime is not None else base_overtime
     )
+    overtime_hours += NU_EXTRA_OT_BY_CODE.get(code, 0.0)
+
+    if mode == NU_NIGHT_MODE:
+        meal_allowance = NU_NIGHT_MEAL_ALLOWANCE
+    else:
+        meal_allowance = NU_MORNING_MEAL_ALLOWANCE
+        if overtime_hours >= 3.0:
+            meal_allowance += NU_MORNING_MEAL_ALLOWANCE_OT_BONUS
 
     return NuShiftDayResult(
         mode=mode,

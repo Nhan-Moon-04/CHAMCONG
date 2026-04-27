@@ -201,7 +201,7 @@ def ensure_default_data(actor="system"):
             "meal_allowance": 0,
             "is_leave_code": False,
             "is_paid_leave": False,
-            "notes": "Tu dong nhan ca sang/toi theo cham cong. Sang: 6h-18h, OT 3.5, tien an 35000. Toi: 18h-6h, OT 4, tien an 135000.",
+            "notes": "Tu dong nhan ca sang/toi theo cham cong. OT tinh theo gio vao/ra thuc te, khung 3h50-4h30 tinh 4h. Ca sang: OT >=3h cong them 35000 tien an.",
         },
         {
             "code": "NUT1",
@@ -214,7 +214,7 @@ def ensure_default_data(actor="system"):
             "meal_allowance": 35000,
             "is_leave_code": False,
             "is_paid_leave": False,
-            "notes": "Ca NU +1h OT. Tu dong nhan ca sang/toi theo cham cong.",
+            "notes": "Ca NU +1h OT (cong them sau khi tinh OT thuc te theo gio vao/ra).",
         },
         {
             "code": "NUT2",
@@ -227,7 +227,7 @@ def ensure_default_data(actor="system"):
             "meal_allowance": 35000,
             "is_leave_code": False,
             "is_paid_leave": False,
-            "notes": "Ca NU +2h OT. Tu dong nhan ca sang/toi theo cham cong.",
+            "notes": "Ca NU +2h OT (cong them sau khi tinh OT thuc te theo gio vao/ra).",
         },
         {
             "code": "NU1",
@@ -423,18 +423,24 @@ def ensure_default_data(actor="system"):
         )
 
     nu_shift = ShiftTemplate.query.filter_by(code="NU").first()
-    if nu_shift and isinstance(nu_shift.notes, str) and "tien an 30000" in nu_shift.notes:
-        before = nu_shift.to_dict()
-        nu_shift.notes = nu_shift.notes.replace("tien an 30000", "tien an 35000")
-        log_action(
-            "shift_templates",
-            nu_shift.id,
-            "UPDATE",
-            changed_by=actor,
-            before_data=before,
-            after_data=nu_shift.to_dict(),
-            notes="Dong bo ghi chu ca NU theo muc tien an moi",
-        )
+    nu_dynamic_note = (
+        "Tu dong nhan ca sang/toi theo cham cong. OT tinh theo gio vao/ra thuc te, "
+        "khung 3h50-4h30 tinh 4h. Ca sang: OT >=3h cong them 35000 tien an."
+    )
+    if nu_shift and isinstance(nu_shift.notes, str):
+        normalized_note = nu_shift.notes.lower()
+        if "tien an 30000" in normalized_note or "ot 3.5" in normalized_note:
+            before = nu_shift.to_dict()
+            nu_shift.notes = nu_dynamic_note
+            log_action(
+                "shift_templates",
+                nu_shift.id,
+                "UPDATE",
+                changed_by=actor,
+                before_data=before,
+                after_data=nu_shift.to_dict(),
+                notes="Dong bo ghi chu ca NU theo quy tac OT dong",
+            )
 
     sample_employees = [
         {
