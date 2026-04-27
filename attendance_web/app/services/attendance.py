@@ -64,7 +64,7 @@ def leave_deduction(status_code, shift_code=None):
     if status in {"S", "C"}:
         return 0.5
 
-    if status in {"N", "OFF"}:
+    if status in {"N", "OFF", "O"}:
         return 0.0
 
     nu_shift_code = shift or status
@@ -81,6 +81,7 @@ STATUS_NOTE_LABELS = {
     "C": "Nghi chieu",
     "N": "Nghi khong phep",
     "OFF": "OFF",
+    "O": "OFF khong cong",
     "L": "Ngay le",
 }
 
@@ -332,6 +333,19 @@ def ensure_default_data(actor="system"):
             "is_leave_code": True,
             "is_paid_leave": True,
             "notes": "Nghi OFF huong luong, khong tru phep nam, tinh du 1 ngay cong.",
+        },
+        {
+            "code": "O",
+            "name": "OFF khong cong",
+            "start_time": None,
+            "end_time": None,
+            "break_minutes": 0,
+            "standard_hours": 0,
+            "default_overtime_hours": 0,
+            "meal_allowance": 0,
+            "is_leave_code": True,
+            "is_paid_leave": False,
+            "notes": "Nghi OFF khong cong, khong tru phep nam (giong ngay Chu nhat OFF).",
         },
         {
             "code": "N",
@@ -762,7 +776,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 base_paid_hours = 0.0
             elif status_code in {"S", "C"}:
                 base_paid_hours = max((standard_hours / 2.0) - remaining_absence, 0.0)
-            elif status_code == "OFF":
+            elif status_code in {"OFF", "O"}:
                 base_paid_hours = max(standard_hours - remaining_absence, 0.0) if is_paid_off_shift else 0.0
             else:
                 base_paid_hours = max(standard_hours - remaining_absence, 0.0)
@@ -785,7 +799,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 paid_hours = standard_hours
             if status_code in {"S", "C"} and paid_hours == 0 and standard_hours > 0:
                 paid_hours = standard_hours / 2.0
-            if status_code in {"N", "OFF"} and not is_paid_off_shift:
+            if status_code in {"N", "OFF", "O"} and not is_paid_off_shift:
                 paid_hours = 0.0
 
             salary = salary_map.get(employee.id)
@@ -802,10 +816,10 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             meal_allowance = (
                 _to_float(nu_shift_result.meal_allowance)
-                if nu_shift_result and shift and not shift.is_leave_code and status_code not in {"N", "OFF"}
+                if nu_shift_result and shift and not shift.is_leave_code and status_code not in {"N", "OFF", "O"}
                 else (
                     _to_float(shift.meal_allowance)
-                    if shift and not shift.is_leave_code and status_code not in {"N"}
+                    if shift and not shift.is_leave_code and status_code not in {"N", "O"}
                     else 0.0
                 )
             )
