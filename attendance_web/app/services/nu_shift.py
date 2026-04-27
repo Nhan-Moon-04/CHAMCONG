@@ -17,9 +17,8 @@ NU_MORNING_MEAL_ALLOWANCE = 35000.0
 NU_MORNING_MEAL_ALLOWANCE_OT_BONUS = 35000.0
 NU_NIGHT_MEAL_ALLOWANCE = 135000.0
 
-NU_OT_TARGET_HOURS = 4.0
-NU_OT_GRACE_10_MINUTES = 10.0 / 60.0
-NU_OT_GRACE_30_MINUTES = 30.0 / 60.0
+NU_OT_HALF_HOUR_FROM_MINUTES = 20.0
+NU_OT_FULL_HOUR_FROM_MINUTES = 40.0
 
 
 NU_EXTRA_OT_BY_CODE = {
@@ -161,15 +160,19 @@ def _normalize_nu_overtime_hours(raw_overtime_hours):
     if raw_overtime_hours <= 0:
         return 0.0
 
-    lower_with_grace = NU_OT_TARGET_HOURS - NU_OT_GRACE_10_MINUTES
-    upper_with_grace = NU_OT_TARGET_HOURS + NU_OT_GRACE_30_MINUTES
+    total_minutes = raw_overtime_hours * 60.0
+    whole_hours = int(total_minutes // 60.0)
+    remainder_minutes = round(total_minutes - (whole_hours * 60.0), 4)
 
-    # Grace window requested by payroll: 3h50-4h30 is paid as 4h OT.
-    if lower_with_grace <= raw_overtime_hours <= upper_with_grace:
-        return NU_OT_TARGET_HOURS
+    # OT is paid only on .0 or .5 boundaries.
+    # Examples: 1h19 -> 1h, 1h20 -> 1h30, 14h35 -> 14h30.
+    if remainder_minutes < NU_OT_HALF_HOUR_FROM_MINUTES:
+        return float(whole_hours)
 
-    # Keep OT in 30-minute increments outside the grace window.
-    return round(raw_overtime_hours * 2.0) / 2.0
+    if remainder_minutes < NU_OT_FULL_HOUR_FROM_MINUTES:
+        return whole_hours + 0.5
+
+    return whole_hours + 1.0
 
 
 def _compute_dynamic_nu_overtime_hours(check_in, check_out):
