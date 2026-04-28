@@ -24,6 +24,8 @@ from .nu_shift import (
     NU_STANDARD_HOURS_DEDUCTION_BY_CODE,
     build_nu_shift_day_results,
     is_nu_dynamic_shift_code,
+    NU_OT_HALF_HOUR_FROM_MINUTES,
+    NU_OT_FULL_HOUR_FROM_MINUTES,
 )
 
 
@@ -137,6 +139,24 @@ def _scheduled_period_for_shift(shift, work_date):
     scheduled_start_at = datetime.combine(scheduled_start_date, shift.start_time)
     scheduled_end_at = datetime.combine(scheduled_end_date, shift.end_time)
     return scheduled_start_at, scheduled_end_at
+
+
+def _round_hours_to_half(value):
+    if not value or value <= 0:
+        return 0.0
+
+    total_minutes = value * 60.0
+    whole_hours = int(total_minutes // 60.0)
+    remainder_minutes = round(total_minutes - (whole_hours * 60.0), 4)
+
+    if remainder_minutes < NU_OT_HALF_HOUR_FROM_MINUTES:
+        normalized = float(whole_hours)
+    elif remainder_minutes < NU_OT_FULL_HOUR_FROM_MINUTES:
+        normalized = whole_hours + 0.5
+    else:
+        normalized = whole_hours + 1.0
+
+    return normalized
 
 
 def ensure_default_data(actor="system"):
@@ -849,6 +869,14 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 paid_hours = standard_hours / 2.0
             if status_code in {"N", "OFF", "O"} and not is_paid_off_shift:
                 paid_hours = 0.0
+
+            # For TX1/TX2 shifts, round paid hours to .0/.5 boundaries per NU rules.
+            if (
+                shift
+                and (shift.code or "").upper() in DRIVER_AUTO_OT_SHIFT_CODES
+                and status_code not in {"N", "OFF", "O"}
+            ):
+                paid_hours = _round_hours_to_half(paid_hours)
 
             salary = salary_map.get(employee.id)
             monthly_wage = 0.0
