@@ -1889,6 +1889,12 @@ def register_routes(app):
             summary_item["overtime_hours"] += _to_float(row.overtime_hours)
             summary_item["wage_amount"] += _to_float(row.daily_wage)
 
+        # Convert total overtime hours into full-day units (8h = 1 day) + remainder hours
+        for item in shift_summary_map.values():
+            ot_hours = _to_float(item.get("overtime_hours", 0))
+            item["overtime_day_units"] = int(ot_hours // 8)
+            item["overtime_remainder_hours"] = round(ot_hours - (item["overtime_day_units"] * 8), 2)
+
         shift_summary_rows = sorted(
             shift_summary_map.values(),
             key=lambda item: (-item["days"], item["shift_code"]),

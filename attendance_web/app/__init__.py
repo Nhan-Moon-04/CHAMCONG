@@ -12,6 +12,7 @@ from .routes import register_routes
 from .union_routes import register_union_routes
 from .services.attendance import ensure_default_data
 from .services.backup import register_scheduler
+from .services.salary_overview_export import register_salary_overview_export
 from .services.users import ensure_default_admin_user
 
 
@@ -72,6 +73,7 @@ def create_app():
         _initialize_database(app)
 
     register_routes(app)
+    register_salary_overview_export(app)
     register_union_routes(app)
     register_scheduler(app)
 

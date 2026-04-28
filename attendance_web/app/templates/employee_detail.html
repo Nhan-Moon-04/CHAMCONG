@@ -116,7 +116,7 @@
                     <td>{{ item.days }}</td>
                     <td>{{ "%.2f"|format(item.paid_hours) }}</td>
                     <td>{{ "%.2f"|format(item.actual_work_hours) }}</td>
-                    <td>{{ "%.2f"|format(item.overtime_hours) }}</td>
+                    <td>{{ item.overtime_day_units }} ngày{% if item.overtime_remainder_hours and item.overtime_remainder_hours > 0 %} + {{ "%.2f"|format(item.overtime_remainder_hours) }}h{% endif %}</td>
                     <td>{{ "{:,.0f}".format(item.wage_amount) }}</td>
                 </tr>
                 {% else %}
