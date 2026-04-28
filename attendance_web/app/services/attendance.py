@@ -88,6 +88,7 @@ STATUS_NOTE_LABELS = {
 MANUAL_WORK_OVERRIDE_NOTE = "Xac nhan co di lam do mat cham cong"
 DRIVER_AUTO_OT_SHIFT_CODES = {"TX1", "TX2"}
 PAID_OFF_SHIFT_CODE = "OFF"
+EARLY_LEAVE_TOLERANCE_MINUTES = 10
 
 
 def has_manual_work_override(notes):
@@ -122,6 +123,20 @@ def _compute_late_checkout_overtime(shift, work_date, check_out):
 
     scheduled_end_at = datetime.combine(scheduled_end_date, shift.end_time)
     return max((check_out - scheduled_end_at).total_seconds() / 3600, 0.0)
+
+
+def _scheduled_period_for_shift(shift, work_date):
+    if not shift or not shift.start_time or shift.end_time is None:
+        return None, None
+
+    scheduled_start_date = work_date
+    scheduled_end_date = work_date
+    if shift.end_time <= shift.start_time:
+        scheduled_end_date = work_date + timedelta(days=1)
+
+    scheduled_start_at = datetime.combine(scheduled_start_date, shift.start_time)
+    scheduled_end_at = datetime.combine(scheduled_end_date, shift.end_time)
+    return scheduled_start_at, scheduled_end_at
 
 
 def ensure_default_data(actor="system"):
@@ -751,6 +766,17 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             total_span_hours = _hours_between(check_in, check_out)
 
+            # Subtract scheduled break minutes for specific shifts (TX1/TX2 per request).
+            break_hours = 0.0
+            if shift and getattr(shift, "break_minutes", None) is not None:
+                try:
+                    break_hours = max(int(shift.break_minutes or 0) / 60.0, 0.0)
+                except Exception:
+                    break_hours = 0.0
+
+            if shift and (shift.code or "").upper() in DRIVER_AUTO_OT_SHIFT_CODES and break_hours > 0:
+                total_span_hours = max(total_span_hours - break_hours, 0.0)
+
             standard_hours = _to_float(shift.standard_hours if shift else 0)
             if nu_shift_result and status_code != "OFF":
                 standard_hours = _to_float(nu_shift_result.standard_hours)
@@ -789,8 +815,30 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             actual_work_hours = 0.0
             if check_in and check_out:
-                # Match VBA ModChamCong2: Gio Thuc = Gio Ra - Gio Vao.
-                actual_work_hours = _hours_between(check_in, check_out)
+                # Gio Thuc = Gio Ra - Gio Vao but with early-checkin ignored and
+                # small early-checkout tolerated. If employee checks in earlier
+                # than scheduled start, we still use actual check_in (no bonus).
+                # If employee checks out earlier than scheduled end, reduce
+                # worked hours only when earlier than tolerance.
+                scheduled_start_at, scheduled_end_at = _scheduled_period_for_shift(shift, current)
+
+                # Use raw worked span
+                raw_worked_hours = _hours_between(check_in, check_out)
+
+                # If we have a scheduled end, compute early-leave amount
+                early_leave_hours = 0.0
+                if scheduled_end_at:
+                    # if check_out is earlier than scheduled_end_at by more than tolerance, count the difference
+                    diff_seconds = (scheduled_end_at - check_out).total_seconds()
+                    if diff_seconds > (EARLY_LEAVE_TOLERANCE_MINUTES * 60):
+                        early_leave_hours = max(diff_seconds / 3600.0, 0.0)
+
+                # Actual work = raw worked hours minus early_leave_hours (but not less than 0)
+                actual_work_hours = max(raw_worked_hours - early_leave_hours, 0.0)
+
+                # Subtract break time for TX1/TX2 (60 minutes) from actual worked hours.
+                if shift and (shift.code or "").upper() in DRIVER_AUTO_OT_SHIFT_CODES and break_hours > 0:
+                    actual_work_hours = max(actual_work_hours - break_hours, 0.0)
 
             deviation_hours = actual_work_hours - standard_hours if standard_hours else actual_work_hours
 
