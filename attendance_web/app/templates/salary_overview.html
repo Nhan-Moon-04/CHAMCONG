@@ -1,112 +1,91 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel page-toolbar">
-    <div>
-        <h2>Tổng quan lương theo tháng</h2>
-        {% if search_scope == 'all' %}
-        <p class="muted">Phạm vi đang xem: <strong>Tất cả tháng</strong> | Tháng mặc định: <strong>{{ month_key }}</strong></p>
-        {% else %}
-        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong> | Hệ số công chuẩn công ty: <strong>{{ company_work_days }}</strong></p>
-        {% endif %}
-        {% if is_month_locked %}
-        <p class="muted salary-lock-state is-locked">Đã khoá</p>
-        {% else %}
-        <p class="muted salary-lock-state is-open">Tháng này đang mở sổ, có thể cập nhật dữ liệu.</p>
-        {% endif %}
-    </div>
-    <div class="toolbar-actions">
-        <form method="get" class="toolbar-month-form">
-            <label for="overview-month">Tháng</label>
-            <input id="overview-month" type="month" name="month" value="{{ month_key }}">
-            <input type="hidden" name="scope" value="{{ search_scope }}">
-            {% if search_query %}
-            <input type="hidden" name="q" value="{{ search_query }}">
-            {% endif %}
-            <button type="submit">Xem</button>
-        </form>
-        <a
-            class="button-link button-link-secondary"
-            href="{{ url_for('export_salary_overview_excel', month=month_key, scope=search_scope, q=search_query or None) }}"
-        >
-            Xuất Excel lương
-        </a>
-        {% if can_manage_month_lock %}
-        <form method="post" action="{{ url_for('toggle_salary_overview_month_lock') }}" class="toolbar-lock-form" data-confirm="{% if is_month_locked %}Mở khóa sổ tháng này?{% else %}Chốt sổ tháng này? Sau khi chốt, user thường không thể sửa dữ liệu.{% endif %}">
-            <input type="hidden" name="month_key" value="{{ month_key }}">
-            <input type="hidden" name="view_scope" value="{{ search_scope }}">
-            <input type="hidden" name="view_q" value="{{ search_query or '' }}">
-            <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
-            {% if is_month_locked %}
-            <input type="hidden" name="action" value="unlock">
-            <button type="submit" class="secondary">Mở sổ tháng</button>
-            {% else %}
-            <input type="hidden" name="action" value="lock">
-            <button type="submit" class="danger">Chốt sổ tháng</button>
-            {% endif %}
-        </form>
-        {% endif %}
-    </div>
-</section>
-
-<section class="panel soft-panel">
-    <form method="get" class="salary-overview-search-form">
-        <input type="hidden" name="month" value="{{ month_key }}">
-        <div class="scope-choice">
-            <label>
-                <input type="radio" name="scope" value="current" {% if search_scope != 'all' %}checked{% endif %}>
-                Tháng hiện tại
-            </label>
-            <label>
-                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
-                Tất cả tháng
-            </label>
-        </div>
-        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo họ tên, mã NV, ngày công, nghỉ phép, tăng ca, tiền ứng, tiền lương, tiền ăn">
-        <button type="submit">Tìm kiếm</button>
-        {% if search_query or search_scope == 'all' %}
-            {% if search_scope == 'all' %}
-        <a class="button-link button-link-secondary" href="{{ url_for('salary_overview', month=month_key, scope='all') }}">Xóa lọc</a>
-            {% else %}
-        <a class="button-link button-link-secondary" href="{{ url_for('salary_overview', month=month_key) }}">Xóa lọc</a>
-            {% endif %}
-        {% endif %}
-    </form>
-    <div class="salary-payment-summary">
-        <span>Lương: <strong>{{ month_payment_summary.salary_received }}/{{ month_payment_summary.employees }}</strong></span>
-        <span>Tiền ăn đợt 1: <strong>{{ month_payment_summary.meal_period_1_received }}/{{ month_payment_summary.employees }}</strong></span>
-        <span>Tiền ăn đợt 2: <strong>{{ month_payment_summary.meal_period_2_received }}/{{ month_payment_summary.employees }}</strong></span>
-    </div>
-</section>
-
-<section class="panel soft-panel">
-    <h3>Tính tiền ăn theo đợt chốt tháng</h3>
-    <div class="meal-period-actions meal-period-actions-overview">
-        <div class="meal-period-link-list">
-            {% for period in meal_periods %}
-            <a class="button-link button-link-secondary" href="{{ url_for('salary_overview_meal', month=month_key, period=period.period, q=search_query or None) }}">
-                {{ period.label }} ({{ period.date_label }})
-            </a>
-            {% endfor %}
-        </div>
-        <form method="get" action="{{ url_for('export_salary_overview_meal_excel') }}" class="meal-export-form">
-            <input type="hidden" name="month" value="{{ month_key }}">
-            {% if search_query %}
-            <input type="hidden" name="q" value="{{ search_query }}">
-            {% endif %}
-            <label for="meal-export-period" class="meal-export-label">Xuất tiền ăn</label>
-            <div class="meal-export-controls">
-                <select id="meal-export-period" name="period">
-                    <option value="1">Tiền ăn đợt 1</option>
-                    <option value="2">Tiền ăn đợt 2</option>
-                </select>
-                <button type="submit">Xuất tiền ăn</button>
+<section class="salary-overview-shell">
+    <header class="salary-overview-header">
+        <div class="salary-overview-heading">
+            <p class="salary-overview-eyebrow">Tổng quan lương tháng {{ month_key[5:7] }}/{{ month_key[0:4] }}</p>
+            <div class="salary-overview-title-row">
+                <h2>Tổng quan lương tháng {{ month_key[5:7] }}/{{ month_key[0:4] }}</h2>
+                <span class="salary-status-badge {% if is_month_locked %}is-locked{% else %}is-open{% endif %}">{% if is_month_locked %}Đã chốt sổ{% else %}Đang mở sổ{% endif %}</span>
             </div>
+            <p class="salary-overview-meta">Hệ số công chuẩn: <strong>{{ company_work_days }}</strong> · {% if search_scope == 'all' %}Phạm vi: <strong>Tất cả tháng</strong>{% else %}Phạm vi: <strong>Tháng hiện tại</strong>{% endif %}</p>
+        </div>
+        <div class="salary-overview-actions">
+            <form method="get" class="salary-overview-month-form">
+                <label for="overview-month">Tháng</label>
+                <input id="overview-month" class="salary-overview-month-input" type="month" name="month" value="{{ month_key }}">
+                <input type="hidden" name="scope" value="{{ search_scope }}">
+                {% if search_query %}
+                <input type="hidden" name="q" value="{{ search_query }}">
+                {% endif %}
+            </form>
+            <a class="button-link button-link-secondary salary-overview-action" href="{{ url_for('export_salary_overview_excel', month=month_key, scope=search_scope, q=search_query or None) }}">Xuất Excel</a>
+            {% if can_manage_month_lock %}
+            <form method="post" action="{{ url_for('toggle_salary_overview_month_lock') }}" class="salary-overview-lock-form" data-confirm="{% if is_month_locked %}Mở khóa sổ tháng này?{% else %}Chốt sổ tháng này? Sau khi chốt, user thường không thể sửa dữ liệu.{% endif %}">
+                <input type="hidden" name="month_key" value="{{ month_key }}">
+                <input type="hidden" name="view_scope" value="{{ search_scope }}">
+                <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+                <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+                {% if is_month_locked %}
+                <input type="hidden" name="action" value="unlock">
+                <button type="submit" class="secondary salary-overview-action">Mở sổ</button>
+                {% else %}
+                <input type="hidden" name="action" value="lock">
+                <button type="submit" class="salary-overview-action">Chốt sổ</button>
+                {% endif %}
+            </form>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="salary-overview-toolbar">
+        <form method="get" class="salary-overview-filter-form">
+            <input type="hidden" name="month" value="{{ month_key }}">
+            <div class="salary-scope-segmented" role="group" aria-label="Phạm vi xem">
+                <label class="salary-scope-option {% if search_scope != 'all' %}is-active{% endif %}">
+                    <input class="salary-scope-input" type="radio" name="scope" value="current" {% if search_scope != 'all' %}checked{% endif %}>
+                    <span>Tháng hiện tại</span>
+                </label>
+                <label class="salary-scope-option {% if search_scope == 'all' %}is-active{% endif %}">
+                    <input class="salary-scope-input" type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                    <span>Tất cả tháng</span>
+                </label>
+            </div>
+            <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo họ tên, mã NV, ngày công...">
         </form>
-    </div>
-   
+    </section>
+
+    <section class="salary-overview-summary-bar">
+        <div class="salary-summary-pills">
+            <span class="salary-summary-pill">Lương <strong>{{ month_payment_summary.salary_received }}/{{ month_payment_summary.employees }}</strong></span>
+            <span class="salary-summary-pill">Ăn đợt 1 <strong>{{ month_payment_summary.meal_period_1_received }}/{{ month_payment_summary.employees }}</strong></span>
+            <span class="salary-summary-pill">Ăn đợt 2 <strong>{{ month_payment_summary.meal_period_2_received }}/{{ month_payment_summary.employees }}</strong></span>
+        </div>
+        <div class="salary-meal-toolbar">
+            <div class="salary-meal-tabs">
+                {% for period in meal_periods %}
+                <a class="salary-meal-tab {% if loop.first %}is-active{% endif %}" href="{{ url_for('salary_overview_meal', month=month_key, period=period.period, q=search_query or None) }}">Đợt {{ period.period }} · {{ period.date_label }}</a>
+                {% endfor %}
+            </div>
+            <form method="get" action="{{ url_for('export_salary_overview_meal_excel') }}" class="salary-meal-export-form">
+                <input type="hidden" name="month" value="{{ month_key }}">
+                {% if search_query %}
+                <input type="hidden" name="q" value="{{ search_query }}">
+                {% endif %}
+                <label for="meal-export-period" class="salary-meal-export-label">Xuất tiền ăn</label>
+                <div class="salary-meal-export-controls">
+                    <select id="meal-export-period" name="period">
+                        <option value="1">Đợt 1</option>
+                        <option value="2">Đợt 2</option>
+                    </select>
+                    <button type="submit" class="secondary">Xuất</button>
+                </div>
+            </form>
+        </div>
+    </section>
 </section>
 
-<section class="panel data-panel" id="salary-overview-panel">
+<section class="panel data-panel salary-overview-table-panel" id="salary-overview-panel">
     <div class="table-wrap">
         <table id="salary-overview-table">
             <thead>
@@ -116,22 +95,16 @@
                     <th>Tháng</th>
                     {% endif %}
                     <th>Họ tên</th>
-                    <th>Số ngày làm</th>
-                    <th>Số ngày nghỉ có phép</th>
-                    <th>Số ngày nghỉ không phép</th>
-                    <th>Số ngày tăng ca</th>
-                    <th>Số giờ lẻ</th>
-                    <th>Số tiền ứng</th>
+                    <th class="salary-col-number">Ngày làm</th>
+                    <th class="salary-col-number">Nghỉ phép</th>
+                    <th class="salary-col-number">Nghỉ KP</th>
+                    <th class="salary-col-number">Tăng ca</th>
+                    <th class="salary-col-number">Giờ lẻ</th>
+                    <th class="salary-col-number">Tạm ứng</th>
                     <th class="salary-col-th">
                         <div class="salary-col-head">
                             <span>Tiền lương</span>
-                            <button
-                                type="button"
-                                id="salary-mask-toggle-all"
-                                class="secondary salary-mask-toggle-all"
-                                aria-expanded="false"
-                                title="Hiện/ẩn toàn bộ tiền lương"
-                            >
+                            <button type="button" id="salary-mask-toggle-all" class="salary-mask-toggle-all" aria-expanded="false" title="Hiện/ẩn toàn bộ tiền lương">
                                 <svg class="salary-eye-icon" viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12"></path>
                                     <circle cx="12" cy="12" r="3"></circle>
@@ -139,9 +112,9 @@
                             </button>
                         </div>
                     </th>
-                    <th>Đã nhận lương</th>
-                    <th>Tiền ăn đợt 1</th>
-                    <th>Tiền ăn đợt 2</th>
+                    <th class="salary-col-center">Lương đã nhận</th>
+                    <th class="salary-col-center">Ăn đợt 1</th>
+                    <th class="salary-col-center">Ăn đợt 2</th>
                 </tr>
             </thead>
             <tbody>
@@ -155,19 +128,22 @@
                         <a href="{{ url_for('employee_detail', employee_id=item.employee.id, month=item.month_key) }}">{{ item.employee.full_name }}</a>
                         <div class="muted">{{ item.employee.employee_code }}</div>
                     </td>
-                    <td>{{ "%.2f"|format(item.worked_days) }}</td>
-                    <td>{{ "%.2f"|format(item.paid_leave_days) }}</td>
-                    <td>{{ "%.2f"|format(item.unpaid_leave_days) }}</td>
-                    <td>{{ item.overtime_day_units }} ngày</td>
-                    <td>{{ "%.2f"|format(item.overtime_remainder_hours) }}h</td>
-                    <td>{{ "{:,.0f}".format(item.advance_amount) }}</td>
+                    <td class="salary-col-number">{{ "%.2f"|format(item.worked_days) }}</td>
+                    <td class="salary-col-number">{{ "%.2f"|format(item.paid_leave_days) }}</td>
+                    <td class="salary-col-number">{{ "%.2f"|format(item.unpaid_leave_days) }}</td>
+                    <td class="salary-col-number">{{ item.overtime_day_units }}</td>
+                    <td class="salary-col-number">{{ "%.2f"|format(item.overtime_remainder_hours) }}</td>
+                    <td class="salary-col-number">{{ "{:,.0f}".format(item.advance_amount) }}</td>
                     <td class="salary-mask-cell">
                         <div class="salary-mask-inline">
                             <span class="salary-mask-value" data-real-value="{{ "{:,.0f}".format(item.salary_amount) }}">••••••</span>
-                            <button type="button" class="secondary salary-mask-toggle" aria-expanded="false">Hiện</button>
+                            <button type="button" class="salary-mask-toggle" aria-expanded="false" aria-label="Xem tiền lương">
+                                <i class="bi bi-eye" aria-hidden="true"></i>
+                                <span class="salary-mask-toggle-label">Xem</span>
+                            </button>
                         </div>
                     </td>
-                    <td>
+                    <td class="salary-col-center">
                         <form method="post" action="{{ url_for('update_salary_overview_payment_status') }}" class="payment-toggle-form">
                             <input type="hidden" name="month_key" value="{{ item.month_key }}">
                             <input type="hidden" name="employee_id" value="{{ item.employee.id }}">
@@ -178,17 +154,12 @@
                             <input type="hidden" name="view_q" value="{{ search_query or '' }}">
                             <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
                             <label class="payment-toggle-label" title="{% if item.month_is_locked and not current_user_is_admin %}Tháng đã chốt sổ{% else %}Cập nhật trạng thái nhận lương{% endif %}">
-                                <input
-                                    type="checkbox"
-                                    class="payment-toggle-input"
-                                    {% if item.salary_received %}checked{% endif %}
-                                    {% if not item.can_update_payment_status %}disabled{% endif %}
-                                >
+                                <input type="checkbox" class="payment-toggle-input" {% if item.salary_received %}checked{% endif %} {% if not item.can_update_payment_status %}disabled{% endif %}>
                                 <span>{% if item.salary_received %}Đã{% else %}Chưa{% endif %}</span>
                             </label>
                         </form>
                     </td>
-                    <td>
+                    <td class="salary-col-center">
                         <form method="post" action="{{ url_for('update_salary_overview_payment_status') }}" class="payment-toggle-form">
                             <input type="hidden" name="month_key" value="{{ item.month_key }}">
                             <input type="hidden" name="employee_id" value="{{ item.employee.id }}">
@@ -199,17 +170,12 @@
                             <input type="hidden" name="view_q" value="{{ search_query or '' }}">
                             <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
                             <label class="payment-toggle-label" title="{% if item.month_is_locked and not current_user_is_admin %}Tháng đã chốt sổ{% else %}Cập nhật trạng thái tiền ăn đợt 1{% endif %}">
-                                <input
-                                    type="checkbox"
-                                    class="payment-toggle-input"
-                                    {% if item.meal_period_1_received %}checked{% endif %}
-                                    {% if not item.can_update_payment_status %}disabled{% endif %}
-                                >
+                                <input type="checkbox" class="payment-toggle-input" {% if item.meal_period_1_received %}checked{% endif %} {% if not item.can_update_payment_status %}disabled{% endif %}>
                                 <span>{% if item.meal_period_1_received %}Đã{% else %}Chưa{% endif %}</span>
                             </label>
                         </form>
                     </td>
-                    <td>
+                    <td class="salary-col-center">
                         <form method="post" action="{{ url_for('update_salary_overview_payment_status') }}" class="payment-toggle-form">
                             <input type="hidden" name="month_key" value="{{ item.month_key }}">
                             <input type="hidden" name="employee_id" value="{{ item.employee.id }}">
@@ -220,12 +186,7 @@
                             <input type="hidden" name="view_q" value="{{ search_query or '' }}">
                             <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
                             <label class="payment-toggle-label" title="{% if item.month_is_locked and not current_user_is_admin %}Tháng đã chốt sổ{% else %}Cập nhật trạng thái tiền ăn đợt 2{% endif %}">
-                                <input
-                                    type="checkbox"
-                                    class="payment-toggle-input"
-                                    {% if item.meal_period_2_received %}checked{% endif %}
-                                    {% if not item.can_update_payment_status %}disabled{% endif %}
-                                >
+                                <input type="checkbox" class="payment-toggle-input" {% if item.meal_period_2_received %}checked{% endif %} {% if not item.can_update_payment_status %}disabled{% endif %}>
                                 <span>{% if item.meal_period_2_received %}Đã{% else %}Chưa{% endif %}</span>
                             </label>
                         </form>
@@ -247,6 +208,8 @@
     const maskAllButton = document.getElementById("salary-mask-toggle-all");
     const paymentToggleInputs = Array.from(document.querySelectorAll(".payment-toggle-input"));
     const tableWrap = document.querySelector("#salary-overview-panel .table-wrap");
+    const monthInput = document.querySelector(".salary-overview-month-input");
+    const scopeInputs = Array.from(document.querySelectorAll(".salary-scope-input"));
     const scrollStateKey = `salaryOverviewScroll:${window.location.pathname}${window.location.search}`;
 
     const persistScrollState = () => {
@@ -302,17 +265,22 @@
 
         const value = cell.querySelector(".salary-mask-value");
         const button = cell.querySelector(".salary-mask-toggle");
+        const label = cell.querySelector(".salary-mask-toggle-label");
         if (!value || !button) {
             return;
         }
 
         if (showValue) {
             value.textContent = value.getAttribute("data-real-value") || "0";
-            button.textContent = "Ẩn";
+            if (label) {
+                label.textContent = "Ẩn";
+            }
             button.setAttribute("aria-expanded", "true");
         } else {
             value.textContent = "••••••";
-            button.textContent = "Hiện";
+            if (label) {
+                label.textContent = "Xem";
+            }
             button.setAttribute("aria-expanded", "false");
         }
     };
@@ -327,18 +295,12 @@
             return;
         }
 
-        const visibleCount = maskButtons.filter(
-            (button) => button.getAttribute("aria-expanded") === "true"
-        ).length;
-        const allVisible = maskButtons.every(
-            (button) => button.getAttribute("aria-expanded") === "true"
-        );
+        const visibleCount = maskButtons.filter((button) => button.getAttribute("aria-expanded") === "true").length;
+        const allVisible = maskButtons.every((button) => button.getAttribute("aria-expanded") === "true");
 
         maskAllButton.disabled = false;
         maskAllButton.setAttribute("aria-expanded", String(allVisible));
-        maskAllButton.title = visibleCount > 0
-            ? "Ẩn toàn bộ tiền lương"
-            : "Hiện toàn bộ tiền lương";
+        maskAllButton.title = visibleCount > 0 ? "Ẩn toàn bộ tiền lương" : "Hiện toàn bộ tiền lương";
     };
 
     maskButtons.forEach((button) => {
@@ -352,9 +314,7 @@
 
     if (maskAllButton) {
         maskAllButton.addEventListener("click", () => {
-            const visibleCount = maskButtons.filter(
-                (button) => button.getAttribute("aria-expanded") === "true"
-            ).length;
+            const visibleCount = maskButtons.filter((button) => button.getAttribute("aria-expanded") === "true").length;
             const targetVisible = visibleCount === 0;
 
             maskButtons.forEach((button) => {
@@ -375,6 +335,22 @@
                 persistScrollState();
                 input.form.submit();
             }
+        });
+    });
+
+    if (monthInput && monthInput.form) {
+        monthInput.addEventListener("change", () => {
+            monthInput.form.submit();
+        });
+    }
+
+    scopeInputs.forEach((input) => {
+        if (!input.form) {
+            return;
+        }
+
+        input.addEventListener("change", () => {
+            input.form.submit();
         });
     });
 

@@ -1,24 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel details-filter-collapsed" id="details-filter-panel">
-    <div class="inline-form details-filter-layout">
+<section class="details-overview-shell">
+    <header class="details-overview-header">
         <div>
-            <h2>Bảng chi tiết toàn bộ nhân viên</h2>
-            <button type="button" id="details-filter-toggle-btn" class="secondary details-inline-toggle" aria-expanded="false">Mở bộ lọc</button>
-            <div id="details-filter-extra">
-                {% if is_range_mode %}
-                <p class="muted">Đang xem khoảng ngày: <strong>{{ period_label }}</strong></p>
-                {% elif search_scope == 'all' %}
-                <p class="muted">Đang xem: <strong>{{ period_label }}</strong></p>
-                {% else %}
-                <p class="muted">Đang xem tháng: <strong>{{ month_key }}</strong></p>
-                {% endif %}
-                <p class="muted">Dòng tô màu vàng nhạt là ngày Chủ nhật.</p>
-                <p class="muted">Màu dòng: Nghỉ nửa buổi (cam nhạt), Nghỉ có phép (xanh lá nhạt), Nghỉ không phép (đỏ), Quên checkin/checkout (vàng nhạt), Cảnh báo ca NU (vàng nhạt), Sửa tay do mất chấm công (xám).</p>
-                <p class="muted">Giữa mỗi nhân viên có thêm gạch ngăn để dễ phân biệt theo người.</p>
-                <p class="muted">Nếu nhập Từ ngày/Đến ngày thì hệ thống ưu tiên lọc theo khoảng thời gian (có thể qua nhiều tháng).</p>
-            </div>
+            <p class="muted">{% if is_range_mode %}Khoảng: <strong>{{ period_label }}</strong>{% elif search_scope == 'all' %}Phạm vi: <strong>{{ period_label }}</strong>{% else %}Tháng: <strong>{{ month_key }}</strong>{% endif %}</p>
+            <h2>Bảng chi tiết nhân viên</h2>
         </div>
+
+        <div class="details-overview-actions">
+            <button type="button" id="details-filter-toggle-btn" class="button-link" aria-expanded="false">Bộ lọc</button>
+            <a class="button-link button-link-secondary" href="{{ export_excel_url }}">Xuất Excel</a>
+            <button type="button" id="details-fullscreen-btn" class="button-link">Phóng to</button>
+        </div>
+    </header>
+
+    <div id="details-filter-panel" class="details-filter-area details-filter-collapsed">
         <form method="get" class="form-grid" id="details-filter-form">
             <input type="month" name="month" value="{{ month_key }}">
             <input type="date" name="start_date" value="{{ start_date_value }}" placeholder="Từ ngày">
@@ -33,46 +29,52 @@
             <input type="hidden" name="q" value="{{ search_query }}">
             {% endif %}
             <input type="hidden" name="scope" value="{{ search_scope or 'current' }}">
-            <button type="submit">Lọc</button>
-        </form>
-    </div>
-</div>
-
-<div class="panel" id="details-table-panel">
-    <div class="inline-form details-toolbar">
-        <h3>Bảng dữ liệu chi tiết</h3>
-        <div class="details-toolbar-actions">
-            <form method="get" class="details-search-form">
-                <input type="hidden" name="month" value="{{ month_key }}">
-                {% if start_date_value %}
-                <input type="hidden" name="start_date" value="{{ start_date_value }}">
-                {% endif %}
-                {% if end_date_value %}
-                <input type="hidden" name="end_date" value="{{ end_date_value }}">
-                {% endif %}
-                {% if selected_employee_id %}
-                <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
-                {% endif %}
-                <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo mọi cột trong bảng chi tiết">
-                <div class="scope-choice">
-                    <label>
-                        <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
-                        Tháng hiện tại
-                    </label>
-                    <label>
-                        <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
-                        ALL
-                    </label>
-                </div>
-                <button type="submit">Tìm kiếm</button>
+            <div>
+                <button type="submit" class="button-primary">Lọc</button>
                 {% if search_query or search_scope == 'all' %}
                 <a class="button-link button-link-secondary" href="{{ clear_search_url }}">Xóa lọc</a>
                 {% endif %}
-            </form>
-            <a class="button-link button-link-secondary" href="{{ export_excel_url }}">Xuất Excel</a>
-            <button type="button" id="details-fullscreen-btn" class="secondary">Phóng to bảng</button>
+            </div>
+        </form>
+        <div class="muted details-filter-notes">
+            <p>Ghi chú: dòng Chủ nhật được tô vàng; các màu trạng thái hiển thị bằng class.</p>
         </div>
     </div>
+
+    <div class="details-kpi-bar">
+        <div class="kpi-pill">Dòng hiển thị: <strong>{{ details|length }}</strong></div>
+        <div class="kpi-pill">Nhân viên: <strong>{{ employees|length }}</strong></div>
+    </div>
+
+    <div class="panel" id="details-table-panel">
+        <div class="inline-form details-toolbar">
+            <div class="details-toolbar-actions">
+                <form method="get" class="details-search-form">
+                    <input type="hidden" name="month" value="{{ month_key }}">
+                    {% if start_date_value %}
+                    <input type="hidden" name="start_date" value="{{ start_date_value }}">
+                    {% endif %}
+                    {% if end_date_value %}
+                    <input type="hidden" name="end_date" value="{{ end_date_value }}">
+                    {% endif %}
+                    {% if selected_employee_id %}
+                    <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
+                    {% endif %}
+                    <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm trong bảng">
+                    <div class="scope-choice">
+                        <label>
+                            <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
+                            Tháng hiện tại
+                        </label>
+                        <label>
+                            <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                            ALL
+                        </label>
+                    </div>
+                    <button type="submit">Tìm</button>
+                </form>
+            </div>
+        </div>
     <button type="button" id="details-exit-fullscreen-btn" class="danger" hidden>X</button>
     <div class="table-wrap">
         <table id="details-table">

@@ -1,20 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <div class="inline-form">
+<section class="employee-overview-shell">
+    <header class="employee-overview-header panel">
         <div>
-            <h2>{{ employee.full_name }} ({{ employee.employee_code }})</h2>
-            <p class="muted">Giới tính: {{ employee.gender or "-" }} | Quê quán: {{ employee.hometown or "-" }} | Năm sinh: {{ employee.birth_year or "-" }}</p>
+            <p class="muted">{{ employee.employee_code }}</p>
+            <h2>{{ employee.full_name }}</h2>
+            <p class="muted">Giới tính: {{ employee.gender or "-" }} • Quê quán: {{ employee.hometown or "-" }} • Năm sinh: {{ employee.birth_year or "-" }}</p>
         </div>
-        <form method="get">
-            <label for="month">Tháng</label>
-            <input id="month" type="month" name="month" value="{{ month_key }}">
-            <button type="submit">Xem</button>
-        </form>
-    </div>
-</div>
 
-<div class="card-grid">
+        <div class="employee-overview-actions">
+            <form method="get" class="employee-month-form">
+                <label for="month">Tháng</label>
+                <input id="month" class="employee-month-input" type="month" name="month" value="{{ month_key }}">
+            </form>
+            <a class="button-link button-link-secondary" href="{{ export_excel_url or '#' }}">Xuất Excel</a>
+        </div>
+    </header>
+
+    <div class="card-grid">
     <div class="card">
         <div class="kpi-title">Tổng giờ được tính</div>
         <div class="kpi-value">{{ "%.2f"|format(summary_paid_hours) }}</div>

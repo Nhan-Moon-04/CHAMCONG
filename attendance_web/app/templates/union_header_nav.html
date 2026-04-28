@@ -1,25 +1,30 @@
-<section class="panel unionv2-header">
-    <div class="unionv2-header-copy">
-        <p class="unionv2-eyebrow">Mô-đun Công đoàn</p>
-        <h2>{{ union_page_title }}</h2>
-        <p class="muted">{{ union_page_desc }}</p>
-    </div>
-    <form method="get" class="unionv2-period-form">
-        <div class="field-stack">
-            <label for="union-year">Năm</label>
-            <input id="union-year" type="number" min="2000" max="2100" name="year" value="{{ year }}" required>
+<section class="union-overview-shell">
+    <header class="union-overview-header panel unionv2-header">
+        <div class="unionv2-header-copy">
+            <p class="unionv2-eyebrow">Mô-đun Công đoàn</p>
+            <div class="union-overview-title-row">
+                <h2>{{ union_page_title }}</h2>
+                <span class="union-overview-badge">Năm {{ year }}</span>
+            </div>
+            <p class="muted">{{ union_page_desc }}</p>
         </div>
-        <div class="field-stack">
-            <label for="union-month">Tháng tham chiếu</label>
-            <input id="union-month" type="month" name="month_key" value="{{ month_key }}" required>
-        </div>
-        <button type="submit">Xem dữ liệu</button>
-    </form>
-</section>
+        <form method="get" class="unionv2-period-form union-overview-period-form">
+            <div class="field-stack">
+                <label for="union-year">Năm</label>
+                <input id="union-year" type="number" min="2000" max="2100" name="year" value="{{ year }}" required>
+            </div>
+            <div class="field-stack">
+                <label for="union-month">Tháng tham chiếu</label>
+                <input id="union-month" type="month" name="month_key" value="{{ month_key }}" required>
+            </div>
+            <button type="submit" class="secondary">Xem</button>
+        </form>
+    </header>
 
-<nav class="panel unionv2-tabs">
+    <nav class="panel unionv2-tabs union-overview-tabs">
     <a class="{% if active_tab == 'home' %}active{% endif %}" href="{{ url_for('union_index', year=year, month_key=month_key) }}">Tổng quan</a>
     <a class="{% if active_tab == 'bank' %}active{% endif %}" href="{{ url_for('union_bank_page', year=year, month_key=month_key) }}">Chuyển khoản</a>
     <a class="{% if active_tab == 'cash' %}active{% endif %}" href="{{ url_for('union_cash_page', year=year, month_key=month_key) }}">Tiền mặt</a>
     <a class="{% if active_tab == 'events' %}active{% endif %}" href="{{ url_for('union_events_page', year=year, month_key=month_key) }}">Sự kiện lễ</a>
 </nav>
+</section>

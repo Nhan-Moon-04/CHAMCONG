@@ -1,48 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel employees-header">
-    <div>
-        <p class="dashboard-eyebrow">Danh mục nhân sự</p>
-        <h2>Danh sách nhân viên</h2>
-        {% if employee_records_locked %}
-        <p class="muted">Đã khóa</p>
-        {% endif %}
-    </div>
-    {% if employee_edit_blocked %}
-    <span class="badge badge-warn">Đã khóa</span>
-    {% else %}
-    <a class="button-link" href="{{ url_for('create_employee') }}">Thêm nhân viên</a>
-    {% endif %}
-</section>
-
-<section class="panel soft-panel">
-    <form method="get" class="employee-search-form">
-        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo mọi cột trong bảng nhân viên">
-        <div class="scope-choice">
-            <label>
-                <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
-                Hiện tại
-            </label>
-            <label>
-                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
-                ALL
-            </label>
+<section class="employees-overview-shell">
+    <header class="employees-overview-header panel">
+        <div>
+            <p class="dashboard-eyebrow">Danh mục nhân sự</p>
+            <h2>Danh sách nhân viên</h2>
+            {% if employee_records_locked %}
+            <p class="muted">Đã khóa</p>
+            {% endif %}
         </div>
-        <button type="submit">Tìm kiếm</button>
-        {% if search_query or search_scope == 'all' %}
-        <a class="button-link button-link-secondary" href="{{ url_for('employees') }}">Xóa lọc</a>
-        {% endif %}
-    </form>
-    <p class="muted">
-        {% if search_scope == 'all' %}
-        Đang tìm trong toàn bộ dữ liệu từ trước đến nay, ưu tiên bản ghi mới nhất.
-        {% else %}
-        Đang tìm trong dữ liệu hiện tại (mặc định).
-        {% endif %}
-    </p>
-</section>
 
-<section class="card-grid employees-summary-grid">
+        <div class="employees-overview-actions">
+            {% if employee_edit_blocked %}
+            <span class="badge badge-warn">Đã khóa</span>
+            {% else %}
+            <a class="button-primary" href="{{ url_for('create_employee') }}">Thêm nhân viên</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="employees-filter-bar panel soft-panel">
+        <form method="get" class="employee-search-form">
+            <div class="employees-scope-segmented">
+                <label class="seg-option {% if (search_scope or 'current') == 'current' %}is-active{% endif %}">
+                    <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
+                    <span>Hiện tại</span>
+                </label>
+                <label class="seg-option {% if search_scope == 'all' %}is-active{% endif %}">
+                    <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                    <span>ALL</span>
+                </label>
+            </div>
+            <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo tên, mã, quê quán...">
+            <div class="employee-search-actions">
+                <button type="submit" class="secondary">Tìm</button>
+                {% if search_query or search_scope == 'all' %}
+                <a class="button-link button-link-secondary" href="{{ url_for('employees') }}">Xóa lọc</a>
+                {% endif %}
+            </div>
+        </form>
+        <p class="muted">
+            {% if search_scope == 'all' %}
+            Đang tìm trong toàn bộ dữ liệu từ trước đến nay, ưu tiên bản ghi mới nhất.
+            {% else %}
+            Đang tìm trong dữ liệu hiện tại (mặc định).
+            {% endif %}
+        </p>
+    </section>
+
+    <section class="card-grid employees-summary-grid">
     <article class="card">
         <div class="kpi-title">Tổng nhân viên</div>
         <div class="kpi-value">{{ total_employees }}</div>
@@ -57,7 +63,7 @@
     </article>
 </section>
 
-<section class="panel data-panel">
+<section class="panel data-panel employees-table-panel">
     <div class="table-wrap">
         <table>
             <thead>

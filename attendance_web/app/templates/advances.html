@@ -1,69 +1,69 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel page-toolbar">
-    <div>
-        <h2>Ứng tiền theo nhân viên</h2>
-        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong></p>
-        {% if month_is_locked %}
-        <p class="muted">Đã khóa</p>
-        {% endif %}
-    </div>
-    <div class="toolbar-actions">
-        <form method="get" class="toolbar-month-form">
-            <label for="advance-month">Tháng</label>
-            <input id="advance-month" type="month" name="month" value="{{ month_key }}">
-            {% if search_query %}
-            <input type="hidden" name="q" value="{{ search_query }}">
-            {% endif %}
-            {% if search_scope == 'all' %}
-            <input type="hidden" name="scope" value="all">
-            {% endif %}
-            {% if advance_filter != 'all' %}
-            <input type="hidden" name="advance_filter" value="{{ advance_filter }}">
-            {% endif %}
-            <button type="submit">Xem</button>
-        </form>
-        {% if advance_edit_blocked %}
-        <span class="badge badge-warn">Đã khóa</span>
-        {% else %}
-        <button type="button" id="advance-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
-        {% endif %}
-        <button type="button" id="advances-show-all-btn" class="secondary" data-expanded="false">Show all</button>
-    </div>
-</section>
-
-<section class="panel soft-panel">
-    <form method="get" class="advances-search-form">
-        <input type="month" name="month" value="{{ month_key }}">
-        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo tên, mã NV, tháng, ngày ứng, số tiền, hình thức, ghi chú">
-        <div class="scope-choice">
-            <label>
-                <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
-                Tháng hiện tại
-            </label>
-            <label>
-                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
-                ALL
-            </label>
+<section class="advances-overview-shell">
+    <header class="advances-overview-header">
+        <div>
+            <p class="advances-eyebrow">Ứng tiền nhân viên</p>
+            <div class="advances-title-row">
+                <h2>Ứng tiền nhân viên</h2>
+                {% if month_is_locked %}
+                <span class="badge badge-warn">Đã khóa</span>
+                {% else %}
+                <span class="muted">Tháng: <strong>{{ month_key }}</strong></span>
+                {% endif %}
+            </div>
         </div>
-        <select name="advance_filter">
-            <option value="all" {% if (advance_filter or 'all') == 'all' %}selected{% endif %}>Tất cả (lọc theo tháng chọn)</option>
-            <option value="has" {% if advance_filter == 'has' %}selected{% endif %}>Có ứng tiền (tháng chọn)</option>
-            <option value="none" {% if advance_filter == 'none' %}selected{% endif %}>Không ứng tiền (tháng chọn)</option>
-        </select>
-        <button type="submit">Tìm kiếm</button>
-        {% if search_query or search_scope == 'all' or advance_filter != 'all' %}
-        <a class="button-link button-link-secondary" href="{{ url_for('advances', month=month_key) }}">Xóa lọc</a>
-        {% endif %}
-    </form>
-    <p class="muted">
-        {% if search_scope == 'all' %}
-        Đang tìm trong toàn bộ lịch sử ứng tiền, sắp xếp theo tháng gần nhất.
-        {% else %}
-        Đang tìm trong tháng {{ month_key }} (mặc định).
-        {% endif %}
-        Bộ lọc Có/Không ứng tiền luôn bám theo tháng đang chọn.
-    </p>
+
+        <div class="advances-actions">
+            <form method="get" class="advances-month-form">
+                <label for="advance-month">Tháng</label>
+                <input id="advance-month" class="advances-month-input" type="month" name="month" value="{{ month_key }}">
+                {% if search_query %}
+                <input type="hidden" name="q" value="{{ search_query }}">
+                {% endif %}
+                {% if search_scope == 'all' %}
+                <input type="hidden" name="scope" value="all">
+                {% endif %}
+                {% if advance_filter != 'all' %}
+                <input type="hidden" name="advance_filter" value="{{ advance_filter }}">
+                {% endif %}
+            </form>
+            {% if advance_edit_blocked %}
+            <span class="badge badge-warn">Đã khóa</span>
+            {% else %}
+            <button type="button" id="advance-tools-toggle-btn" class="button-primary">Thêm ứng</button>
+            {% endif %}
+            <button type="button" id="advances-show-all-btn" class="button-link button-link-secondary" data-expanded="false">Show all</button>
+        </div>
+    </header>
+
+    <section class="advances-filter-bar">
+        <form method="get" class="advances-filter-form">
+            <div class="advances-scope-segmented">
+                <label class="advances-scope-option {% if (search_scope or 'current') == 'current' %}is-active{% endif %}">
+                    <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
+                    <span>Tháng hiện tại</span>
+                </label>
+                <label class="advances-scope-option {% if search_scope == 'all' %}is-active{% endif %}">
+                    <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
+                    <span>Tất cả</span>
+                </label>
+            </div>
+            <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo tên, mã NV, ghi chú...">
+            <select name="advance_filter" class="advances-filter-select">
+                <option value="all" {% if (advance_filter or 'all') == 'all' %}selected{% endif %}>Tất cả</option>
+                <option value="has" {% if advance_filter == 'has' %}selected{% endif %}>Có ứng</option>
+                <option value="none" {% if advance_filter == 'none' %}selected{% endif %}>Không ứng</option>
+            </select>
+        </form>
+    </section>
+
+    <section class="advances-kpi-bar">
+        <div class="kpi-pill">Nhân viên hiển thị: <strong>{{ employee_groups|length }}</strong></div>
+        <div class="kpi-pill">Có ứng: <strong>{{ employees_with_month_advance }}</strong></div>
+        <div class="kpi-pill">Tổng tháng: <strong>{{ "{:,.0f}".format(month_total_amount) }}</strong></div>
+        <div class="kpi-pill">Tổng phạm vi: <strong>{{ "{:,.0f}".format(scope_total_amount) }}</strong></div>
+    </section>
 </section>
 
 <section class="card-grid advances-summary-grid">
