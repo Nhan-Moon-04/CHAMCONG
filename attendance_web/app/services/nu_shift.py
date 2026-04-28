@@ -11,6 +11,7 @@ NU_NIGHT_MODE = "night"
 NU_DYNAMIC_SHIFT_CODES = {"NU", "NUT1", "NUT2", "NU1", "NU2", "NU3", "NUN"}
 
 NU_STANDARD_HOURS = 8.0
+NU_MAX_OT_HOURS = 4.0  # Ca NU tối đa 12h = 8h standard + 4h OT
 NU_MORNING_DEFAULT_OT_HOURS = 3.5
 NU_NIGHT_DEFAULT_OT_HOURS = 4.0
 NU_MORNING_MEAL_ALLOWANCE = 35000.0
@@ -167,12 +168,14 @@ def _normalize_nu_overtime_hours(raw_overtime_hours):
     # OT is paid only on .0 or .5 boundaries.
     # Examples: 1h19 -> 1h, 1h20 -> 1h30, 14h35 -> 14h30.
     if remainder_minutes < NU_OT_HALF_HOUR_FROM_MINUTES:
-        return float(whole_hours)
-
-    if remainder_minutes < NU_OT_FULL_HOUR_FROM_MINUTES:
-        return whole_hours + 0.5
-
-    return whole_hours + 1.0
+        normalized = float(whole_hours)
+    elif remainder_minutes < NU_OT_FULL_HOUR_FROM_MINUTES:
+        normalized = whole_hours + 0.5
+    else:
+        normalized = whole_hours + 1.0
+    
+    # Cap OT at NU_MAX_OT_HOURS (4.0 hours for base NU calculation)
+    return min(normalized, NU_MAX_OT_HOURS)
 
 
 def _compute_dynamic_nu_overtime_hours(check_in, check_out):
