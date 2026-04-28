@@ -160,7 +160,7 @@ def ensure_default_data(actor="system"):
             "break_minutes": 60,
             "standard_hours": 8,
             "default_overtime_hours": 0,
-            "meal_allowance": 0,
+            "meal_allowance": 35000,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "7h30-16h30. Tu dong tinh OT neu checkout tre hon 16h30",
@@ -173,7 +173,7 @@ def ensure_default_data(actor="system"):
             "break_minutes": 60,
             "standard_hours": 8,
             "default_overtime_hours": 0,
-            "meal_allowance": 0,
+            "meal_allowance": 35000,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "7h-16h. Tu dong tinh OT neu checkout tre hon 16h",
@@ -823,6 +823,19 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                     else 0.0
                 )
             )
+
+            # DRIVER TX1/TX2 meal rule: base 35k; if overtime >= 3h then meal becomes 70k.
+            if (
+                shift
+                and (shift.code or "").upper() in DRIVER_AUTO_OT_SHIFT_CODES
+                and status_code not in {"N", "OFF", "O"}
+                and not shift.is_leave_code
+            ):
+                if adjusted_overtime >= 3.0:
+                    meal_allowance = 70000.0
+                else:
+                    # Ensure base meal is at least 35000
+                    meal_allowance = max(_to_float(meal_allowance), 35000.0)
 
             context_note = None
             if has_scan and not has_explicit_schedule:
