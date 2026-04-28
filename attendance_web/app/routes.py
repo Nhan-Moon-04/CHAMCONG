@@ -117,6 +117,24 @@ def _to_float(value, default=0.0):
         return default
 
 
+def _round_hours_to_half(value):
+    if not value or value <= 0:
+        return 0.0
+
+    total_minutes = value * 60.0
+    whole_hours = int(total_minutes // 60.0)
+    remainder_minutes = round(total_minutes - (whole_hours * 60.0), 4)
+
+    if remainder_minutes < 20:
+        normalized = float(whole_hours)
+    elif remainder_minutes < 50:
+        normalized = whole_hours + 0.5
+    else:
+        normalized = whole_hours + 1.0
+
+    return normalized
+
+
 def _is_paid_off_detail(detail_row):
     status_code = str(getattr(detail_row, "status_code", "") or "").strip().upper()
     if status_code != "OFF":
@@ -2376,7 +2394,7 @@ def register_routes(app):
             salary_row = salary_by_key.get((item_month, employee_id))
             monthly_wage = _to_float(salary_row.base_daily_wage if salary_row else None, 0)
 
-            overtime_hours = round(summary["overtime_hours"], 2)
+            overtime_hours = _round_hours_to_half(summary["overtime_hours"])
             overtime_day_units = int(overtime_hours // 8)
             overtime_remainder_hours = round(overtime_hours - (overtime_day_units * 8), 2)
 
