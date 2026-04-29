@@ -2408,26 +2408,12 @@ def register_routes(app):
 
         overview_rows = []
         for (item_month, employee_id), summary in summary_map.items():
-            salary_row = salary_by_key.get((item_month, employee_id))
-            monthly_wage = _to_float(salary_row.base_daily_wage if salary_row else None, 0)
-
             overtime_hours = _round_hours_to_half(summary["overtime_hours"])
             overtime_day_units = int(overtime_hours // 8)
             overtime_remainder_hours = round(overtime_hours - (overtime_day_units * 8), 2)
 
-            salary_day_units = (
-                summary["worked_days"]
-                + summary["paid_leave_days"]
-                + (overtime_hours / 8.0)
-            )
-
-            company_work_days = _to_float(workday_by_month.get(item_month), 0)
-            if company_work_days <= 0:
-                legacy_value = _to_float(salary_row.salary_coefficient if salary_row else None, 0)
-                company_work_days = legacy_value if legacy_value >= 10 else 26.0
-
-            daily_rate = (monthly_wage / company_work_days) if company_work_days > 0 else 0.0
-            salary_amount = round(daily_rate * salary_day_units, 2)
+            salary_breakdown = get_salary_month_details(employee_id, item_month)
+            salary_amount = round(_to_float(salary_breakdown["summary"]["total_wage"], 0), 2)
             advance_amount = round(_to_float(advance_by_key.get((item_month, employee_id), 0), 0), 2)
             payment_status = payment_status_by_key.get((item_month, employee_id))
             month_is_locked = item_month in locked_month_keys
