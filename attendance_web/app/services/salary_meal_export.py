@@ -57,7 +57,14 @@ def _get_meal_count_for_row(detail_row, shift_template):
         return 1 if _is_nu_night_row(detail_row) else 2
 
     if shift_template:
-        return int(getattr(shift_template, "meal_count", 1) or 1)
+        # Respect explicit zero meal_count on shift templates (do not coerce 0 -> 1)
+        try:
+            val = getattr(shift_template, "meal_count", None)
+            if val is None:
+                return 1
+            return int(val)
+        except (TypeError, ValueError):
+            return 1
 
     return 1
 
@@ -137,17 +144,23 @@ def collect_salary_meal_overview_data(month_key, period, search_query=""):
             }
             meal_summary_map[detail_row.employee_id] = meal_summary
 
-        # Skip leave codes and off days
+        # Skip leave/off codes based on status or shift template flags
         status = str(detail_row.status_code or "").upper()
         if status == "OFF":
             continue
 
-        # Check if it's a working day (not leave)
+        # Check shift template (may mark leave codes like OFF/O)
         shift_template = shift_map.get(detail_row.shift_code)
+        if shift_template and getattr(shift_template, "is_leave_code", False):
+            # explicit leave shift template: do not count meals
+            continue
 
         # Count meals from the shift template, with NU morning/night using the special rule.
+        # Also skip rows where the computed meal count is zero (e.g., OFF shifts with meal_count=0).
         if status not in {"P", "N"}:  # P=paid leave, N=unpaid leave
             shift_meal_count = _get_meal_count_for_row(detail_row, shift_template)
+            if int(shift_meal_count or 0) == 0:
+                continue
             meal_summary["meal_count"] += shift_meal_count
             meal_summary["meal_allowance"] = max(
                 meal_summary["meal_allowance"],
