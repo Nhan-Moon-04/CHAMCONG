@@ -56,6 +56,11 @@ def _get_meal_count_for_row(detail_row, shift_template):
     if shift_code == "NU":
         return 1 if _is_nu_night_row(detail_row) else 2
 
+    # VP override: display as 2 meals (instead of 1 in DB)
+    vp_override = _get_vp_meal_count_override(shift_code)
+    if vp_override is not None:
+        return vp_override
+
     if shift_template:
         # Respect explicit zero meal_count on shift templates (do not coerce 0 -> 1)
         try:
@@ -75,10 +80,22 @@ def _get_meal_allowance_for_row(detail_row, shift_template):
     if shift_code == "NU":
         return 35000.0
 
+    # VP override: 40k per meal (displayed as 2 meals x 40k = 80k)
+    if shift_code == "VP":
+        return 40000.0
+
     if shift_template:
         return float(shift_template.meal_allowance or 0)
 
     return 0.0
+
+
+def _get_vp_meal_count_override(shift_code):
+    """VP shift is displayed as 2 meals x 40k (instead of 1 meal x 80k from DB)"""
+    shift_code = str(shift_code or "").strip().upper()
+    if shift_code == "VP":
+        return 2
+    return None
 
 
 def _apply_dash_zero_format(cell):
