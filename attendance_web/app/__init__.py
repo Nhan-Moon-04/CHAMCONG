@@ -33,6 +33,22 @@ def _initialize_database(app):
                     """
                 )
             )
+            db.session.execute(
+                text(
+                    """
+                    ALTER TABLE shift_templates
+                    ADD COLUMN IF NOT EXISTS meal_count INTEGER NOT NULL DEFAULT 1
+                    """
+                )
+            )
+            db.session.execute(
+                text(
+                    """
+                    ALTER TABLE shift_templates
+                    ADD COLUMN IF NOT EXISTS is_night_shift BOOLEAN NOT NULL DEFAULT FALSE
+                    """
+                )
+            )
             db.session.commit()
             ensure_default_admin_user(
                 app.config.get("LOGIN_USERNAME", "admin"),

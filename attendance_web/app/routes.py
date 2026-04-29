@@ -118,6 +118,13 @@ def _to_float(value, default=0.0):
         return default
 
 
+def _to_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _round_hours_to_half(value):
     if not value or value <= 0:
         return 0.0
@@ -1948,6 +1955,8 @@ def register_routes(app):
                     request.form.get("default_overtime_hours"), 0
                 ),
                 "meal_allowance": _to_float(request.form.get("meal_allowance"), 0),
+                "meal_count": max(_to_int(request.form.get("meal_count", 1), 1), 0),
+                "is_night_shift": request.form.get("is_night_shift") == "on",
                 "is_leave_code": request.form.get("is_leave_code") == "on",
                 "is_paid_leave": request.form.get("is_paid_leave") == "on",
                 "notes": request.form.get("notes", "").strip() or None,
@@ -2002,6 +2011,8 @@ def register_routes(app):
                     request.form.get("default_overtime_hours"), 0
                 ),
                 "meal_allowance": _to_float(request.form.get("meal_allowance"), 0),
+                "meal_count": max(_to_int(request.form.get("meal_count", 1), 1), 0),
+                "is_night_shift": request.form.get("is_night_shift") == "on",
                 "is_leave_code": request.form.get("is_leave_code") == "on",
                 "is_paid_leave": request.form.get("is_paid_leave") == "on",
                 "notes": request.form.get("notes", "").strip() or None,

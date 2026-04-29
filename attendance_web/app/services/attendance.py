@@ -170,6 +170,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 25000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "7h-16h, nghi 1h",
@@ -183,6 +185,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "8h-17h, nghi 1h",
@@ -196,6 +200,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "7h30-16h30. Tu dong tinh OT neu checkout tre hon 16h30",
@@ -209,6 +215,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "7h-16h. Tu dong tinh OT neu checkout tre hon 16h",
@@ -222,6 +230,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 11.5,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "6h-18h, nghi 30p",
@@ -235,6 +245,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 0,
+            "meal_count": 0,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Tu dong nhan ca sang/toi theo cham cong. OT tinh theo gio vao/ra thuc te, khung 3h50-4h30 tinh 4h. Ca sang: OT >=3h cong them 35000 tien an.",
@@ -248,6 +260,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Ca NU +1h OT (cong them sau khi tinh OT thuc te theo gio vao/ra).",
@@ -261,6 +275,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Ca NU +2h OT (cong them sau khi tinh OT thuc te theo gio vao/ra).",
@@ -274,6 +290,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 7,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Ca NU tru 1h cong va tru 1/8 ngay phep nam.",
@@ -287,6 +305,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 6,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Ca NU tru 2h cong va tru 2/8 ngay phep nam.",
@@ -300,6 +320,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 5,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Ca NU tru 3h cong va tru 3/8 ngay phep nam.",
@@ -313,6 +335,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 4,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": False,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Ca NU tru 4h cong (nghi nua buoi) va tru 0.5 ngay phep nam.",
@@ -326,6 +350,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 11,
             "default_overtime_hours": 0,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": True,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "18h-6h ngay hom sau, nghi 1h",
@@ -339,6 +365,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 3,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": True,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Mac dinh 8h lam + 3h tang ca",
@@ -352,6 +380,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 4,
             "meal_allowance": 35000,
+            "meal_count": 1,
+            "is_night_shift": True,
             "is_leave_code": False,
             "is_paid_leave": False,
             "notes": "Mac dinh 8h lam + 4h tang ca",
@@ -365,6 +395,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 0,
+            "meal_count": 0,
+            "is_night_shift": False,
             "is_leave_code": True,
             "is_paid_leave": True,
             "notes": "Nghi OFF huong luong, khong tru phep nam, tinh du 1 ngay cong.",
@@ -378,6 +410,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 0,
             "default_overtime_hours": 0,
             "meal_allowance": 0,
+            "meal_count": 0,
+            "is_night_shift": False,
             "is_leave_code": True,
             "is_paid_leave": False,
             "notes": "Nghi OFF khong cong, khong tru phep nam (giong ngay Chu nhat OFF).",
@@ -391,6 +425,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 0,
+            "meal_count": 0,
+            "is_night_shift": False,
             "is_leave_code": True,
             "is_paid_leave": False,
             "notes": "Khong huong luong",
@@ -404,6 +440,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 0,
+            "meal_count": 0,
+            "is_night_shift": False,
             "is_leave_code": True,
             "is_paid_leave": True,
             "notes": "Tru 0.5 ngay phep nam",
@@ -417,6 +455,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 0,
+            "meal_count": 0,
+            "is_night_shift": False,
             "is_leave_code": True,
             "is_paid_leave": True,
             "notes": "Tru 0.5 ngay phep nam",
@@ -430,6 +470,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 0,
+            "meal_count": 0,
+            "is_night_shift": False,
             "is_leave_code": True,
             "is_paid_leave": True,
             "notes": "Tru 1 ngay phep nam",
@@ -443,6 +485,8 @@ def ensure_default_data(actor="system"):
             "standard_hours": 8,
             "default_overtime_hours": 0,
             "meal_allowance": 0,
+            "meal_count": 0,
+            "is_night_shift": False,
             "is_leave_code": True,
             "is_paid_leave": True,
             "notes": "Ngay le van tinh 1 ngay cong",
@@ -470,6 +514,21 @@ def ensure_default_data(actor="system"):
             after_data=shift.to_dict(),
             notes="Cap nhat tien an 30000 -> 35000 theo yeu cau",
         )
+
+    tx_shifts = ShiftTemplate.query.filter(ShiftTemplate.code.in_(["TX1", "TX2"])).all()
+    for shift in tx_shifts:
+        if _to_float(shift.meal_allowance) != 40000.0:
+            before = shift.to_dict()
+            shift.meal_allowance = 40000
+            log_action(
+                "shift_templates",
+                shift.id,
+                "UPDATE",
+                changed_by=actor,
+                before_data=before,
+                after_data=shift.to_dict(),
+                notes="Cap nhat TX1/TX2 tien an 40000",
+            )
 
     nu_shift = ShiftTemplate.query.filter_by(code="NU").first()
     nu_dynamic_note = (
@@ -908,7 +967,7 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 )
             )
 
-            # DRIVER TX1/TX2 meal rule: base 35k; if overtime >= 3h then meal becomes 70k.
+            # DRIVER TX1/TX2 meal rule: base 40k; if overtime >= 3h then meal becomes 80k.
             if (
                 shift
                 and (shift.code or "").upper() in DRIVER_AUTO_OT_SHIFT_CODES
@@ -916,10 +975,10 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 and not shift.is_leave_code
             ):
                 if adjusted_overtime >= 3.0:
-                    meal_allowance = 70000.0
+                    meal_allowance = 80000.0
                 else:
-                    # Ensure base meal is at least 35000
-                    meal_allowance = max(_to_float(meal_allowance), 35000.0)
+                    # Ensure base meal is at least 40000
+                    meal_allowance = max(_to_float(meal_allowance), 40000.0)
 
             context_note = None
             if has_scan and not has_explicit_schedule:

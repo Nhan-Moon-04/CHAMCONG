@@ -96,6 +96,29 @@
                     </td>
                 </tr>
                 <tr>
+                    <th><label for="shift-meal-count">Số bữa</label></th>
+                    <td>
+                        <input
+                            id="shift-meal-count"
+                            type="number"
+                            step="1"
+                            min="0"
+                            max="2"
+                            name="meal_count"
+                            value="{{ shift.meal_count or 0 }}"
+                        >
+                    </td>
+                </tr>
+                <tr>
+                    <th>Ca sáng/tối</th>
+                    <td>
+                        <label class="checkbox-label" for="shift-is-night-shift">
+                            <input id="shift-is-night-shift" type="checkbox" name="is_night_shift" {% if shift.is_night_shift %}checked{% endif %}>
+                            Ca tối
+                        </label>
+                    </td>
+                </tr>
+                <tr>
                     <th>Loại mã</th>
                     <td>
                         <div class="shift-checkbox-group">

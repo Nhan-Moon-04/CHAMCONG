@@ -65,6 +65,16 @@
                 value="0"
                 placeholder="Tiền ăn"
             >
+            <input
+                type="number"
+                step="1"
+                min="0"
+                max="2"
+                name="meal_count"
+                value="1"
+                placeholder="Số bữa"
+            >
+            <label><input type="checkbox" name="is_night_shift"> Ca tối</label>
             <input name="changed_by" placeholder="Người sửa" value="admin">
             <input name="notes" placeholder="Ghi chú" value="">
             <label><input type="checkbox" name="is_leave_code"> Mã nghỉ</label>
@@ -86,6 +96,8 @@
                     <th>Giờ quy định</th>
                     <th>OT mặc định</th>
                     <th>Tiền ăn</th>
+                    <th>Số bữa</th>
+                    <th>Sáng/Tối</th>
                     <th>Loại</th>
                     <th>Ghi chú</th>
                     <th>Thao tác</th>
@@ -107,6 +119,14 @@
                     <td>{{ row.standard_hours }}</td>
                     <td>{{ row.default_overtime_hours }}</td>
                     <td>{{ "{:,.0f}".format(row.meal_allowance) }}</td>
+                    <td>{{ row.meal_count or 0 }}</td>
+                    <td>
+                        {% if row.is_night_shift %}
+                            <span class="badge badge-warn">Tối</span>
+                        {% else %}
+                            <span class="badge badge-ok">Sáng</span>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if row.is_leave_code %}
                             <span class="badge">Nghỉ</span>
@@ -125,7 +145,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="10">Chưa có mã ca.</td>
+                    <td colspan="12">Chưa có mã ca.</td>
                 </tr>
                 {% endfor %}
             </tbody>

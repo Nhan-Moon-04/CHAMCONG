@@ -56,6 +56,8 @@ class ShiftTemplate(db.Model, TimestampMixin, SerializableMixin):
     standard_hours = db.Column(db.Numeric(5, 2), nullable=False, default=8)
     default_overtime_hours = db.Column(db.Numeric(5, 2), nullable=False, default=0)
     meal_allowance = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    meal_count = db.Column(db.Integer, nullable=False, default=1)
+    is_night_shift = db.Column(db.Boolean, nullable=False, default=False)
     is_leave_code = db.Column(db.Boolean, nullable=False, default=False)
     is_paid_leave = db.Column(db.Boolean, nullable=False, default=False)
     notes = db.Column(db.Text, nullable=True)
