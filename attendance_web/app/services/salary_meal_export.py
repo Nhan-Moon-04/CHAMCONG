@@ -139,6 +139,9 @@ def collect_salary_meal_overview_data(month_key, period, search_query=""):
         meal_allowance = meal_summary["meal_allowance"]
         if _is_female(employee) and meal_allowance == 0:
             meal_allowance = 35000.0
+
+        meal_total = float(meal_summary["meal_count"]) * float(meal_allowance)
+        night_total = float(meal_summary["night_shift_count"]) * 100000.0
         
         meal_rows.append(
             {
@@ -147,6 +150,11 @@ def collect_salary_meal_overview_data(month_key, period, search_query=""):
                 "meal_count": meal_summary["meal_count"],
                 "meal_allowance": meal_allowance,
                 "night_shift_count": meal_summary["night_shift_count"],
+                # Backward-compatible fields for the existing meal page template.
+                "worked_days": meal_summary["meal_count"],
+                "paid_leave_days": 0.0,
+                "unpaid_leave_days": 0.0,
+                "meal_amount": meal_total + night_total,
             }
         )
 
