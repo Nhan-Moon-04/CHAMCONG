@@ -51,6 +51,7 @@ from .services.attendance import (
     month_key_for_date,
     parse_month_key,
     rebuild_month_details,
+    update_month_details_for_holiday_date,
 )
 from .services.audit import log_action
 from .services.backup import (
@@ -3566,7 +3567,7 @@ def register_routes(app):
                 )
 
                 db.session.commit()
-                rebuild_month_details(month_key_for_date(row.holiday_date), actor)
+                update_month_details_for_holiday_date(row.holiday_date, actor)
                 flash("Đã cập nhật tick nghỉ/ngày lễ", "success")
                 return redirect(url_for("holidays", month=month_key_for_date(row.holiday_date)))
 
@@ -3616,7 +3617,7 @@ def register_routes(app):
                 )
 
             db.session.commit()
-            rebuild_month_details(month_key_for_date(holiday_date), actor)
+            update_month_details_for_holiday_date(holiday_date, actor)
             flash("Đã lưu ngày OFF/lễ", "success")
             return redirect(url_for("holidays", month=month_key_for_date(holiday_date)))
 

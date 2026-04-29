@@ -1047,3 +1047,79 @@ def rebuild_month_details(month_key, actor="system", write_audit=True):
 
     db.session.commit()
     return created_count
+
+
+def update_month_details_for_holiday_date(work_date, actor="system"):
+    """
+    When a holiday is created/updated, update detail rows for that date.
+    - If holiday is marked as paid (OFF): update detail rows without attendance scans to status="OFF"
+    - If holiday is unmarked (is_paid=False): rebuild that day to normal working status
+    """
+    month_key = month_key_for_date(work_date)
+    
+    # Check if this date is marked as a holiday
+    holiday_row = Holiday.query.filter_by(holiday_date=work_date).first()
+    
+    if holiday_row and holiday_row.is_paid:
+        # Holiday is marked as OFF: only update details without scans
+        details = AttendanceDetail.query.filter_by(
+            work_date=work_date,
+            month_key=month_key
+        ).all()
+        
+        updated_count = 0
+        for detail in details:
+            # Only update if this row has NO attendance scans
+            if detail.check_in is None and detail.check_out is None:
+                before = detail.to_dict()
+                detail.status_code = "OFF"
+                detail.paid_hours = 0.0
+                detail.daily_wage = 0.0
+                detail.notes = "Ngay le/OFF (holiday)"
+                
+                log_action(
+                    "attendance_details",
+                    detail.id,
+                    "UPDATE",
+                    changed_by=actor,
+                    before_data=before,
+                    after_data=detail.to_dict(),
+                    notes="Cap nhat status do thay doi ngay le",
+                )
+                updated_count += 1
+        
+        if updated_count > 0:
+            db.session.commit()
+        
+        return updated_count
+    else:
+        # Holiday is unmarked or removed: rebuild that day to restore working status
+        # Delete details for this date and rebuild them
+        AttendanceDetail.query.filter_by(
+            work_date=work_date,
+            month_key=month_key
+        ).delete()
+        
+        payload_rows = _compute_month_detail_payloads(month_key)
+        
+        created_count = 0
+        for payload in payload_rows:
+            # Only recreate details for this specific date
+            if payload["work_date"] == work_date:
+                row_data = {key: value for key, value in payload.items() if key != "_employee"}
+                detail = AttendanceDetail(**row_data)
+                db.session.add(detail)
+                created_count += 1
+        
+        if created_count > 0:
+            log_action(
+                "attendance_details",
+                f"{month_key}_{work_date}",
+                "REBUILD",
+                changed_by=actor,
+                after_data={"work_date": work_date, "records": created_count},
+                notes="Tai tao chi tiet ngay khi bo tick ngay le",
+            )
+            db.session.commit()
+        
+        return created_count
