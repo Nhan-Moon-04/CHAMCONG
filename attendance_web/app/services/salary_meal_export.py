@@ -328,7 +328,8 @@ def build_salary_meal_export_excel(meal_data):
         if int(night_shift_count or 0) > 0:
             sheet.cell(row=row_num, column=8).value = 100000
         else:
-            sheet.cell(row=row_num, column=8).value = None
+            # write zero so the dash-format displays " - " for no allowance
+            sheet.cell(row=row_num, column=8).value = 0
         _apply_dash_zero_format(sheet.cell(row=row_num, column=8))
         
         # Cộng tiền bồi dưỡng Đêm (total night = col7 * col8)
