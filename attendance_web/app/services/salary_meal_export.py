@@ -272,7 +272,7 @@ def build_salary_meal_export_excel(meal_data):
         "Cộng tiền bồi dưỡng",
         "TIỀN ĐIỆN",
         "TIỀN THỰC LÃNH",
-        "HỌ VÀ TÊN",
+        "KÝ NHẬN",
     ]
     sheet.append(headers)
     header_row = 5
