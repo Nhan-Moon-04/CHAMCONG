@@ -74,6 +74,10 @@ def _get_meal_allowance_for_row(detail_row, shift_template):
     return 0.0
 
 
+def _apply_dash_zero_format(cell):
+    cell.number_format = '#,##0;-#,##0;" - "'
+
+
 def collect_salary_meal_overview_data(month_key, period, search_query=""):
     period = _normalize_period(period)
     search_query = (search_query or "").strip()
@@ -280,7 +284,7 @@ def build_salary_meal_export_excel(meal_data):
         
         # STT
         sheet.cell(row=row_num, column=1).value = index
-        sheet.cell(row=row_num, column=1).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=1))
         
         # MSNV (employee code)
         sheet.cell(row=row_num, column=2).value = employee.employee_code
@@ -290,31 +294,31 @@ def build_salary_meal_export_excel(meal_data):
         
         # Số Bửa (meal count)
         sheet.cell(row=row_num, column=4).value = meal_count
-        sheet.cell(row=row_num, column=4).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=4))
         
         # Tiền Cơm (rice money)
         sheet.cell(row=row_num, column=5).value = meal_allowance
-        sheet.cell(row=row_num, column=5).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=5))
         
         # Cộng Tiền cơm (total rice = col4 * col5)
         col_d = get_column_letter(4)
         col_e = get_column_letter(5)
         sheet.cell(row=row_num, column=6).value = f"={col_d}{row_num}*{col_e}{row_num}"
-        sheet.cell(row=row_num, column=6).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=6))
         
         # Số Đêm (night shift count)
         sheet.cell(row=row_num, column=7).value = night_shift_count
-        sheet.cell(row=row_num, column=7).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=7))
         
         # Bồi Dưỡng Ca Đêm (night allowance per night - fixed 100k)
         sheet.cell(row=row_num, column=8).value = 100000
-        sheet.cell(row=row_num, column=8).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=8))
         
         # Cộng tiền bồi dưỡng Đêm (total night = col7 * col8)
         col_g = get_column_letter(7)
         col_h = get_column_letter(8)
         sheet.cell(row=row_num, column=9).value = f"={col_g}{row_num}*{col_h}{row_num}"
-        sheet.cell(row=row_num, column=9).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=9))
         
         # Số Bửa for auxiliary work stays blank in this export.
         sheet.cell(row=row_num, column=10).value = None
@@ -326,11 +330,11 @@ def build_salary_meal_export_excel(meal_data):
         col_j = get_column_letter(10)
         col_k = get_column_letter(11)
         sheet.cell(row=row_num, column=12).value = f"={col_j}{row_num}*{col_k}{row_num}"
-        sheet.cell(row=row_num, column=12).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=12))
         
         # TIỀN ĐIỆN (electricity - blank)
         sheet.cell(row=row_num, column=13).value = None
-        sheet.cell(row=row_num, column=13).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=13))
         
         # TIỀN THỰC LÃNH (actual received = col6 + col9 + col12 - col13)
         col_f = get_column_letter(6)
@@ -338,7 +342,7 @@ def build_salary_meal_export_excel(meal_data):
         col_l = get_column_letter(12)
         col_m = get_column_letter(13)
         sheet.cell(row=row_num, column=14).value = f"={col_f}{row_num}+{col_i}{row_num}+{col_l}{row_num}-{col_m}{row_num}"
-        sheet.cell(row=row_num, column=14).number_format = "#,##0"
+        _apply_dash_zero_format(sheet.cell(row=row_num, column=14))
         sheet.cell(row=row_num, column=14).font = Font(bold=True)
         
         # Ký nhận: để trống để người lao động tự ký.
