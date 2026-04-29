@@ -243,7 +243,7 @@ def build_salary_meal_export_excel(meal_data):
     headers = [
         "STT",
         "MSNV",
-        "HỌ VÀ TÊN",
+        "KÝ NHẬN",
         "Số Bửa",
         "Tiền Cơm",
         "Cộng Tiền cơm",
@@ -280,6 +280,7 @@ def build_salary_meal_export_excel(meal_data):
         
         # STT
         sheet.cell(row=row_num, column=1).value = index
+        sheet.cell(row=row_num, column=1).number_format = "#,##0"
         
         # MSNV (employee code)
         sheet.cell(row=row_num, column=2).value = employee.employee_code
@@ -289,6 +290,7 @@ def build_salary_meal_export_excel(meal_data):
         
         # Số Bửa (meal count)
         sheet.cell(row=row_num, column=4).value = meal_count
+        sheet.cell(row=row_num, column=4).number_format = "#,##0"
         
         # Tiền Cơm (rice money)
         sheet.cell(row=row_num, column=5).value = meal_allowance
@@ -302,6 +304,7 @@ def build_salary_meal_export_excel(meal_data):
         
         # Số Đêm (night shift count)
         sheet.cell(row=row_num, column=7).value = night_shift_count
+        sheet.cell(row=row_num, column=7).number_format = "#,##0"
         
         # Bồi Dưỡng Ca Đêm (night allowance per night - fixed 100k)
         sheet.cell(row=row_num, column=8).value = 100000
@@ -338,8 +341,8 @@ def build_salary_meal_export_excel(meal_data):
         sheet.cell(row=row_num, column=14).number_format = "#,##0"
         sheet.cell(row=row_num, column=14).font = Font(bold=True)
         
-        # HỌ VÀ TÊN (signature name)
-        sheet.cell(row=row_num, column=15).value = employee.full_name
+        # Ký nhận: để trống để người lao động tự ký.
+        sheet.cell(row=row_num, column=15).value = None
     
     # Set column widths
     sheet.column_dimensions["A"].width = 5
