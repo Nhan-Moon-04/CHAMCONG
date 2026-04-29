@@ -1053,7 +1053,7 @@ def update_month_details_for_holiday_date(work_date, actor="system"):
     """
     When a holiday is created/updated, update detail rows for that date.
     - If holiday is marked as paid (OFF): update ALL detail rows to status="OFF", paid_hours=0
-      This preserves check_in/check_out from night shifts that span into the holiday.
+      Also clear check_in/check_out to prevent "forgot checkout" false positives.
     - If holiday is unmarked (is_paid=False): rebuild that day to normal working status
     """
     month_key = month_key_for_date(work_date)
@@ -1063,7 +1063,7 @@ def update_month_details_for_holiday_date(work_date, actor="system"):
     
     if holiday_row and holiday_row.is_paid:
         # Holiday is marked as OFF: update ALL details to OFF status, zero pay
-        # This handles night shifts that span from previous day (check_in/check_out are preserved)
+        # Clear check_in/check_out to prevent "forgot checkout" logic
         details = AttendanceDetail.query.filter_by(
             work_date=work_date,
             month_key=month_key
@@ -1075,7 +1075,14 @@ def update_month_details_for_holiday_date(work_date, actor="system"):
             detail.status_code = "OFF"
             detail.paid_hours = 0.0
             detail.daily_wage = 0.0
-            if not detail.notes or "holiday" not in detail.notes.lower():
+            detail.check_in = None
+            detail.check_out = None
+            
+            # Preserve check_in/check_out info in notes
+            old_note = (detail.notes or "").strip()
+            if old_note and "Ngay le" not in old_note:
+                detail.notes = f"{old_note} | Ngay le/OFF (holiday)"
+            else:
                 detail.notes = "Ngay le/OFF (holiday)"
             
             log_action(
