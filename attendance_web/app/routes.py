@@ -65,6 +65,7 @@ from .services.salary_meal_export import (
     build_salary_meal_export_excel,
     collect_salary_meal_overview_data,
 )
+from .services.salary_calculator import get_salary_month_details
 from .services.salary_importer import import_salary_file
 from .services.schedule_importer import import_schedule_file
 from .services.nu_shift import is_nu_warning_note
@@ -1926,6 +1927,9 @@ def register_routes(app):
             key=lambda item: (-item["days"], item["shift_code"]),
         )
 
+        # Calculate detailed salary breakdown
+        salary_breakdown = get_salary_month_details(employee_id, month_key)
+
         return render_template(
             "employee_detail.html",
             employee=employee,
@@ -1937,6 +1941,7 @@ def register_routes(app):
             summary_paid_hours=summary_paid_hours,
             summary_wage=summary_wage,
             shift_summary_rows=shift_summary_rows,
+            salary_breakdown=salary_breakdown,
         )
 
     @app.route("/shifts", methods=["GET", "POST"])

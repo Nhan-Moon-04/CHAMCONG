@@ -131,6 +131,114 @@
         </table>
     </div>
 
+    <!-- Salary Breakdown Section -->
+    {% if salary_breakdown %}
+    <div class="panel">
+        <h3>Chi tiết tính lương</h3>
+        <p class="muted">
+            Hệ số lương: {{ salary_breakdown.salary_coefficient }} • 
+            Lương cơ bản: {{ "{:,.0f}".format(salary_breakdown.base_wage) }} • 
+            Giá/giờ: {{ "{:,.0f}".format(salary_breakdown.hourly_rate) }} • 
+            Giá/giờ OT (x1.5): {{ "{:,.0f}".format(salary_breakdown.ot_hourly_rate) }} • 
+            Giá/giờ Chủ nhật (x2): {{ "{:,.0f}".format(salary_breakdown.sunday_hourly_rate) }}
+        </p>
+
+        <!-- Regular Days Summary -->
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="8">Ngày thường (T2-T7)</th>
+                    </tr>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Mã ca</th>
+                        <th>Giờ công</th>
+                        <th>Lương ngày thường</th>
+                        <th>Giờ tăng ca</th>
+                        <th>Lương tăng ca (x1.5)</th>
+                        <th>Tổng</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if salary_breakdown.regular_days_breakdown %}
+                        {% for row in salary_breakdown.regular_days_breakdown %}
+                        <tr>
+                            <td>{{ row.work_date }}</td>
+                            <td>{{ row.shift_code }}</td>
+                            <td>{{ "%.2f"|format(row.paid_hours) }}h</td>
+                            <td>{{ "{:,.0f}".format(row.regular_wage) }}</td>
+                            <td>{{ "%.2f"|format(row.overtime_hours) }}h</td>
+                            <td>{{ "{:,.0f}".format(row.ot_wage) }}</td>
+                            <td><strong>{{ "{:,.0f}".format(row.day_total) }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8">Không có dữ liệu</td>
+                        </tr>
+                    {% endif %}
+                    <tr style="font-weight: bold; background-color: #f5f5f5;">
+                        <td colspan="3">Tổng giờ công: {{ "%.2f"|format(salary_breakdown.summary.regular_hours) }}h</td>
+                        <td>{{ "{:,.0f}".format(salary_breakdown.summary.regular_wage) }}</td>
+                        <td>{{ "%.2f"|format(salary_breakdown.summary.ot_hours) }}h</td>
+                        <td>{{ "{:,.0f}".format(salary_breakdown.summary.ot_wage) }}</td>
+                        <td colspan="2">{{ "{:,.0f}".format(salary_breakdown.summary.regular_wage + salary_breakdown.summary.ot_wage) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Sunday Summary -->
+        {% if salary_breakdown.sunday_breakdown %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="6">Chủ nhật (x2)</th>
+                    </tr>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Mã ca</th>
+                        <th>Giờ làm</th>
+                        <th>Giá/giờ (x2)</th>
+                        <th>Lương</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in salary_breakdown.sunday_breakdown %}
+                    <tr>
+                        <td>{{ row.work_date }}</td>
+                        <td>{{ row.shift_code }}</td>
+                        <td>{{ "%.2f"|format(row.paid_hours) }}h</td>
+                        <td>{{ "{:,.0f}".format(row.hourly_rate) }}</td>
+                        <td><strong>{{ "{:,.0f}".format(row.wage) }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr style="font-weight: bold; background-color: #f5f5f5;">
+                        <td colspan="2">Tổng chủ nhật</td>
+                        <td>{{ "%.2f"|format(salary_breakdown.summary.sunday_hours) }}h</td>
+                        <td></td>
+                        <td>{{ "{:,.0f}".format(salary_breakdown.summary.sunday_wage) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Total Summary -->
+        <div style="margin-top: 20px; padding: 15px; background-color: #f0f8ff; border-left: 4px solid #007bff;">
+            <strong>Tổng lương tháng:</strong><br/>
+            <span style="font-size: 1.2em; color: #007bff;">{{ "{:,.0f}".format(salary_breakdown.summary.total_wage) }}</span>
+            <p class="muted" style="margin-top: 10px;">
+                Ngày thường: {{ "{:,.0f}".format(salary_breakdown.summary.regular_wage) }} + 
+                Tăng ca: {{ "{:,.0f}".format(salary_breakdown.summary.ot_wage) }} + 
+                Chủ nhật: {{ "{:,.0f}".format(salary_breakdown.summary.sunday_wage) }}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="table-wrap">
         <table>
             <thead>
