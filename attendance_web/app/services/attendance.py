@@ -1052,7 +1052,8 @@ def rebuild_month_details(month_key, actor="system", write_audit=True):
 def update_month_details_for_holiday_date(work_date, actor="system"):
     """
     When a holiday is created/updated, update detail rows for that date.
-    - If holiday is marked as paid (OFF): update detail rows without attendance scans to status="OFF"
+    - If holiday is marked as paid (OFF): update ALL detail rows to status="OFF", paid_hours=0
+      This preserves check_in/check_out from night shifts that span into the holiday.
     - If holiday is unmarked (is_paid=False): rebuild that day to normal working status
     """
     month_key = month_key_for_date(work_date)
@@ -1061,7 +1062,8 @@ def update_month_details_for_holiday_date(work_date, actor="system"):
     holiday_row = Holiday.query.filter_by(holiday_date=work_date).first()
     
     if holiday_row and holiday_row.is_paid:
-        # Holiday is marked as OFF: only update details without scans
+        # Holiday is marked as OFF: update ALL details to OFF status, zero pay
+        # This handles night shifts that span from previous day (check_in/check_out are preserved)
         details = AttendanceDetail.query.filter_by(
             work_date=work_date,
             month_key=month_key
@@ -1069,24 +1071,23 @@ def update_month_details_for_holiday_date(work_date, actor="system"):
         
         updated_count = 0
         for detail in details:
-            # Only update if this row has NO attendance scans
-            if detail.check_in is None and detail.check_out is None:
-                before = detail.to_dict()
-                detail.status_code = "OFF"
-                detail.paid_hours = 0.0
-                detail.daily_wage = 0.0
+            before = detail.to_dict()
+            detail.status_code = "OFF"
+            detail.paid_hours = 0.0
+            detail.daily_wage = 0.0
+            if not detail.notes or "holiday" not in detail.notes.lower():
                 detail.notes = "Ngay le/OFF (holiday)"
-                
-                log_action(
-                    "attendance_details",
-                    detail.id,
-                    "UPDATE",
-                    changed_by=actor,
-                    before_data=before,
-                    after_data=detail.to_dict(),
-                    notes="Cap nhat status do thay doi ngay le",
-                )
-                updated_count += 1
+            
+            log_action(
+                "attendance_details",
+                detail.id,
+                "UPDATE",
+                changed_by=actor,
+                before_data=before,
+                after_data=detail.to_dict(),
+                notes="Cap nhat status do thay doi ngay le",
+            )
+            updated_count += 1
         
         if updated_count > 0:
             db.session.commit()
