@@ -772,10 +772,18 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
 
             has_scan = bool(check_in or check_out)
 
-            # OFF day from Holidays/Sunday takes precedence when there is no attendance scan.
+            # Holiday OFF takes precedence: force OFF status regardless of scans
+            if is_holiday_off and not manual_work_override:
+                shift = None
+                planned_shift_code = "OFF"
+                status_code = "OFF"
+                check_in = None
+                check_out = None
+                _append_note(row_notes, "Ngay le/OFF (holiday)")
+            # OFF day from Sunday takes precedence when there is no attendance scan.
             # This prevents OFF dates from being converted to "Nghi khong phep".
-            if (
-                (is_effective_sunday_off or is_holiday_off)
+            elif (
+                is_effective_sunday_off
                 and not has_scan
                 and not manual_work_override
                 and not is_paid_off_shift
@@ -938,11 +946,14 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 _append_note(row_notes, status_note)
 
             note_issue = None
-            if not has_scan:
+            if status_code == "OFF":
+                # For OFF status (holiday or Sunday), don't check for missing scans
+                note_issue = None
+            elif not has_scan:
                 if should_have_attendance and not manual_work_override:
                     if has_explicit_schedule:
                         note_issue = "Bo ca"
-                    elif not (is_effective_sunday_off or is_holiday_off):
+                    elif not is_effective_sunday_off:
                         note_issue = "Khong quet the"
             elif check_in and check_out and check_in == check_out:
                 note_issue = "Quen checkout" if check_in.hour < 12 else "Quen checkin"
