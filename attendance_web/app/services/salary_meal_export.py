@@ -50,6 +50,30 @@ def _is_nu_night_row(detail_row):
     return "toi" in notes or "night" in notes
 
 
+def _get_meal_count_for_row(detail_row, shift_template):
+    shift_code = str(getattr(detail_row, "shift_code", "") or "").strip().upper()
+
+    if shift_code == "NU":
+        return 1 if _is_nu_night_row(detail_row) else 2
+
+    if shift_template:
+        return int(getattr(shift_template, "meal_count", 1) or 1)
+
+    return 1
+
+
+def _get_meal_allowance_for_row(detail_row, shift_template):
+    shift_code = str(getattr(detail_row, "shift_code", "") or "").strip().upper()
+
+    if shift_code == "NU":
+        return 35000.0
+
+    if shift_template:
+        return float(shift_template.meal_allowance or 0)
+
+    return 0.0
+
+
 def collect_salary_meal_overview_data(month_key, period, search_query=""):
     period = _normalize_period(period)
     search_query = (search_query or "").strip()
@@ -116,16 +140,15 @@ def collect_salary_meal_overview_data(month_key, period, search_query=""):
 
         # Check if it's a working day (not leave)
         shift_template = shift_map.get(detail_row.shift_code)
-        
-        # Count meals from the shift template so the export follows the code-based meal rules.
+
+        # Count meals from the shift template, with NU morning/night using the special rule.
         if status not in {"P", "N"}:  # P=paid leave, N=unpaid leave
-            shift_meal_count = int(getattr(shift_template, "meal_count", 1) or 1) if shift_template else 1
+            shift_meal_count = _get_meal_count_for_row(detail_row, shift_template)
             meal_summary["meal_count"] += shift_meal_count
-            if shift_template:
-                meal_summary["meal_allowance"] = max(
-                    meal_summary["meal_allowance"],
-                    float(shift_template.meal_allowance or 0),
-                )
+            meal_summary["meal_allowance"] = max(
+                meal_summary["meal_allowance"],
+                _get_meal_allowance_for_row(detail_row, shift_template),
+            )
         
         # Count night shifts only for NU night rows.
         if _is_nu_night_row(detail_row):
@@ -135,9 +158,9 @@ def collect_salary_meal_overview_data(month_key, period, search_query=""):
     for employee_id, meal_summary in meal_summary_map.items():
         employee = meal_summary["employee"]
         
-        # For female employees, set meal_allowance to 35000 if not already set
+        # For female employees and NU shifts, keep the meal allowance at 35000.
         meal_allowance = meal_summary["meal_allowance"]
-        if _is_female(employee) and meal_allowance == 0:
+        if ("NU" in str(employee.gender or "").upper() or _is_female(employee)) and meal_allowance == 0:
             meal_allowance = 35000.0
 
         meal_total = float(meal_summary["meal_count"]) * float(meal_allowance)
