@@ -260,7 +260,7 @@ def build_salary_meal_export_excel(meal_data):
     headers = [
         "STT",
         "MSNV",
-        "KÝ NHẬN",
+        "HỌ VÀ TÊN",
         "Số Bửa",
         "Tiền Cơm",
         "Cộng Tiền cơm",
@@ -324,7 +324,11 @@ def build_salary_meal_export_excel(meal_data):
         _apply_dash_zero_format(sheet.cell(row=row_num, column=7))
         
         # Bồi Dưỡng Ca Đêm (night allowance per night - fixed 100k)
-        sheet.cell(row=row_num, column=8).value = 100000
+        # Only populate when the employee actually worked night shifts in the period.
+        if int(night_shift_count or 0) > 0:
+            sheet.cell(row=row_num, column=8).value = 100000
+        else:
+            sheet.cell(row=row_num, column=8).value = None
         _apply_dash_zero_format(sheet.cell(row=row_num, column=8))
         
         # Cộng tiền bồi dưỡng Đêm (total night = col7 * col8)
