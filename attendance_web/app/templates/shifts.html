@@ -1,131 +1,138 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel page-toolbar">
-    <div>
-        <h2>Bảng mã ca làm</h2>
-        <p class="muted">Danh sách mã ca chuẩn của hệ thống. Dòng mã NU được tô đỏ để dễ nhận biết.</p>
-    </div>
-    <div class="toolbar-actions">
-        <button type="button" id="shift-tools-toggle-btn" class="secondary" aria-expanded="false">Mở form tạo ca</button>
-    </div>
-</section>
 
-<section id="shift-tools-container" class="page-tools tools-collapsed">
-    <div class="panel soft-panel">
-        <h3>Tạo mã ca mới</h3>
-        <form method="post" class="form-grid">
-            <input
-                name="code"
-                placeholder="Mã ca (VD: X, XVP, XT)"
-                value=""
-                required
-            >
-            <input name="name" placeholder="Tên ca" value="" required>
-            <input
-                type="time"
-                name="start_time"
-                value=""
-                placeholder="Giờ vào"
-            >
-            <input
-                type="time"
-                name="end_time"
-                value=""
-                placeholder="Giờ ra"
-            >
-            <input
-                type="number"
-                step="1"
-                min="0"
-                name="break_minutes"
-                value="0"
-                placeholder="Nghỉ (phút)"
-            >
-            <input
-                type="number"
-                step="0.5"
-                min="0"
-                name="standard_hours"
-                value="8"
-                placeholder="Giờ quy định"
-            >
-            <input
-                type="number"
-                step="0.5"
-                min="0"
-                name="default_overtime_hours"
-                value="0"
-                placeholder="OT mặc định"
-            >
-            <input
-                type="number"
-                step="1000"
-                min="0"
-                name="meal_allowance"
-                value="0"
-                placeholder="Tiền ăn"
-            >
-            <input name="changed_by" placeholder="Người sửa" value="admin">
-            <input name="notes" placeholder="Ghi chú" value="">
-            <label><input type="checkbox" name="is_leave_code"> Mã nghỉ</label>
-            <label><input type="checkbox" name="is_paid_leave"> Nghỉ vẫn tính lương</label>
-            <button type="submit">Lưu mã ca</button>
+{# ── Topbar ── #}
+<div class="sft-topbar">
+    <div class="sft-bread">
+        <span>Cấu hình</span>
+        <span class="sep">/</span>
+        <span class="cur">Mã ca làm việc</span>
+    </div>
+
+    <span class="sft-count-chip">
+        <i class="bi bi-clock"></i>
+        <strong>{{ shifts | length }}</strong> mã ca
+    </span>
+
+    <div class="det-actions" style="margin-left:auto;">
+        <button type="button" id="shift-tools-toggle-btn" class="det-btn" aria-expanded="false">
+            <i class="bi bi-plus-lg"></i> Tạo ca mới
+        </button>
+    </div>
+</div>
+
+{# ── Collapsible create form ── #}
+<div id="shift-tools-container" class="tools-collapsed">
+    <div class="sft-form-wrap">
+        <form method="post">
+            <div class="sft-form-grid">
+                <input name="code"                    placeholder="Mã ca (VD: X, XVP)" required>
+                <input name="name"                    placeholder="Tên ca" required>
+                <input type="time"   name="start_time" placeholder="Giờ vào">
+                <input type="time"   name="end_time"   placeholder="Giờ ra">
+                <input type="number" name="break_minutes"          step="1"    min="0" value="0"  placeholder="Nghỉ (phút)">
+                <input type="number" name="standard_hours"         step="0.5"  min="0" value="8"  placeholder="Giờ quy định">
+                <input type="number" name="default_overtime_hours" step="0.5"  min="0" value="0"  placeholder="OT mặc định (h)">
+                <input type="number" name="meal_allowance"         step="1000" min="0" value="0"  placeholder="Tiền ăn (đ)">
+                <input name="notes"      placeholder="Ghi chú">
+                <input name="changed_by" placeholder="Người tạo" value="admin">
+            </div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                <div class="sft-form-checkboxes">
+                    <label><input type="checkbox" name="is_leave_code"> Mã nghỉ phép</label>
+                    <label><input type="checkbox" name="is_paid_leave"> Nghỉ vẫn tính lương</label>
+                </div>
+                <button type="submit" class="sft-save-btn">
+                    <i class="bi bi-floppy"></i> Lưu mã ca
+                </button>
+            </div>
         </form>
     </div>
-</section>
+</div>
 
-<section class="panel data-panel">
+{# ── Data table ── #}
+<section class="panel data-panel" id="sft-table-panel">
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Mã</th>
+                    <th>Mã ca</th>
                     <th>Tên ca</th>
-                    <th>Giờ</th>
-                    <th>Nghỉ (phút)</th>
-                    <th>Giờ quy định</th>
-                    <th>OT mặc định</th>
-                    <th>Tiền ăn</th>
-                    <th>Loại</th>
+                    <th style="text-align:center;">Giờ làm</th>
+                    <th style="text-align:right;">Nghỉ giữa ca</th>
+                    <th style="text-align:right;">Giờ quy định</th>
+                    <th style="text-align:right;">OT mặc định</th>
+                    <th style="text-align:right;">Tiền ăn</th>
+                    <th style="text-align:center;">Loại</th>
                     <th>Ghi chú</th>
-                    <th>Thao tác</th>
+                    <th style="text-align:right;">Thao tác</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in shifts %}
-                <tr class="{% if row.code and row.code.upper() == 'NU' %}shift-row-nu{% endif %}">
-                    <td>{{ row.code }}</td>
-                    <td>{{ row.name }}</td>
+                {% set is_nu = row.code and row.code.upper() == 'NU' %}
+                {% set is_leave = row.is_leave_code %}
+                <tr class="{% if is_nu %}sft-row-nu{% endif %}">
                     <td>
+                        <span class="sft-code-badge {% if is_nu %}sft-code-badge-nu{% elif is_leave %}sft-code-badge-leave{% endif %}">
+                            {{ row.code }}
+                        </span>
+                    </td>
+                    <td style="font-weight:500;color:#1E293B;">{{ row.name }}</td>
+                    <td style="text-align:center;">
                         {% if row.start_time %}
-                            {{ row.start_time.strftime('%H:%M') }} - {{ row.end_time.strftime('%H:%M') if row.end_time else '-' }}
+                        <span class="sft-time">
+                            {{ row.start_time.strftime('%H:%M') }}
+                            <span style="color:#CBD5E1;">–</span>
+                            {{ row.end_time.strftime('%H:%M') if row.end_time else '?' }}
+                        </span>
                         {% else %}
-                            -
+                        <span class="sft-time-none">—</span>
                         {% endif %}
                     </td>
-                    <td>{{ row.break_minutes }}</td>
-                    <td>{{ row.standard_hours }}</td>
-                    <td>{{ row.default_overtime_hours }}</td>
-                    <td>{{ "{:,.0f}".format(row.meal_allowance) }}</td>
+                    <td style="text-align:right;color:#64748B;">
+                        {% if row.break_minutes %}{{ row.break_minutes }} ph{% else %}<span style="color:#CBD5E1;">—</span>{% endif %}
+                    </td>
+                    <td style="text-align:right;font-weight:600;">{{ row.standard_hours }}h</td>
+                    <td style="text-align:right;color:#D97706;">
+                        {% if row.default_overtime_hours %}{{ row.default_overtime_hours }}h{% else %}<span style="color:#CBD5E1;">—</span>{% endif %}
+                    </td>
+                    <td style="text-align:right;font-variant-numeric:tabular-nums;">
+                        {% if row.meal_allowance %}{{ "{:,.0f}".format(row.meal_allowance) }}{% else %}<span style="color:#CBD5E1;">—</span>{% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        {% if row.is_leave_code and row.is_paid_leave %}
+                        <span class="sft-type-leave">Nghỉ có lương</span>
+                        {% elif row.is_leave_code %}
+                        <span class="sft-type-leave">Nghỉ</span>
+                        {% else %}
+                        <span class="sft-type-work">Làm việc</span>
+                        {% endif %}
+                    </td>
+                    <td style="color:#64748B;font-size:11.5px;max-width:160px;overflow:hidden;text-overflow:ellipsis;">
+                        {{ row.notes or '—' }}
+                    </td>
                     <td>
-                        {% if row.is_leave_code %}
-                            <span class="badge">Nghỉ</span>
-                        {% else %}
-                            <span class="badge badge-ok">Làm việc</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ row.notes or '-' }}</td>
-                    <td class="row-actions">
-                        <a href="{{ url_for('edit_shift', shift_id=row.id) }}">Sửa</a>
-                        <form class="row-action-form" method="post" action="{{ url_for('delete_shift', shift_id=row.id) }}" data-confirm="Xóa mã ca này?">
-                            <input type="hidden" name="changed_by" value="admin">
-                            <button type="submit" class="secondary">Xóa</button>
-                        </form>
+                        <div class="emp-actions" style="justify-content:flex-end;">
+                            <a href="{{ url_for('edit_shift', shift_id=row.id) }}" class="emp-action-btn">
+                                <i class="bi bi-pencil"></i> Sửa
+                            </a>
+                            <form class="row-action-form" method="post"
+                                  action="{{ url_for('delete_shift', shift_id=row.id) }}"
+                                  data-confirm="Xóa mã ca {{ row.code }} – {{ row.name }}?">
+                                <input type="hidden" name="changed_by" value="admin">
+                                <button type="submit" class="emp-action-btn emp-action-btn-danger">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="10">Chưa có mã ca.</td>
+                    <td colspan="10" style="text-align:center;color:#94A3B8;padding:36px 12px;">
+                        Chưa có mã ca nào. Nhấn "Tạo ca mới" để bắt đầu.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -136,24 +143,24 @@
 <script>
 (() => {
     const toolsContainer = document.getElementById("shift-tools-container");
-    const toggleButton = document.getElementById("shift-tools-toggle-btn");
-
-    if (!toolsContainer || !toggleButton) {
-        return;
-    }
+    const toggleButton   = document.getElementById("shift-tools-toggle-btn");
+    if (!toolsContainer || !toggleButton) return;
 
     const setToolsState = (collapsed) => {
         toolsContainer.classList.toggle("tools-collapsed", collapsed);
-        toggleButton.textContent = collapsed ? "Mở form tạo ca" : "Thu gọn form";
         toggleButton.setAttribute("aria-expanded", String(!collapsed));
+        toggleButton.classList.toggle("det-active", !collapsed);
+        toggleButton.innerHTML = collapsed
+            ? '<i class="bi bi-plus-lg"></i> Tạo ca mới'
+            : '<i class="bi bi-dash-lg"></i> Thu gọn';
     };
 
     toggleButton.addEventListener("click", () => {
-        const collapsed = toolsContainer.classList.contains("tools-collapsed");
-        setToolsState(!collapsed);
+        setToolsState(!toolsContainer.classList.contains("tools-collapsed"));
     });
 
     setToolsState(true);
 })();
 </script>
+
 {% endblock %}
