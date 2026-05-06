@@ -1,19 +1,124 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel employees-header">
-    <div>
-        <p class="dashboard-eyebrow">He thong</p>
-        <h2>Cai dat</h2>
-        <p class="muted">Quan ly cac tuy chon nghiep vu.</p>
-    </div>
-</section>
 
-<section class="panel data-panel">
-    <h3>Quy tac tinh tien an</h3>
-    <p class="muted">Bat/Tat rule: Lam OT den sau 18:00 thi duoc tinh 1 suat an.</p>
-    <form method="post" action="{{ url_for('settings_toggle_ot_after_6pm') }}">
-        <button type="submit">{{ 'Tat' if enable_ot_after_6pm_meal else 'Bat' }} tinh an OT sau 18:00</button>
-        <span class="muted" style="margin-left:8px;">Trang thai: {{ 'Dang bat' if enable_ot_after_6pm_meal else 'Dang tat' }}</span>
-    </form>
-</section>
+{# ── Topbar ── #}
+<div class="cfg-topbar">
+    <div class="cfg-bread">
+        <span>Hệ thống</span>
+        <span class="sep">/</span>
+        <span class="cur">Cài đặt</span>
+    </div>
+</div>
+
+{# ── Body ── #}
+<div class="cfg-body">
+
+    {# ── Tính lương & chấm công ── #}
+    <div class="cfg-group">
+        <div class="cfg-group-label">
+            <i class="bi bi-calculator"></i> Tính lương &amp; chấm công
+        </div>
+
+        <div class="cfg-row">
+            <div class="cfg-row-icon" style="background:#EFF6FF;color:#2563EB;">
+                <i class="bi bi-moon-stars"></i>
+            </div>
+            <div class="cfg-row-body">
+                <div class="cfg-row-title">Tính tiền ăn khi tăng ca sau 18:00</div>
+                <div class="cfg-row-desc">
+                    Khi bật, nhân viên làm tăng ca đến sau 18:00 sẽ tự động được tính thêm 1 suất tiền ăn tối.
+                    Ảnh hưởng đến toàn bộ dữ liệu tính lương mới.
+                </div>
+            </div>
+            <div class="cfg-row-control">
+                <span class="cfg-toggle-state {% if enable_ot_after_6pm_meal %}cfg-toggle-on{% else %}cfg-toggle-off{% endif %}">
+                    {% if enable_ot_after_6pm_meal %}
+                    <i class="bi bi-check-circle-fill"></i> Đang bật
+                    {% else %}
+                    <i class="bi bi-dash-circle"></i> Đang tắt
+                    {% endif %}
+                </span>
+                <form method="post" action="{{ url_for('settings_toggle_ot_after_6pm') }}" class="cfg-toggle-form">
+                    {% if enable_ot_after_6pm_meal %}
+                    <button type="submit" class="cfg-toggle-btn cfg-toggle-btn-on">
+                        <i class="bi bi-toggle-on"></i> Tắt
+                    </button>
+                    {% else %}
+                    <button type="submit" class="cfg-toggle-btn cfg-toggle-btn-off">
+                        <i class="bi bi-toggle-off"></i> Bật
+                    </button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    {# ── Liên kết nhanh ── #}
+    <div class="cfg-group">
+        <div class="cfg-group-label">
+            <i class="bi bi-link-45deg"></i> Quản trị hệ thống
+        </div>
+
+        <div class="cfg-row">
+            <div class="cfg-row-icon" style="background:#F0FDF4;color:#15803D;">
+                <i class="bi bi-person-gear"></i>
+            </div>
+            <div class="cfg-row-body">
+                <div class="cfg-row-title">Quản lý tài khoản người dùng</div>
+                <div class="cfg-row-desc">Thêm, sửa, xóa user và phân quyền admin trong hệ thống.</div>
+            </div>
+            <div class="cfg-row-control">
+                <a href="{{ url_for('users') }}" class="cfg-toggle-btn" style="background:#F8FAFC;color:#475569;border-color:#E2E8F0;">
+                    <i class="bi bi-arrow-right"></i> Mở
+                </a>
+            </div>
+        </div>
+
+        <div class="cfg-row">
+            <div class="cfg-row-icon" style="background:#FEF3C7;color:#D97706;">
+                <i class="bi bi-clipboard2-data"></i>
+            </div>
+            <div class="cfg-row-body">
+                <div class="cfg-row-title">Nhật ký hoạt động (Audit log)</div>
+                <div class="cfg-row-desc">Xem lịch sử thay đổi dữ liệu, ai sửa gì và khi nào.</div>
+            </div>
+            <div class="cfg-row-control">
+                <a href="{{ url_for('audit_logs') }}" class="cfg-toggle-btn" style="background:#F8FAFC;color:#475569;border-color:#E2E8F0;">
+                    <i class="bi bi-arrow-right"></i> Mở
+                </a>
+            </div>
+        </div>
+
+        <div class="cfg-row">
+            <div class="cfg-row-icon" style="background:#EDE9FE;color:#5B21B6;">
+                <i class="bi bi-file-earmark-arrow-up"></i>
+            </div>
+            <div class="cfg-row-body">
+                <div class="cfg-row-title">Import / Export dữ liệu</div>
+                <div class="cfg-row-desc">Upload file chấm công, xuất báo cáo Excel.</div>
+            </div>
+            <div class="cfg-row-control">
+                <a href="{{ url_for('imports') }}" class="cfg-toggle-btn" style="background:#F8FAFC;color:#475569;border-color:#E2E8F0;">
+                    <i class="bi bi-arrow-right"></i> Mở
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    {# ── Note ── #}
+    <div class="cfg-info-card">
+        <i class="bi bi-info-circle"></i>
+        <div class="cfg-info-card-body">
+            <div class="cfg-info-card-title">Lưu ý về cài đặt</div>
+            <div class="cfg-info-card-text">
+                Một số cài đặt (như tính tiền ăn OT) chỉ áp dụng cho lần tính lương tiếp theo
+                và không tự động tính lại dữ liệu cũ. Nếu cần, hãy import lại file lương sau khi thay đổi.
+            </div>
+        </div>
+    </div>
+
+</div>
+
 {% endblock %}
