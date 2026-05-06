@@ -1,210 +1,290 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel dashboard-hero">
-    <div class="dashboard-hero-copy">
-        <p class="dashboard-eyebrow">Tổng quan điều hành</p>
-        <h2>Tổng quan chấm công tháng {{ month_key }}</h2>
-        <p class="muted">Theo dõi nhanh mức độ hiện diện, khung cảnh báo và xu hướng tăng ca để quản lý vận hành nhân sự theo ngày.</p>
+
+{# ── Slim topbar: breadcrumb + month picker ── #}
+<div class="dash-topbar">
+    <div class="dash-breadcrumb">
+        <span>Tổng quan</span>
+        <span class="sep">/</span>
+        <span class="cur">Dashboard chấm công</span>
     </div>
-    <form method="get" class="dashboard-month-form">
-        <label for="month">Chọn tháng</label>
-        <input id="month" type="month" name="month" value="{{ month_key }}">
-        {% if warning_query %}
-        <input type="hidden" name="q" value="{{ warning_query }}">
-        {% endif %}
-        <button type="submit">Cập nhật dashboard</button>
+    <form method="get" class="dash-month-form">
+        <label for="dash-month">Tháng:</label>
+        <input id="dash-month" type="month" name="month" value="{{ month_key }}">
+        {% if warning_query %}<input type="hidden" name="q" value="{{ warning_query }}">{% endif %}
+        <button type="submit"><i class="bi bi-arrow-clockwise" style="margin-right:4px;"></i>Cập nhật</button>
     </form>
-</section>
+</div>
 
-<section class="dashboard-kpi-grid">
-    <article class="metric-card metric-card-highlight">
-        <span class="metric-label">Tổng nhân sự hoạt động</span>
-        <strong class="metric-value">{{ total_employees }}</strong>
-        <p class="metric-subtext">Nguồn dữ liệu nhân viên đang active</p>
-    </article>
-    <article class="metric-card">
-        <span class="metric-label">Tổng dòng chấm công</span>
-        <strong class="metric-value">{{ total_rows }}</strong>
-        <p class="metric-subtext">Bản ghi đã tổng hợp trong tháng</p>
-    </article>
-    <article class="metric-card">
-        <span class="metric-label">Tổng giờ được tính</span>
-        <strong class="metric-value">{{ "%.2f"|format(total_paid_hours) }}</strong>
-        <p class="metric-subtext">Bình quân {{ "%.2f"|format(average_paid_hours) }} giờ/bản ghi</p>
-    </article>
-    <article class="metric-card">
-        <span class="metric-label">Tổng lương dự kiến</span>
-        <strong class="metric-value">{{ "{:,.0f}".format(total_wage) }}</strong>
-        <p class="metric-subtext">Bình quân {{ "{:,.0f}".format(average_daily_wage) }}/bản ghi</p>
-    </article>
-    <article class="metric-card">
-        <span class="metric-label">Tỉ lệ hiện diện</span>
-        <strong class="metric-value">{{ "%.1f"|format(attendance_rate) }}%</strong>
-        <p class="metric-subtext">Vắng mặt N: {{ absent_days }} ngày</p>
-    </article>
-    <article class="metric-card metric-card-alert">
-        <span class="metric-label">Tổng cảnh báo</span>
-        <strong class="metric-value">{{ warning_total }}</strong>
-        <p class="metric-subtext">Bao gồm N và thiếu giờ</p>
-    </article>
-</section>
+{# ── Page title ── #}
+<div class="dash-page-head">
+    <h2>Tổng quan chấm công — Tháng {{ month_key }}</h2>
+    <p>Theo dõi mức độ hiện diện, khung cảnh báo và xu hướng tăng ca để quản lý vận hành nhân sự theo ngày.</p>
+</div>
 
-<section class="dashboard-chart-grid">
-    <div class="panel dashboard-chart-panel">
-        <div class="dashboard-panel-head">
-            <h3>Phân bố status chấm công</h3>
-            <span class="panel-caption">Theo tổng số dòng trong tháng</span>
+{# ── Main content ── #}
+<div class="dash-content">
+
+    {# ── KPI Cards ── #}
+    <section class="dashboard-kpi-grid">
+
+        <article class="metric-card metric-card-highlight">
+            <div class="metric-kpi-head">
+                <span class="metric-label">Tổng nhân sự</span>
+                <div class="metric-kpi-icon"><i class="bi bi-people-fill"></i></div>
+            </div>
+            <strong class="metric-value">{{ total_employees }}</strong>
+            <p class="metric-subtext">Nhân viên đang hoạt động</p>
+        </article>
+
+        <article class="metric-card metric-card-cyan">
+            <div class="metric-kpi-head">
+                <span class="metric-label">Dòng chấm công</span>
+                <div class="metric-kpi-icon"><i class="bi bi-table"></i></div>
+            </div>
+            <strong class="metric-value">{{ total_rows }}</strong>
+            <p class="metric-subtext">Bản ghi tổng hợp tháng</p>
+        </article>
+
+        <article class="metric-card metric-card-violet">
+            <div class="metric-kpi-head">
+                <span class="metric-label">Tổng giờ được tính</span>
+                <div class="metric-kpi-icon"><i class="bi bi-clock-fill"></i></div>
+            </div>
+            <strong class="metric-value">{{ "%.1f"|format(total_paid_hours) }}</strong>
+            <p class="metric-subtext">Bình quân {{ "%.2f"|format(average_paid_hours) }}h / bản ghi</p>
+        </article>
+
+        <article class="metric-card metric-card-amber">
+            <div class="metric-kpi-head">
+                <span class="metric-label">Lương dự kiến</span>
+                <div class="metric-kpi-icon"><i class="bi bi-cash-coin"></i></div>
+            </div>
+            <strong class="metric-value" style="font-size:17px;">{{ "{:,.0f}".format(total_wage) }}</strong>
+            <p class="metric-subtext">Bình quân {{ "{:,.0f}".format(average_daily_wage) }} / bản ghi</p>
+        </article>
+
+        <article class="metric-card">
+            <div class="metric-kpi-head">
+                <span class="metric-label">Tỉ lệ hiện diện</span>
+                <div class="metric-kpi-icon" style="background:#F0FDF4;color:#16A34A;"><i class="bi bi-person-check-fill"></i></div>
+            </div>
+            <strong class="metric-value">{{ "%.1f"|format(attendance_rate) }}<span style="font-size:14px;font-weight:500;color:#94A3B8;">%</span></strong>
+            <p class="metric-subtext">Vắng mặt N: {{ absent_days }} ngày</p>
+        </article>
+
+        <article class="metric-card metric-card-alert">
+            <div class="metric-kpi-head">
+                <span class="metric-label">Tổng cảnh báo</span>
+                <div class="metric-kpi-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+            </div>
+            <strong class="metric-value" style="color:#DC2626;">{{ warning_total }}</strong>
+            <p class="metric-subtext">Gồm N và thiếu giờ</p>
+        </article>
+
+    </section>
+
+    {# ── Charts ── #}
+    <section class="dashboard-chart-grid">
+
+        <div class="dashboard-chart-panel">
+            <div class="dashboard-panel-head">
+                <h3>Phân bố trạng thái chấm công</h3>
+                <span class="panel-caption">Theo tổng số dòng trong tháng</span>
+            </div>
+            <canvas id="statusChart"></canvas>
         </div>
-        <canvas id="statusChart"></canvas>
-    </div>
-    <div class="panel dashboard-chart-panel">
-        <div class="dashboard-panel-head">
-            <h3>Top 10 nhân viên tăng ca</h3>
-            <span class="panel-caption">Đơn vị: giờ</span>
-        </div>
-        <canvas id="overtimeChart"></canvas>
-    </div>
-</section>
 
-<section class="panel dashboard-warning-panel">
-    <div class="dashboard-panel-head">
-        <div>
-            <h3>Cảnh báo cần xem lại</h3>
-            <span class="panel-caption">
+        <div class="dashboard-chart-panel">
+            <div class="dashboard-panel-head">
+                <h3>Top 10 nhân viên tăng ca</h3>
+                <span class="panel-caption">Đơn vị: giờ</span>
+            </div>
+            <canvas id="overtimeChart"></canvas>
+        </div>
+
+    </section>
+
+    {# ── Alert table ── #}
+    <div class="dashboard-warning-panel">
+        <div class="dash-warning-head">
+            <h3>
+                Cảnh báo cần xem lại
+                {% if warning_total %}<span class="dash-warn-count">{{ warning_total }}</span>{% endif %}
+            </h3>
+            <form method="get" class="warning-search-form">
+                <input type="hidden" name="month" value="{{ month_key }}">
+                <input type="text" name="q" value="{{ warning_query }}" placeholder="Tìm mã NV, họ tên, ghi chú…">
+                <button type="submit">Tìm kiếm</button>
                 {% if warning_query %}
-                Kết quả tìm kiếm trong tháng: {{ warning_total }} dòng
-                {% else %}
-                Hiển thị toàn bộ cảnh báo trong tháng: {{ warning_total }} dòng
+                <a class="button-link button-link-secondary"
+                   href="{{ url_for('dashboard', month=month_key) }}"
+                   style="height:28px;padding:0 12px;font-size:12px;border-radius:6px;display:inline-flex;align-items:center;text-decoration:none;">
+                    Xóa lọc
+                </a>
                 {% endif %}
-            </span>
+            </form>
         </div>
-        <form method="get" class="warning-search-form">
-            <input type="hidden" name="month" value="{{ month_key }}">
-            <input type="text" name="q" value="{{ warning_query }}" placeholder="Tìm trong cảnh báo tháng này">
-            <button type="submit">Tìm kiếm</button>
-            {% if warning_query %}
-            <a class="button-link button-link-secondary" href="{{ url_for('dashboard', month=month_key) }}">Xóa lọc</a>
-            {% endif %}
-        </form>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Mã NV</th>
+                        <th>Họ tên</th>
+                        <th>Mức độ</th>
+                        <th>Trạng thái</th>
+                        <th>Chênh lệch giờ</th>
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detail, employee in warning_rows %}
+                    <tr>
+                        <td>{{ detail.work_date }}</td>
+                        <td style="color:#94A3B8;font-size:12px;font-family:ui-monospace,monospace;">{{ employee.employee_code }}</td>
+                        <td><a href="{{ url_for('employee_detail', employee_id=employee.id, month=month_key) }}">{{ employee.full_name }}</a></td>
+                        <td>
+                            {% if detail.status_code == 'N' %}
+                                <span class="badge badge-critical">Cao</span>
+                            {% elif detail.deviation_hours < -1 %}
+                                <span class="badge badge-warn">Trung bình</span>
+                            {% else %}
+                                <span class="badge badge-ok">Nhẹ</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if detail.status_code == 'N' %}
+                                <span class="badge badge-critical">N</span>
+                            {% else %}
+                                <span class="badge" style="background:#F1F5F9;color:#475569;">{{ detail.status_code }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-weight:600;{% if detail.deviation_hours < -1 %}color:#DC2626;{% elif detail.deviation_hours < 0 %}color:#D97706;{% else %}color:#16A34A;{% endif %}">
+                            {{ "%.2f"|format(detail.deviation_hours) }}
+                        </td>
+                        <td style="color:#64748B;font-size:12px;">{{ detail.notes or "—" }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align:center;color:#94A3B8;padding:28px 12px;">
+                            Không có cảnh báo trong tháng này.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Ngày</th>
-                    <th>Mã NV</th>
-                    <th>Họ tên</th>
-                    <th>Mức độ</th>
-                    <th>Trạng thái</th>
-                    <th>Chênh lệch giờ</th>
-                    <th>Ghi chú</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for detail, employee in warning_rows %}
-                <tr>
-                    <td>{{ detail.work_date }}</td>
-                    <td>{{ employee.employee_code }}</td>
-                    <td><a href="{{ url_for('employee_detail', employee_id=employee.id, month=month_key) }}">{{ employee.full_name }}</a></td>
-                    <td>
-                        {% if detail.status_code == 'N' %}
-                            <span class="badge badge-critical">Cao</span>
-                        {% elif detail.deviation_hours < -1 %}
-                            <span class="badge badge-warn">Trung bình</span>
-                        {% else %}
-                            <span class="badge">Nhẹ</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if detail.status_code == 'N' %}
-                            <span class="badge badge-critical">N</span>
-                        {% else %}
-                            <span class="badge">{{ detail.status_code }}</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ "%.2f"|format(detail.deviation_hours) }}</td>
-                    <td>{{ detail.notes or "-" }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="7">Không có cảnh báo trong tháng này.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
 
-<script id="status-labels" type="application/json">{{ status_labels|tojson }}</script>
-<script id="status-values" type="application/json">{{ status_values|tojson }}</script>
+</div>{# end dash-content #}
+
+<script id="status-labels"   type="application/json">{{ status_labels|tojson }}</script>
+<script id="status-values"   type="application/json">{{ status_values|tojson }}</script>
 <script id="overtime-labels" type="application/json">{{ overtime_labels|tojson }}</script>
 <script id="overtime-values" type="application/json">{{ overtime_values|tojson }}</script>
 
 <script>
-const statusLabels = JSON.parse(document.getElementById("status-labels").textContent);
-const statusValues = JSON.parse(document.getElementById("status-values").textContent);
-const overtimeLabels = JSON.parse(document.getElementById("overtime-labels").textContent);
-const overtimeValues = JSON.parse(document.getElementById("overtime-values").textContent);
+(function () {
+    const statusLabels   = JSON.parse(document.getElementById("status-labels").textContent);
+    const statusValues   = JSON.parse(document.getElementById("status-values").textContent);
+    const overtimeLabels = JSON.parse(document.getElementById("overtime-labels").textContent);
+    const overtimeValues = JSON.parse(document.getElementById("overtime-values").textContent);
 
-const statusCtx = document.getElementById("statusChart");
-if (statusCtx && typeof Chart !== "undefined") {
-    new Chart(statusCtx, {
-        type: "doughnut",
-        data: {
-            labels: statusLabels,
-            datasets: [{
-                data: statusValues,
-                borderWidth: 0,
-                backgroundColor: ["#1c8f7a", "#d46b08", "#be123c", "#1f6feb", "#14532d", "#0f766e", "#64748b"]
-            }]
-        },
-        options: {
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: "bottom"
-                }
-            },
-            cutout: "68%"
-        }
-    });
-}
+    if (typeof Chart === "undefined") return;
 
-const overtimeCtx = document.getElementById("overtimeChart");
-if (overtimeCtx && typeof Chart !== "undefined") {
-    new Chart(overtimeCtx, {
-        type: "bar",
-        data: {
-            labels: overtimeLabels,
-            datasets: [{
-                label: "Giờ tăng ca",
-                data: overtimeValues,
-                borderRadius: 8,
-                backgroundColor: "#1f6feb"
-            }]
-        },
-        options: {
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
+    Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+
+    /* ── Donut: status distribution ── */
+    const statusCtx = document.getElementById("statusChart");
+    if (statusCtx) {
+        new Chart(statusCtx, {
+            type: "doughnut",
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusValues,
+                    borderWidth: 0,
+                    hoverOffset: 4,
+                    backgroundColor: [
+                        "#2563EB","#64748B","#DC2626","#D97706",
+                        "#7C3AED","#0891B2","#16A34A","#F59E0B"
+                    ]
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: "rgba(15, 23, 42, 0.08)"
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
+            options: {
+                maintainAspectRatio: false,
+                cutout: "70%",
+                plugins: {
+                    legend: {
+                        position: "right",
+                        labels: {
+                            boxWidth: 9, boxHeight: 9,
+                            usePointStyle: true, pointStyle: "circle",
+                            padding: 10,
+                            font: { size: 11 },
+                            color: "#475569"
+                        }
+                    },
+                    tooltip: {
+                        padding: 9,
+                        callbacks: {
+                            label: ctx => " " + ctx.label + ": " + ctx.parsed.toLocaleString("vi-VN") + " dòng"
+                        }
                     }
                 }
             }
-        }
-    });
-}
+        });
+    }
+
+    /* ── Bar: top 10 overtime ── */
+    const overtimeCtx = document.getElementById("overtimeChart");
+    if (overtimeCtx) {
+        const palette = ["#1D4ED8","#2563EB","#3B82F6","#60A5FA","#93C5FD","#BFDBFE","#DBEAFE","#EFF6FF","#93C5FD","#60A5FA"];
+        new Chart(overtimeCtx, {
+            type: "bar",
+            data: {
+                labels: overtimeLabels,
+                datasets: [{
+                    label: "Giờ tăng ca",
+                    data: overtimeValues,
+                    borderRadius: { topLeft: 4, topRight: 4 },
+                    borderSkipped: false,
+                    maxBarThickness: 38,
+                    backgroundColor: overtimeValues.map((_, i) => palette[i] || "#93C5FD")
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        padding: 9,
+                        callbacks: {
+                            label: ctx => " " + ctx.parsed.y + "h tăng ca"
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: "rgba(15,23,42,0.045)", drawTicks: false },
+                        border: { display: false },
+                        ticks: {
+                            font: { size: 11 }, color: "#94A3B8",
+                            padding: 4, callback: v => v + "h"
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        border: { display: false },
+                        ticks: { font: { size: 11 }, color: "#475569", maxRotation: 30 }
+                    }
+                }
+            }
+        });
+    }
+})();
 </script>
+
 {% endblock %}

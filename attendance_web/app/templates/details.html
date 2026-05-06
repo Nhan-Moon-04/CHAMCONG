@@ -1,99 +1,145 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel details-filter-collapsed" id="details-filter-panel">
-    <div class="inline-form details-filter-layout">
-        <div>
-            <h2>Bảng chi tiết toàn bộ nhân viên</h2>
-            <button type="button" id="details-filter-toggle-btn" class="secondary details-inline-toggle" aria-expanded="false">Mở bộ lọc</button>
-            <div id="details-filter-extra">
-                {% if is_range_mode %}
-                <p class="muted">Đang xem khoảng ngày: <strong>{{ period_label }}</strong></p>
-                {% elif search_scope == 'all' %}
-                <p class="muted">Đang xem: <strong>{{ period_label }}</strong></p>
-                {% else %}
-                <p class="muted">Đang xem tháng: <strong>{{ month_key }}</strong></p>
-                {% endif %}
-                <p class="muted">Dòng tô màu vàng nhạt là ngày Chủ nhật.</p>
-                <p class="muted">Màu dòng: Nghỉ nửa buổi (cam nhạt), Nghỉ có phép (xanh lá nhạt), Nghỉ không phép (đỏ), Quên checkin/checkout (vàng nhạt), Cảnh báo ca NU (vàng nhạt), Sửa tay do mất chấm công (xám).</p>
-                <p class="muted">Giữa mỗi nhân viên có thêm gạch ngăn để dễ phân biệt theo người.</p>
-                <p class="muted">Nếu nhập Từ ngày/Đến ngày thì hệ thống ưu tiên lọc theo khoảng thời gian (có thể qua nhiều tháng).</p>
-            </div>
-        </div>
-        <form method="get" class="form-grid" id="details-filter-form">
-            <input type="month" name="month" value="{{ month_key }}">
-            <input type="date" name="start_date" value="{{ start_date_value }}" placeholder="Từ ngày">
-            <input type="date" name="end_date" value="{{ end_date_value }}" placeholder="Đến ngày">
-            <select name="employee_id">
-                <option value="">Tất cả nhân viên</option>
-                {% for row in employees %}
-                <option value="{{ row.id }}" {% if selected_employee_id == row.id %}selected{% endif %}>{{ row.employee_code }} - {{ row.full_name }}</option>
-                {% endfor %}
-            </select>
-            {% if search_query %}
-            <input type="hidden" name="q" value="{{ search_query }}">
-            {% endif %}
-            <input type="hidden" name="scope" value="{{ search_scope or 'current' }}">
-            <button type="submit">Lọc</button>
+
+{# ── Topbar: breadcrumb + period + all actions ── #}
+<div class="det-topbar">
+    <div class="det-bread">
+        <span>Nhân sự</span>
+        <span class="sep">/</span>
+        <span class="cur">Chi tiết chấm công</span>
+    </div>
+
+    {% if is_range_mode %}
+    <span class="det-period"><i class="bi bi-calendar-range" style="margin-right:4px;"></i>{{ period_label }}</span>
+    {% elif search_scope == 'all' %}
+    <span class="det-period">Toàn bộ dữ liệu</span>
+    {% else %}
+    <span class="det-period"><i class="bi bi-calendar3" style="margin-right:4px;"></i>Tháng {{ month_key }}</span>
+    {% endif %}
+
+    <div class="det-actions">
+
+        {# Filter toggle — text will be overwritten by JS immediately #}
+        <button type="button" id="details-filter-toggle-btn" class="det-btn" aria-expanded="false">
+            Bộ lọc
+        </button>
+
+        <div class="det-topbar-sep"></div>
+
+        {# Inline search form #}
+        <form method="get" class="det-search-wrap" id="det-search-form">
+            <input type="hidden" name="month" value="{{ month_key }}">
+            {% if start_date_value %}<input type="hidden" name="start_date" value="{{ start_date_value }}">{% endif %}
+            {% if end_date_value %}<input type="hidden" name="end_date" value="{{ end_date_value }}">{% endif %}
+            {% if selected_employee_id %}<input type="hidden" name="employee_id" value="{{ selected_employee_id }}">{% endif %}
+            <input type="hidden" name="scope" id="det-scope-val" value="{{ search_scope or 'current' }}">
+            <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm tên, mã NV, ca làm, trạng thái…">
+            <button type="submit" class="det-search-btn"><i class="bi bi-search"></i></button>
         </form>
+
+        {# Scope toggle #}
+        <div class="det-scope-toggle">
+            <button type="button"
+                class="det-scope-btn {% if (search_scope or 'current') == 'current' %}det-scope-active{% endif %}"
+                onclick="setScopeSearch('current')">Tháng này</button>
+            <button type="button"
+                class="det-scope-btn {% if search_scope == 'all' %}det-scope-active{% endif %}"
+                onclick="setScopeSearch('all')">Tất cả</button>
+        </div>
+
+        {% if search_query or search_scope == 'all' %}
+        <a href="{{ clear_search_url }}" class="det-btn" style="color:#DC2626;border-color:#FECACA;">
+            <i class="bi bi-x-circle"></i> Xóa
+        </a>
+        {% endif %}
+
+        <div class="det-topbar-sep"></div>
+
+        {# Export #}
+        <a href="{{ export_excel_url }}" class="det-btn">
+            <i class="bi bi-file-earmark-excel"></i> Excel
+        </a>
+
+        {# Fullscreen #}
+        <button type="button" id="details-fullscreen-btn" class="det-btn" title="Phóng to bảng">
+            <i class="bi bi-fullscreen"></i>
+        </button>
+
     </div>
 </div>
 
-<div class="panel" id="details-table-panel">
-    <div class="inline-form details-toolbar">
-        <h3>Bảng dữ liệu chi tiết</h3>
-        <div class="details-toolbar-actions">
-            <form method="get" class="details-search-form">
-                <input type="hidden" name="month" value="{{ month_key }}">
-                {% if start_date_value %}
-                <input type="hidden" name="start_date" value="{{ start_date_value }}">
-                {% endif %}
-                {% if end_date_value %}
-                <input type="hidden" name="end_date" value="{{ end_date_value }}">
-                {% endif %}
-                {% if selected_employee_id %}
-                <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
-                {% endif %}
-                <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo mọi cột trong bảng chi tiết">
-                <div class="scope-choice">
-                    <label>
-                        <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
-                        Tháng hiện tại
-                    </label>
-                    <label>
-                        <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
-                        ALL
-                    </label>
-                </div>
-                <button type="submit">Tìm kiếm</button>
-                {% if search_query or search_scope == 'all' %}
-                <a class="button-link button-link-secondary" href="{{ clear_search_url }}">Xóa lọc</a>
-                {% endif %}
-            </form>
-            <a class="button-link button-link-secondary" href="{{ export_excel_url }}">Xuất Excel</a>
-            <button type="button" id="details-fullscreen-btn" class="secondary">Phóng to bảng</button>
-        </div>
+{# ── Filter bar (collapsible, starts collapsed via JS) ── #}
+<div id="details-filter-panel" class="details-filter-collapsed">
+    <form method="get" id="details-filter-form">
+        <span class="det-filter-label">Tháng:</span>
+        <input type="month" name="month" value="{{ month_key }}">
+
+        <div class="det-filter-sep"></div>
+        <span class="det-filter-label">Từ ngày:</span>
+        <input type="date" name="start_date" value="{{ start_date_value }}" placeholder="Từ ngày">
+
+        <span class="det-filter-label">Đến ngày:</span>
+        <input type="date" name="end_date" value="{{ end_date_value }}" placeholder="Đến ngày">
+
+        <div class="det-filter-sep"></div>
+        <select name="employee_id">
+            <option value="">Tất cả nhân viên</option>
+            {% for row in employees %}
+            <option value="{{ row.id }}" {% if selected_employee_id == row.id %}selected{% endif %}>
+                {{ row.employee_code }} – {{ row.full_name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+        <input type="hidden" name="scope" value="{{ search_scope or 'current' }}">
+
+        <button type="submit"><i class="bi bi-funnel-fill"></i> Áp dụng</button>
+
+        {% if start_date_value or end_date_value or selected_employee_id %}
+        <a href="{{ url_for('details', month=month_key) }}" class="det-filter-clear">
+            <i class="bi bi-x"></i> Xóa bộ lọc
+        </a>
+        {% endif %}
+    </form>
+
+    {# Row color legend #}
+    <div class="det-legend">
+        <span class="det-filter-label" style="margin-right:4px;">Màu hàng:</span>
+        <span class="det-legend-chip"><span class="det-legend-dot" style="background:#FEE2E2;border:1px solid #FCA5A5;"></span>Nghỉ không phép</span>
+        <span class="det-legend-chip"><span class="det-legend-dot" style="background:#FFEDD5;border:1px solid #FED7AA;"></span>Nghỉ nửa buổi</span>
+        <span class="det-legend-chip"><span class="det-legend-dot" style="background:#DCFCE7;border:1px solid #86EFAC;"></span>Nghỉ có phép</span>
+        <span class="det-legend-chip"><span class="det-legend-dot" style="background:#FEF3C7;border:1px solid #FCD34D;"></span>Quên chấm / Cảnh báo NU</span>
+        <span class="det-legend-chip"><span class="det-legend-dot" style="background:#FEFCE8;border:1px solid #FDE68A;"></span>Chủ nhật</span>
+        <span class="det-legend-chip"><span class="det-legend-dot" style="background:#F1F5F9;border:1px solid #CBD5E1;"></span>Sửa tay</span>
     </div>
-    <button type="button" id="details-exit-fullscreen-btn" class="danger" hidden>X</button>
+</div>
+
+{# ── Table panel ── #}
+<div id="details-table-panel">
+    <button type="button" id="details-exit-fullscreen-btn" class="danger" hidden>
+        <i class="bi bi-fullscreen-exit"></i> Thoát toàn màn hình
+    </button>
     <div class="table-wrap">
         <table id="details-table">
             <thead>
                 <tr>
-                    <th class="sortable" data-col-index="0" data-sort-type="number">STT</th>
-                    <th class="sortable" data-col-index="1" data-sort-type="string">Mã NV</th>
-                    <th class="sortable" data-col-index="2" data-sort-type="string">Họ tên</th>
-                    <th class="sortable" data-col-index="3" data-sort-type="date">Ngày</th>
-                    <th class="sortable" data-col-index="4" data-sort-type="string">Tên ca</th>
-                    <th class="sortable" data-col-index="5" data-sort-type="datetime">Giờ vào</th>
-                    <th class="sortable" data-col-index="6" data-sort-type="datetime">Giờ ra</th>
-                    <th class="sortable" data-col-index="7" data-sort-type="number">Giờ thực</th>
-                    <th class="sortable" data-col-index="8" data-sort-type="number">Chênh lệch</th>
-                    <th class="sortable" data-col-index="9" data-sort-type="number">Tăng ca</th>
-                    <th class="sortable" data-col-index="10" data-sort-type="number">Tổng giờ</th>
-                    <th class="sortable" data-col-index="11" data-sort-type="string">Mã trạng thái</th>
-                    <th class="sortable" data-col-index="12" data-sort-type="number">Số giờ</th>
-                    <th class="sortable" data-col-index="13" data-sort-type="number">Lương theo ngày</th>
+                    <th class="sortable" data-col-index="0"  data-sort-type="number">STT</th>
+                    <th class="sortable" data-col-index="1"  data-sort-type="string">Mã NV</th>
+                    <th class="sortable" data-col-index="2"  data-sort-type="string">Họ tên</th>
+                    <th class="sortable" data-col-index="3"  data-sort-type="date">Ngày</th>
+                    <th class="sortable" data-col-index="4"  data-sort-type="string">Ca làm</th>
+                    <th class="sortable" data-col-index="5"  data-sort-type="datetime">Giờ vào</th>
+                    <th class="sortable" data-col-index="6"  data-sort-type="datetime">Giờ ra</th>
+                    <th class="sortable det-num" data-col-index="7"  data-sort-type="number">Giờ thực</th>
+                    <th class="sortable det-num" data-col-index="8"  data-sort-type="number">Chênh lệch</th>
+                    <th class="sortable det-num" data-col-index="9"  data-sort-type="number">Tăng ca</th>
+                    <th class="sortable det-num" data-col-index="10" data-sort-type="number">Tổng giờ</th>
+                    <th class="sortable" data-col-index="11" data-sort-type="string">Trạng thái</th>
+                    <th class="sortable det-num" data-col-index="12" data-sort-type="number">Giờ tính</th>
+                    <th class="sortable det-num" data-col-index="13" data-sort-type="number">Lương/ngày</th>
                     <th class="sortable" data-col-index="14" data-sort-type="string">Ghi chú</th>
-                    <th class="sortable" data-col-index="15" data-sort-type="number">Tiền ăn theo ngày</th>
+                    <th class="sortable det-num" data-col-index="15" data-sort-type="number">Tiền ăn</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,33 +161,102 @@
                     {% set highlight_class = "details-status-missing-check" %}
                 {% endif %}
                 <tr class="{% if row.work_date.weekday() == 6 %}sunday-row {% endif %}{% if is_new_employee %}employee-divider {% endif %}{{ highlight_class }}">
-                    <td data-sort-value="{{ loop.index }}">{{ loop.index }}</td>
-                    <td data-sort-value="{{ row.employee.employee_code }}">{{ row.employee.employee_code }}</td>
-                    <td data-sort-value="{{ row.employee.full_name|lower }}"><a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=row.work_date.strftime('%Y-%m')) }}">{{ row.employee.full_name }}</a></td>
-                    <td data-sort-value="{{ row.work_date }}">{{ row.work_date }}</td>
-                    <td data-sort-value="{{ (row.shift_code ~ ' ' ~ row.shift_name)|lower }}">{{ row.shift_code }} - {{ row.shift_name }}</td>
-                    <td data-sort-value="{{ row.check_in.isoformat() if row.check_in else '' }}">{{ row.check_in.strftime('%Y-%m-%d %H:%M') if row.check_in else '-' }}</td>
-                    <td data-sort-value="{{ row.check_out.isoformat() if row.check_out else '' }}">{{ row.check_out.strftime('%Y-%m-%d %H:%M') if row.check_out else '-' }}</td>
-                    <td data-sort-value="{{ row.actual_work_hours }}">{{ "%.2f"|format(row.actual_work_hours) }}</td>
-                    <td>
-                        {% if row.deviation_hours < 0 %}
-                            <span class="badge badge-warn" data-sort-value="{{ row.deviation_hours }}">{{ "%.2f"|format(row.deviation_hours) }}</span>
+
+                    <td data-sort-value="{{ loop.index }}" style="color:#94A3B8;font-size:11px;">{{ loop.index }}</td>
+
+                    <td data-sort-value="{{ row.employee.employee_code }}"
+                        style="color:#94A3B8;font-size:11.5px;font-family:ui-monospace,monospace;">
+                        {{ row.employee.employee_code }}
+                    </td>
+
+                    <td data-sort-value="{{ row.employee.full_name|lower }}">
+                        <a href="{{ url_for('employee_detail', employee_id=row.employee.id, month=row.work_date.strftime('%Y-%m')) }}">
+                            {{ row.employee.full_name }}
+                        </a>
+                    </td>
+
+                    <td data-sort-value="{{ row.work_date }}" style="color:#475569;">
+                        {{ row.work_date }}
+                    </td>
+
+                    <td data-sort-value="{{ (row.shift_code ~ ' ' ~ row.shift_name)|lower }}"
+                        style="color:#475569;font-size:11.5px;">
+                        {{ row.shift_code }} – {{ row.shift_name }}
+                    </td>
+
+                    <td data-sort-value="{{ row.check_in.isoformat() if row.check_in else '' }}"
+                        style="font-variant-numeric:tabular-nums;">
+                        {{ row.check_in.strftime('%H:%M') if row.check_in else '–' }}
+                    </td>
+
+                    <td data-sort-value="{{ row.check_out.isoformat() if row.check_out else '' }}"
+                        style="font-variant-numeric:tabular-nums;">
+                        {{ row.check_out.strftime('%H:%M') if row.check_out else '–' }}
+                    </td>
+
+                    <td class="det-num" data-sort-value="{{ row.actual_work_hours }}">
+                        {{ "%.2f"|format(row.actual_work_hours) }}
+                    </td>
+
+                    <td class="det-num" data-sort-value="{{ row.deviation_hours }}">
+                        {% if row.deviation_hours < -1 %}
+                            <span class="det-dev-neg" data-sort-value="{{ row.deviation_hours }}">{{ "%.2f"|format(row.deviation_hours) }}</span>
+                        {% elif row.deviation_hours < 0 %}
+                            <span class="det-dev-warn" data-sort-value="{{ row.deviation_hours }}">{{ "%.2f"|format(row.deviation_hours) }}</span>
                         {% else %}
                             <span data-sort-value="{{ row.deviation_hours }}">{{ "%.2f"|format(row.deviation_hours) }}</span>
                         {% endif %}
                     </td>
-                    <td data-sort-value="{{ row.overtime_hours }}">{{ "%.2f"|format(row.overtime_hours) }}</td>
-                    <td data-sort-value="{{ row.total_span_hours }}">{{ "%.2f"|format(row.total_span_hours) }}</td>
-                    <td data-sort-value="{{ row.status_code }}">{{ row.status_code }}</td>
-                    <td data-sort-value="{{ row.paid_hours }}">{{ "%.2f"|format(row.paid_hours) }}</td>
-                    <td data-sort-value="{{ row.daily_wage }}">{{ "{:,.0f}".format(row.daily_wage) }}</td>
-                    <td data-sort-value="{{ (row.notes or '')|lower }}">{{ row.notes or '-' }}</td>
-                    <td data-sort-value="{{ row.meal_allowance_daily }}">{{ "{:,.0f}".format(row.meal_allowance_daily) }}</td>
+
+                    <td class="det-num" data-sort-value="{{ row.overtime_hours }}"
+                        style="{% if row.overtime_hours > 0 %}color:#D97706;font-weight:600;{% endif %}">
+                        {{ "%.2f"|format(row.overtime_hours) }}
+                    </td>
+
+                    <td class="det-num" data-sort-value="{{ row.total_span_hours }}">
+                        {{ "%.2f"|format(row.total_span_hours) }}
+                    </td>
+
+                    <td data-sort-value="{{ row.status_code }}">
+                        {% if row.status_code == 'N' %}
+                            <span class="det-status det-status-n">N</span>
+                        {% elif row.status_code == 'P' %}
+                            <span class="det-status det-status-p">{{ row.status_code }}</span>
+                        {% elif row.status_code == 'OFF' %}
+                            <span class="det-status det-status-off">OFF</span>
+                        {% elif row.status_code in ('T', 'T+') %}
+                            <span class="det-status det-status-ok">{{ row.status_code }}</span>
+                        {% else %}
+                            <span class="det-status det-status-def">{{ row.status_code }}</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="det-num" data-sort-value="{{ row.paid_hours }}">
+                        {{ "%.2f"|format(row.paid_hours) }}
+                    </td>
+
+                    <td class="det-num" data-sort-value="{{ row.daily_wage }}"
+                        style="font-variant-numeric:tabular-nums;">
+                        {{ "{:,.0f}".format(row.daily_wage) }}
+                    </td>
+
+                    <td data-sort-value="{{ (row.notes or '')|lower }}"
+                        style="color:#64748B;font-size:11.5px;max-width:220px;overflow:hidden;text-overflow:ellipsis;">
+                        {{ row.notes or '–' }}
+                    </td>
+
+                    <td class="det-num" data-sort-value="{{ row.meal_allowance_daily }}"
+                        style="font-variant-numeric:tabular-nums;color:#64748B;">
+                        {{ "{:,.0f}".format(row.meal_allowance_daily) }}
+                    </td>
+
                 </tr>
                 {% set ns.prev_employee_id = row.employee.id %}
                 {% else %}
                 <tr>
-                    <td colspan="16">Chưa có dữ liệu chi tiết.</td>
+                    <td colspan="16" style="text-align:center;color:#94A3B8;padding:32px 12px;">
+                        Chưa có dữ liệu chi tiết cho kỳ này.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -149,26 +264,33 @@
     </div>
 </div>
 
+{# ── Helper JS: scope search ── #}
+<script>
+function setScopeSearch(scope) {
+    var inp = document.getElementById('det-scope-val');
+    if (inp) inp.value = scope;
+    var frm = document.getElementById('det-search-form');
+    if (frm) frm.submit();
+}
+</script>
+
+{# ── Main JS: sort, fullscreen, filter toggle (unchanged logic) ── #}
 <script>
 (() => {
     const table = document.getElementById("details-table");
-    if (!table) {
-        return;
-    }
+    if (!table) return;
 
     const tbody = table.querySelector("tbody");
     const headers = Array.from(table.querySelectorAll("thead th.sortable"));
-    if (!tbody) {
-        return;
-    }
+    if (!tbody) return;
 
     let activeCol = null;
     let activeDirection = "asc";
-    const filterPanel = document.getElementById("details-filter-panel");
-    const filterToggleButton = document.getElementById("details-filter-toggle-btn");
-    const tablePanel = document.getElementById("details-table-panel");
-    const fullscreenButton = document.getElementById("details-fullscreen-btn");
-    const fullscreenExitButton = document.getElementById("details-exit-fullscreen-btn");
+    const filterPanel         = document.getElementById("details-filter-panel");
+    const filterToggleButton  = document.getElementById("details-filter-toggle-btn");
+    const tablePanel          = document.getElementById("details-table-panel");
+    const fullscreenButton    = document.getElementById("details-fullscreen-btn");
+    const fullscreenExitButton= document.getElementById("details-exit-fullscreen-btn");
 
     const toNumber = (value) => {
         const cleaned = String(value || "").replace(/,/g, "").trim();
@@ -183,20 +305,11 @@
 
     const getCellSortValue = (row, colIndex) => {
         const cell = row.children[colIndex];
-        if (!cell) {
-            return "";
-        }
-
+        if (!cell) return "";
         const directValue = cell.getAttribute("data-sort-value");
-        if (directValue !== null) {
-            return directValue;
-        }
-
+        if (directValue !== null) return directValue;
         const nested = cell.querySelector("[data-sort-value]");
-        if (nested) {
-            return nested.getAttribute("data-sort-value") || "";
-        }
-
+        if (nested) return nested.getAttribute("data-sort-value") || "";
         return cell.textContent.trim();
     };
 
@@ -205,7 +318,6 @@
         rows.sort((a, b) => {
             const aRaw = getCellSortValue(a, colIndex);
             const bRaw = getCellSortValue(b, colIndex);
-
             let result = 0;
             if (type === "number") {
                 const aNum = toNumber(aRaw);
@@ -218,7 +330,6 @@
             } else {
                 result = String(aRaw).localeCompare(String(bRaw), "vi", { sensitivity: "base" });
             }
-
             return direction === "asc" ? result : -result;
         });
 
@@ -230,18 +341,15 @@
             }
             tbody.appendChild(row);
         });
-
         applyEmployeeDividers();
     };
 
     const applyEmployeeDividers = () => {
         const rows = Array.from(tbody.querySelectorAll("tr")).filter((row) => row.children.length > 1);
         let prevEmployeeCode = null;
-
         rows.forEach((row) => {
             const currentEmployeeCode = getCellSortValue(row, 1);
             const shouldShowDivider = prevEmployeeCode !== null && currentEmployeeCode !== prevEmployeeCode;
-
             row.classList.toggle("employee-divider", shouldShowDivider);
             prevEmployeeCode = currentEmployeeCode;
         });
@@ -252,19 +360,14 @@
             header.addEventListener("click", () => {
                 const colIndex = Number(header.dataset.colIndex || "0");
                 const type = header.dataset.sortType || "string";
-
                 if (activeCol === colIndex) {
                     activeDirection = activeDirection === "asc" ? "desc" : "asc";
                 } else {
                     activeCol = colIndex;
                     activeDirection = "asc";
                 }
-
-                headers.forEach((h) => {
-                    h.classList.remove("sort-asc", "sort-desc");
-                });
+                headers.forEach((h) => h.classList.remove("sort-asc", "sort-desc"));
                 header.classList.add(activeDirection === "asc" ? "sort-asc" : "sort-desc");
-
                 sortRows(colIndex, type, activeDirection);
             });
         });
@@ -274,18 +377,12 @@
         const isNativeFullscreen = document.fullscreenElement === tablePanel;
         const isPseudoFullscreen = document.body.classList.contains("details-pseudo-fullscreen");
         const isActive = isNativeFullscreen || isPseudoFullscreen;
-
         document.body.classList.toggle("details-focus-mode", isActive);
-        if (fullscreenExitButton) {
-            fullscreenExitButton.hidden = !isActive;
-        }
+        if (fullscreenExitButton) fullscreenExitButton.hidden = !isActive;
     };
 
     const enterFullscreen = async () => {
-        if (!tablePanel) {
-            return;
-        }
-
+        if (!tablePanel) return;
         if (tablePanel.requestFullscreen) {
             try {
                 await tablePanel.requestFullscreen();
@@ -296,52 +393,31 @@
         } else {
             document.body.classList.add("details-pseudo-fullscreen");
         }
-
         setFullscreenState();
     };
 
     const exitFullscreen = async () => {
-        if (document.fullscreenElement) {
-            await document.exitFullscreen();
-        }
+        if (document.fullscreenElement) await document.exitFullscreen();
         document.body.classList.remove("details-pseudo-fullscreen");
         setFullscreenState();
     };
 
-    const setCollapsedState = (collapsed) => {
-        if (!tablePanel) {
-            return;
-        }
-
-        tablePanel.classList.toggle("details-collapsed", collapsed);
-    };
-
     const setFilterCollapsedState = (collapsed) => {
-        if (!filterPanel) {
-            return;
-        }
-
+        if (!filterPanel) return;
         filterPanel.classList.toggle("details-filter-collapsed", collapsed);
-
         if (filterToggleButton) {
             filterToggleButton.textContent = collapsed ? "Mở bộ lọc" : "Thu gọn";
             filterToggleButton.setAttribute("aria-expanded", String(!collapsed));
+            filterToggleButton.classList.toggle("det-active", !collapsed);
         }
     };
 
     if (fullscreenButton) {
-        fullscreenButton.addEventListener("click", () => {
-            setCollapsedState(false);
-            enterFullscreen();
-        });
+        fullscreenButton.addEventListener("click", () => enterFullscreen());
     }
-
     if (fullscreenExitButton) {
-        fullscreenExitButton.addEventListener("click", () => {
-            exitFullscreen();
-        });
+        fullscreenExitButton.addEventListener("click", () => exitFullscreen());
     }
-
     if (filterToggleButton) {
         filterToggleButton.addEventListener("click", () => {
             const isCollapsed = filterPanel ? filterPanel.classList.contains("details-filter-collapsed") : false;
@@ -359,8 +435,8 @@
 
     applyEmployeeDividers();
     setFilterCollapsedState(true);
-    setCollapsedState(false);
     setFullscreenState();
 })();
 </script>
+
 {% endblock %}

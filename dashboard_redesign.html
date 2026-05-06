@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Chấm Công – Hiệp Lợi Group</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: 'Inter', sans-serif; background: #F0F4F8; color: #1E293B; overflow-x: hidden; }
+
+    /* ─── Sidebar ──────────────────────────────────────────── */
+    #sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: 228px;
+      background: #1E3A5F;
+      display: flex; flex-direction: column;
+      transition: width .22s cubic-bezier(.4,0,.2,1);
+      z-index: 50;
+      overflow: hidden;
+    }
+    #sidebar.collapsed { width: 56px; }
+
+    .sb-brand {
+      height: 54px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      flex-shrink: 0;
+    }
+    .sb-brand-mark {
+      width: 30px; height: 30px; border-radius: 7px;
+      background: #2563EB;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 12px; flex-shrink: 0;
+      letter-spacing: -.5px;
+    }
+    .sb-brand-copy { overflow: hidden; transition: opacity .15s, width .22s; width: 160px; }
+    .sb-brand-copy p { color: rgba(255,255,255,.38); font-size: 9.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; }
+    .sb-brand-copy h1 { color: #fff; font-size: 12.5px; font-weight: 700; white-space: nowrap; letter-spacing: -.01em; }
+    #sidebar.collapsed .sb-brand-copy { width: 0; opacity: 0; }
+
+    .sb-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 0 8px; }
+    .sb-body::-webkit-scrollbar { width: 2px; }
+    .sb-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 2px; }
+
+    .sb-group { margin-top: 2px; }
+    .sb-group-title {
+      padding: 10px 16px 3px;
+      color: rgba(255,255,255,.28);
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      white-space: nowrap;
+      transition: opacity .14s, max-height .22s;
+      overflow: hidden; max-height: 30px;
+    }
+    #sidebar.collapsed .sb-group-title { max-height: 0; opacity: 0; padding: 0; }
+
+    .sb-link {
+      display: flex; align-items: center; gap: 9px;
+      height: 36px; padding: 0 11px;
+      margin: 1px 7px; border-radius: 7px;
+      color: rgba(255,255,255,.58);
+      text-decoration: none; font-size: 12.5px; font-weight: 500;
+      white-space: nowrap; overflow: hidden;
+      transition: background .13s, color .13s;
+      cursor: pointer;
+    }
+    .sb-link i { font-size: 14.5px; flex-shrink: 0; min-width: 16px; text-align: center; }
+    .sb-link span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sb-link:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.88); }
+    .sb-link.active { background: #2563EB; color: #fff; font-weight: 600; }
+    #sidebar.collapsed .sb-link { justify-content: center; padding: 0; gap: 0; }
+    #sidebar.collapsed .sb-link span { display: none; }
+
+    .sb-footer {
+      border-top: 1px solid rgba(255,255,255,.07);
+      padding: 10px 10px 10px 12px;
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
+    .sb-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .sb-user { flex: 1; overflow: hidden; transition: opacity .15s, width .22s; }
+    .sb-user p { color: rgba(255,255,255,.38); font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sb-user strong { display: block; color: #fff; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #sidebar.collapsed .sb-user { width: 0; opacity: 0; overflow: hidden; }
+    .sb-logout {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 6px;
+      background: transparent; border: none; cursor: pointer;
+      color: rgba(255,255,255,.4); font-size: 14px;
+      transition: background .13s, color .13s;
+    }
+    .sb-logout:hover { background: rgba(220,38,38,.22); color: #FCA5A5; }
+
+    /* Collapse toggle */
+    #toggle-btn {
+      position: fixed; top: 16px;
+      left: 216px;
+      z-index: 60;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #fff; border: 1px solid #E2E8F0;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 10px; color: #64748B;
+      box-shadow: 0 1px 4px rgba(0,0,0,.1);
+      transition: left .22s cubic-bezier(.4,0,.2,1), background .13s;
+    }
+    #toggle-btn.at-collapsed { left: 44px; }
+    #toggle-btn:hover { background: #F1F5F9; }
+
+    /* ─── Main ─────────────────────────────────────────────── */
+    #main {
+      margin-left: 228px;
+      transition: margin-left .22s cubic-bezier(.4,0,.2,1);
+      display: flex; flex-direction: column; min-height: 100vh;
+    }
+    #main.at-collapsed { margin-left: 56px; }
+
+    /* ─── Topbar ───────────────────────────────────────────── */
+    #topbar {
+      position: sticky; top: 0; z-index: 30;
+      height: 54px;
+      background: #fff; border-bottom: 1px solid #E8EEF4;
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 22px;
+    }
+    .tb-bread { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: #94A3B8; }
+    .tb-bread .sep { color: #CBD5E1; }
+    .tb-bread .cur { color: #1E293B; font-weight: 600; }
+    .tb-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .tb-month-form { display: flex; align-items: center; gap: 8px; }
+    .tb-month-form label { font-size: 12px; color: #64748B; font-weight: 500; white-space: nowrap; }
+    .tb-month-form input[type="month"] {
+      height: 30px; border: 1px solid #E2E8F0; border-radius: 6px;
+      padding: 0 9px; font-size: 12.5px; color: #1E293B;
+      background: #F8FAFC; font-family: 'Inter', sans-serif; outline: none;
+      transition: border-color .13s;
+    }
+    .tb-month-form input[type="month"]:focus { border-color: #2563EB; background: #fff; }
+    .btn-primary {
+      height: 30px; padding: 0 14px;
+      background: #2563EB; color: #fff; border: none; border-radius: 6px;
+      font-size: 12.5px; font-weight: 600; cursor: pointer;
+      font-family: 'Inter', sans-serif; white-space: nowrap;
+      transition: background .13s;
+    }
+    .btn-primary:hover { background: #1D4ED8; }
+    .tb-divider { width: 1px; height: 22px; background: #E8EEF4; }
+    .tb-icon-btn {
+      width: 30px; height: 30px; border-radius: 7px; border: none;
+      background: transparent; color: #64748B; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .13s, color .13s;
+      position: relative;
+    }
+    .tb-icon-btn:hover { background: #F1F5F9; color: #1E293B; }
+    .tb-notif-dot {
+      position: absolute; top: 5px; right: 5px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #DC2626; border: 1.5px solid #fff;
+    }
+    .tb-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+
+    /* ─── Content ──────────────────────────────────────────── */
+    .content { padding: 18px 22px 32px; flex: 1; }
+
+    /* Page head */
+    .page-head { margin-bottom: 14px; }
+    .page-head h2 { font-size: 17px; font-weight: 700; color: #0F172A; }
+    .page-head p { margin-top: 3px; font-size: 12.5px; color: #64748B; }
+
+    /* ─── KPI grid ─────────────────────────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .kpi-card {
+      background: #fff;
+      border: 1px solid #EBF0F6;
+      border-radius: 8px;
+      padding: 14px 14px 12px;
+      position: relative; overflow: hidden;
+    }
+    .kpi-card::after {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: #2563EB; border-radius: 0;
+    }
+    .kpi-card.v-red::after   { background: #DC2626; }
+    .kpi-card.v-green::after { background: #16A34A; }
+    .kpi-card.v-amber::after { background: #D97706; }
+    .kpi-card.v-violet::after{ background: #7C3AED; }
+    .kpi-card.v-cyan::after  { background: #0891B2; }
+
+    .kpi-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 9px; }
+    .kpi-lbl { font-size: 10.5px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: .05em; line-height: 1.3; padding-right: 4px; }
+    .kpi-ico {
+      width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      background: #EFF6FF; color: #2563EB;
+    }
+    .kpi-card.v-red .kpi-ico   { background: #FEF2F2; color: #DC2626; }
+    .kpi-card.v-green .kpi-ico { background: #F0FDF4; color: #16A34A; }
+    .kpi-card.v-amber .kpi-ico { background: #FFFBEB; color: #D97706; }
+    .kpi-card.v-violet .kpi-ico{ background: #F5F3FF; color: #7C3AED; }
+    .kpi-card.v-cyan .kpi-ico  { background: #ECFEFF; color: #0891B2; }
+
+    .kpi-val {
+      font-size: 23px; font-weight: 700; color: #0F172A;
+      line-height: 1; margin-bottom: 5px;
+    }
+    .kpi-val-unit { font-size: 13px; font-weight: 500; color: #94A3B8; }
+    .kpi-sub { font-size: 10.5px; color: #94A3B8; line-height: 1.4; }
+
+    /* ─── Charts ───────────────────────────────────────────── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+      align-items: start;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #EBF0F6;
+      border-radius: 8px;
+    }
+    .card-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 13px 16px 0;
+    }
+    .card-head h3 { font-size: 13px; font-weight: 600; color: #0F172A; }
+    .card-cap { font-size: 11px; color: #94A3B8; }
+    .chart-wrap { padding: 12px 16px 14px; }
+    .chart-inner { position: relative; height: 218px; }
+
+    /* Status legend pills (donut) */
+    .status-legend { display: flex; flex-direction: column; gap: 6px; padding: 0 16px 14px; }
+    .sl-row { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; }
+    .sl-row-left { display: flex; align-items: center; gap: 6px; }
+    .sl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .sl-name { color: #475569; }
+    .sl-val { font-weight: 600; color: #1E293B; }
+    .sl-pct { color: #94A3B8; font-size: 10.5px; margin-left: 4px; }
+
+    /* ─── Alert table ──────────────────────────────────────── */
+    .alert-card { overflow: hidden; }
+    .alert-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #EBF0F6;
+    }
+    .alert-head h3 { font-size: 13px; font-weight: 600; color: #0F172A; flex: 1; }
+    .cnt-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 18px; padding: 0 6px;
+      border-radius: 9px; font-size: 10.5px; font-weight: 700;
+      background: #FEE2E2; color: #991B1B;
+    }
+    .alert-search { display: flex; align-items: center; gap: 6px; }
+    .alert-search input {
+      height: 28px; border: 1px solid #E2E8F0; border-radius: 6px;
+      padding: 0 9px; font-size: 12px; color: #1E293B;
+      background: #F8FAFC; font-family: 'Inter', sans-serif; outline: none;
+      width: 210px; transition: border-color .13s;
+    }
+    .alert-search input:focus { border-color: #2563EB; background: #fff; }
+    .btn-sec {
+      height: 28px; padding: 0 11px;
+      background: #F1F5F9; color: #475569;
+      border: 1px solid #E2E8F0; border-radius: 6px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      display: flex; align-items: center; gap: 5px;
+      transition: background .13s;
+    }
+    .btn-sec:hover { background: #E2E8F0; }
+
+    .tbl-wrap { overflow-x: auto; }
+    .alert-tbl { width: 100%; border-collapse: collapse; }
+    .alert-tbl thead th {
+      padding: 7px 12px;
+      text-align: left; font-size: 10.5px; font-weight: 700;
+      color: #64748B; text-transform: uppercase; letter-spacing: .05em;
+      background: #F8FAFC; border-bottom: 1px solid #EBF0F6;
+      white-space: nowrap;
+    }
+    .alert-tbl tbody td {
+      padding: 7.5px 12px;
+      font-size: 12.5px; color: #334155;
+      border-bottom: 1px solid #F3F7FB;
+      white-space: nowrap;
+    }
+    .alert-tbl tbody tr:last-child td { border-bottom: none; }
+    .alert-tbl tbody tr:hover td { background: #EFF6FF; }
+    .alert-tbl a { color: #2563EB; text-decoration: none; font-weight: 500; }
+    .alert-tbl a:hover { text-decoration: underline; }
+    .emp-code { color: #94A3B8; font-size: 12px; font-family: 'Courier New', monospace; }
+    .dev-neg { color: #DC2626; font-weight: 600; }
+    .dev-warn { color: #D97706; font-weight: 600; }
+    .dev-ok   { color: #16A34A; font-weight: 600; }
+
+    /* ─── Badges ───────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 100px;
+      font-size: 10.5px; font-weight: 700; line-height: 1.5;
+      white-space: nowrap;
+    }
+    .b-cao  { background: #FEE2E2; color: #991B1B; }
+    .b-tb   { background: #FEF3C7; color: #92400E; }
+    .b-nhe  { background: #D1FAE5; color: #065F46; }
+    .b-n    { background: #FEE2E2; color: #991B1B; }
+    .b-p    { background: #EDE9FE; color: #5B21B6; }
+    .b-off  { background: #E0F2FE; color: #0369A1; }
+    .b-def  { background: #F1F5F9; color: #475569; }
+    .b-t    { background: #ECFDF5; color: #065F46; }
+
+    /* ─── Misc ─────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+
+    @media (max-width: 1280px) {
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+      .charts-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 900px) {
+      #sidebar { width: 56px; }
+      #sidebar .sb-brand-copy, #sidebar .sb-user, #sidebar .sb-link span,
+      #sidebar .sb-group-title { display: none !important; }
+      #sidebar .sb-link { justify-content: center; padding: 0; }
+      #main { margin-left: 56px; }
+      #toggle-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════════════════════ -->
+<aside id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-mark">HL</div>
+    <div class="sb-brand-copy">
+      <p>Hiệp Lợi Group</p>
+      <h1>HRM &amp; Chấm Công</h1>
+    </div>
+  </div>
+
+  <div class="sb-body">
+    <div class="sb-group">
+      <p class="sb-group-title">Tổng quan</p>
+      <a class="sb-link active" href="#">
+        <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+      </a>
+    </div>
+
+    <div class="sb-group">
+      <p class="sb-group-title">Nhân sự</p>
+      <a class="sb-link" href="#">
+        <i class="bi bi-people"></i><span>Nhân viên</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-calendar-check"></i><span>Chấm công</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-clock-history"></i><span>Tăng ca</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-airplane"></i><span>Phép năm</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-calendar-week"></i><span>Bảng ca làm</span>
+      </a>
+    </div>
+
+    <div class="sb-group">
+      <p class="sb-group-title">Lương &amp; Thuế</p>
+      <a class="sb-link" href="#">
+        <i class="bi bi-cash-stack"></i><span>Bảng lương</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-receipt"></i><span>Phiếu lương</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-shield-check"></i><span>BHXH / Thuế</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-wallet2"></i><span>Tạm ứng</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-bar-chart-line"></i><span>Tổng quan lương</span>
+      </a>
+    </div>
+
+    <div class="sb-group">
+      <p class="sb-group-title">Hệ thống</p>
+      <a class="sb-link" href="#">
+        <i class="bi bi-file-earmark-arrow-up"></i><span>Import / Export</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-umbrella"></i><span>Ngày OFF và lễ</span>
+      </a>
+      <a class="sb-link" href="#">
+        <i class="bi bi-clipboard2-data"></i><span>Nhật ký</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="sb-footer">
+    <div class="sb-avatar">NM</div>
+    <div class="sb-user">
+      <p>Đăng nhập bởi</p>
+      <strong>Nguyễn Mẫn</strong>
+    </div>
+    <button class="sb-logout" title="Đăng xuất">
+      <i class="bi bi-box-arrow-right"></i>
+    </button>
+  </div>
+</aside>
+
+<!-- Collapse toggle button -->
+<button id="toggle-btn" title="Thu gọn menu">
+  <i class="bi bi-chevron-left" id="toggle-icon"></i>
+</button>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN
+════════════════════════════════════════════════════════════ -->
+<div id="main">
+
+  <!-- Topbar -->
+  <header id="topbar">
+    <div class="tb-bread">
+      <span>Tổng quan</span>
+      <span class="sep">/</span>
+      <span class="cur">Dashboard chấm công</span>
+    </div>
+
+    <div class="tb-right">
+      <form class="tb-month-form" onsubmit="return false;">
+        <label for="month-pick">Tháng:</label>
+        <input type="month" id="month-pick" value="2025-04">
+        <button type="submit" class="btn-primary">
+          <i class="bi bi-arrow-clockwise" style="margin-right:4px;"></i>Cập nhật
+        </button>
+      </form>
+      <div class="tb-divider"></div>
+      <button class="tb-icon-btn" title="Thông báo">
+        <i class="bi bi-bell"></i>
+        <span class="tb-notif-dot"></span>
+      </button>
+      <button class="tb-icon-btn" title="Cài đặt">
+        <i class="bi bi-gear"></i>
+      </button>
+      <div class="tb-avatar" title="Nguyễn Mẫn">NM</div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Page header -->
+    <div class="page-head">
+      <h2>Tổng quan chấm công — Tháng 04 / 2025</h2>
+      <p>Theo dõi mức độ hiện diện, cảnh báo và xu hướng tăng ca để quản lý vận hành nhân sự theo ngày.</p>
+    </div>
+
+    <!-- ── KPI cards ──────────────────────────────────────── -->
+    <div class="kpi-grid">
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <span class="kpi-lbl">Tổng nhân sự</span>
+          <div class="kpi-ico"><i class="bi bi-people-fill"></i></div>
+        </div>
+        <div class="kpi-val">342</div>
+        <div class="kpi-sub">Nhân viên đang hoạt động</div>
+      </div>
+
+      <div class="kpi-card v-cyan">
+        <div class="kpi-head">
+          <span class="kpi-lbl">Dòng chấm công</span>
+          <div class="kpi-ico"><i class="bi bi-table"></i></div>
+        </div>
+        <div class="kpi-val">7,846</div>
+        <div class="kpi-sub">Bản ghi tổng hợp tháng</div>
+      </div>
+
+      <div class="kpi-card v-violet">
+        <div class="kpi-head">
+          <span class="kpi-lbl">Tổng giờ được tính</span>
+          <div class="kpi-ico"><i class="bi bi-clock-fill"></i></div>
+        </div>
+        <div class="kpi-val">68,432<span class="kpi-val-unit">h</span></div>
+        <div class="kpi-sub">Bình quân 8.72h / bản ghi</div>
+      </div>
+
+      <div class="kpi-card v-amber">
+        <div class="kpi-head">
+          <span class="kpi-lbl">Lương dự kiến</span>
+          <div class="kpi-ico"><i class="bi bi-cash-coin"></i></div>
+        </div>
+        <div class="kpi-val" style="font-size:20px;">2,847.5<span class="kpi-val-unit">tr</span></div>
+        <div class="kpi-sub">Bình quân 8.3tr / bản ghi</div>
+      </div>
+
+      <div class="kpi-card v-green">
+        <div class="kpi-head">
+          <span class="kpi-lbl">Tỉ lệ hiện diện</span>
+          <div class="kpi-ico"><i class="bi bi-person-check-fill"></i></div>
+        </div>
+        <div class="kpi-val">96.4<span class="kpi-val-unit">%</span></div>
+        <div class="kpi-sub">Vắng mặt (N): 124 ngày-người</div>
+      </div>
+
+      <div class="kpi-card v-red">
+        <div class="kpi-head">
+          <span class="kpi-lbl">Tổng cảnh báo</span>
+          <div class="kpi-ico"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        </div>
+        <div class="kpi-val" style="color:#DC2626;">124</div>
+        <div class="kpi-sub">Gồm N và thiếu giờ</div>
+      </div>
+
+    </div><!-- /kpi-grid -->
+
+    <!-- ── Charts row ─────────────────────────────────────── -->
+    <div class="charts-row">
+
+      <!-- Donut: Status distribution -->
+      <div class="card">
+        <div class="card-head">
+          <h3>Phân bố trạng thái chấm công</h3>
+          <span class="card-cap">Tháng 04/2025</span>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-inner">
+            <canvas id="statusChart"></canvas>
+          </div>
+        </div>
+        <div class="status-legend">
+          <div class="sl-row">
+            <div class="sl-row-left"><span class="sl-dot" style="background:#2563EB;"></span><span class="sl-name">Có mặt (T)</span></div>
+            <div><span class="sl-val">6,842</span><span class="sl-pct">79.4%</span></div>
+          </div>
+          <div class="sl-row">
+            <div class="sl-row-left"><span class="sl-dot" style="background:#64748B;"></span><span class="sl-name">Ngày OFF</span></div>
+            <div><span class="sl-val">847</span><span class="sl-pct">9.8%</span></div>
+          </div>
+          <div class="sl-row">
+            <div class="sl-row-left"><span class="sl-dot" style="background:#D97706;"></span><span class="sl-name">Tăng ca (OT)</span></div>
+            <div><span class="sl-val">512</span><span class="sl-pct">5.9%</span></div>
+          </div>
+          <div class="sl-row">
+            <div class="sl-row-left"><span class="sl-dot" style="background:#7C3AED;"></span><span class="sl-name">Phép (P)</span></div>
+            <div><span class="sl-val">233</span><span class="sl-pct">2.7%</span></div>
+          </div>
+          <div class="sl-row">
+            <div class="sl-row-left"><span class="sl-dot" style="background:#DC2626;"></span><span class="sl-name">Vắng mặt (N)</span></div>
+            <div><span class="sl-val">124</span><span class="sl-pct">1.4%</span></div>
+          </div>
+          <div class="sl-row">
+            <div class="sl-row-left"><span class="sl-dot" style="background:#0891B2;"></span><span class="sl-name">Khác</span></div>
+            <div><span class="sl-val">88</span><span class="sl-pct">1.0%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bar: Top 10 overtime -->
+      <div class="card">
+        <div class="card-head">
+          <h3>Top 10 nhân viên tăng ca nhiều nhất</h3>
+          <span class="card-cap">Đơn vị: giờ &nbsp;·&nbsp; Tháng 04/2025</span>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-inner">
+            <canvas id="overtimeChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /charts-row -->
+
+    <!-- ── Alert table ────────────────────────────────────── -->
+    <div class="card alert-card">
+      <div class="alert-head">
+        <h3>Cảnh báo cần xem lại &nbsp;<span class="cnt-badge">124</span></h3>
+        <div class="alert-search">
+          <input type="text" placeholder="Tìm mã NV, họ tên, ghi chú…">
+          <button class="btn-sec"><i class="bi bi-search"></i> Tìm</button>
+          <button class="btn-sec" style="color:#DC2626; border-color:#FECACA;">
+            <i class="bi bi-funnel"></i> Lọc
+          </button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="alert-tbl">
+          <thead>
+            <tr>
+              <th>Ngày</th>
+              <th>Mã NV</th>
+              <th>Họ và tên</th>
+              <th>Mức độ</th>
+              <th>Trạng thái</th>
+              <th style="text-align:right;">Chênh lệch giờ</th>
+              <th>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>01/04/2025</td>
+              <td class="emp-code">NV0045</td>
+              <td><a href="#">Nguyễn Văn An</a></td>
+              <td><span class="badge b-cao">Cao</span></td>
+              <td><span class="badge b-n">N</span></td>
+              <td style="text-align:right;" class="dev-neg">−8.00h</td>
+              <td>Vắng không phép</td>
+            </tr>
+            <tr>
+              <td>02/04/2025</td>
+              <td class="emp-code">NV0112</td>
+              <td><a href="#">Trần Thị Bích Ngọc</a></td>
+              <td><span class="badge b-tb">Trung bình</span></td>
+              <td><span class="badge b-def">T−</span></td>
+              <td style="text-align:right;" class="dev-warn">−1.50h</td>
+              <td>Về sớm, không ghi nhận</td>
+            </tr>
+            <tr>
+              <td>03/04/2025</td>
+              <td class="emp-code">NV0078</td>
+              <td><a href="#">Lê Văn Cường</a></td>
+              <td><span class="badge b-cao">Cao</span></td>
+              <td><span class="badge b-n">N</span></td>
+              <td style="text-align:right;" class="dev-neg">−8.00h</td>
+              <td>Vắng không phép (lần 2)</td>
+            </tr>
+            <tr>
+              <td>04/04/2025</td>
+              <td class="emp-code">NV0203</td>
+              <td><a href="#">Phạm Thị Dung</a></td>
+              <td><span class="badge b-nhe">Nhẹ</span></td>
+              <td><span class="badge b-t">T</span></td>
+              <td style="text-align:right;" class="dev-ok">−0.50h</td>
+              <td>Đi trễ &lt; 30 phút</td>
+            </tr>
+            <tr>
+              <td>05/04/2025</td>
+              <td class="emp-code">NV0067</td>
+              <td><a href="#">Hoàng Minh Đức</a></td>
+              <td><span class="badge b-tb">Trung bình</span></td>
+              <td><span class="badge b-p">P</span></td>
+              <td style="text-align:right;" class="dev-warn">−4.00h</td>
+              <td>Phép nửa ngày chưa duyệt</td>
+            </tr>
+            <tr>
+              <td>07/04/2025</td>
+              <td class="emp-code">NV0155</td>
+              <td><a href="#">Vũ Thị Hằng</a></td>
+              <td><span class="badge b-cao">Cao</span></td>
+              <td><span class="badge b-n">N</span></td>
+              <td style="text-align:right;" class="dev-neg">−8.00h</td>
+              <td>Vắng không lý do, ngày 3</td>
+            </tr>
+            <tr>
+              <td>08/04/2025</td>
+              <td class="emp-code">NV0029</td>
+              <td><a href="#">Đặng Quang Huy</a></td>
+              <td><span class="badge b-nhe">Nhẹ</span></td>
+              <td><span class="badge b-t">T</span></td>
+              <td style="text-align:right;" class="dev-ok">−0.25h</td>
+              <td>Quên chấm ra cuối ca</td>
+            </tr>
+            <tr>
+              <td>09/04/2025</td>
+              <td class="emp-code">NV0088</td>
+              <td><a href="#">Bùi Thị Lan Phương</a></td>
+              <td><span class="badge b-tb">Trung bình</span></td>
+              <td><span class="badge b-def">T−</span></td>
+              <td style="text-align:right;" class="dev-warn">−2.00h</td>
+              <td>Về sớm do con ốm</td>
+            </tr>
+            <tr>
+              <td>10/04/2025</td>
+              <td class="emp-code">NV0144</td>
+              <td><a href="#">Ngô Văn Khôi</a></td>
+              <td><span class="badge b-cao">Cao</span></td>
+              <td><span class="badge b-n">N</span></td>
+              <td style="text-align:right;" class="dev-neg">−8.00h</td>
+              <td>Vắng không phép — 3 ngày liên tiếp</td>
+            </tr>
+            <tr>
+              <td>11/04/2025</td>
+              <td class="emp-code">NV0191</td>
+              <td><a href="#">Đinh Thị Mai Anh</a></td>
+              <td><span class="badge b-nhe">Nhẹ</span></td>
+              <td><span class="badge b-t">T</span></td>
+              <td style="text-align:right;" class="dev-ok">−0.75h</td>
+              <td>Đi trễ buổi sáng</td>
+            </tr>
+            <tr>
+              <td>14/04/2025</td>
+              <td class="emp-code">NV0033</td>
+              <td><a href="#">Trương Quốc Bảo</a></td>
+              <td><span class="badge b-cao">Cao</span></td>
+              <td><span class="badge b-n">N</span></td>
+              <td style="text-align:right;" class="dev-neg">−8.00h</td>
+              <td>Vắng không phép</td>
+            </tr>
+            <tr>
+              <td>15/04/2025</td>
+              <td class="emp-code">NV0209</td>
+              <td><a href="#">Lý Thị Cẩm Tú</a></td>
+              <td><span class="badge b-tb">Trung bình</span></td>
+              <td><span class="badge b-p">P</span></td>
+              <td style="text-align:right;" class="dev-warn">−4.00h</td>
+              <td>Xin phép qua điện thoại, chưa ký đơn</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /alert-card -->
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════════════════ -->
+<script>
+/* ── Sidebar collapse ──────────────────────────────────────── */
+const sidebar    = document.getElementById('sidebar');
+const mainEl     = document.getElementById('main');
+const toggleBtn  = document.getElementById('toggle-btn');
+const toggleIcon = document.getElementById('toggle-icon');
+const STORE_KEY  = 'hl_sidebar_collapsed';
+
+let isCollapsed = localStorage.getItem(STORE_KEY) === '1';
+
+function applyCollapse(c) {
+  isCollapsed = c;
+  sidebar.classList.toggle('collapsed', c);
+  mainEl.classList.toggle('at-collapsed', c);
+  toggleBtn.classList.toggle('at-collapsed', c);
+  toggleIcon.classList.toggle('bi-chevron-left', !c);
+  toggleIcon.classList.toggle('bi-chevron-right', c);
+  toggleBtn.title = c ? 'Mở rộng menu' : 'Thu gọn menu';
+  try { localStorage.setItem(STORE_KEY, c ? '1' : '0'); } catch(e){}
+}
+
+applyCollapse(isCollapsed);
+toggleBtn.addEventListener('click', () => applyCollapse(!isCollapsed));
+
+/* ── Charts ────────────────────────────────────────────────── */
+Chart.defaults.font.family = 'Inter, sans-serif';
+
+/* Donut – status distribution */
+new Chart(document.getElementById('statusChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Có mặt (T)', 'Ngày OFF', 'Tăng ca (OT)', 'Phép (P)', 'Vắng mặt (N)', 'Khác'],
+    datasets: [{
+      data: [6842, 847, 512, 233, 124, 88],
+      backgroundColor: ['#2563EB', '#64748B', '#D97706', '#7C3AED', '#DC2626', '#0891B2'],
+      borderWidth: 0,
+      hoverOffset: 5
+    }]
+  },
+  options: {
+    maintainAspectRatio: false,
+    cutout: '72%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        padding: 10,
+        callbacks: {
+          label: ctx => {
+            const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+            const pct   = ((ctx.parsed / total) * 100).toFixed(1);
+            return `  ${ctx.label}: ${ctx.parsed.toLocaleString('vi-VN')} dòng (${pct}%)`;
+          }
+        }
+      }
+    }
+  }
+});
+
+/* Bar – top 10 overtime */
+new Chart(document.getElementById('overtimeChart'), {
+  type: 'bar',
+  data: {
+    labels: [
+      'Nguyễn V. Minh', 'Trần T. Lan', 'Lê V. Hùng',
+      'Phạm T. Thu', 'Hoàng V. Nam', 'Đặng T. Hoa',
+      'Vũ V. Thành', 'Bùi T. Mai', 'Đỗ V. Khoa', 'Ngô T. Yến'
+    ],
+    datasets: [{
+      label: 'Giờ tăng ca',
+      data: [68, 61, 57, 52, 49, 45, 43, 38, 35, 31],
+      backgroundColor: (ctx) => {
+        const idx = ctx.dataIndex;
+        if (idx === 0) return '#1D4ED8';
+        if (idx === 1) return '#2563EB';
+        if (idx === 2) return '#3B82F6';
+        return '#93C5FD';
+      },
+      borderRadius: { topLeft: 4, topRight: 4 },
+      borderSkipped: false,
+      maxBarThickness: 36
+    }]
+  },
+  options: {
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        padding: 10,
+        callbacks: {
+          label: ctx => `  ${ctx.parsed.y}h tăng ca tháng này`
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(15,23,42,0.045)', drawTicks: false },
+        border: { display: false, dash: [4,4] },
+        ticks: {
+          font: { size: 11 }, color: '#94A3B8',
+          padding: 6,
+          callback: v => v + 'h'
+        }
+      },
+      x: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: { font: { size: 11 }, color: '#475569', maxRotation: 30 }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
