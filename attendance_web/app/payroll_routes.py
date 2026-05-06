@@ -299,11 +299,30 @@ def register_payroll_routes(app):
     def payroll_leave():
         month_key = _safe_month_key(request.args.get("month"))
         search_query = (request.args.get("q") or "").strip().lower()
+        year = int(month_key[:4])
+
+        # For each employee, pick the latest leave snapshot within the year
+        # so data is visible even if imported under a different month_key
+        latest_subq = (
+            db.session.query(
+                PayrollLeaveSnapshot.employee_id,
+                func.max(PayrollLeaveSnapshot.month_key).label("latest_month"),
+            )
+            .filter(PayrollLeaveSnapshot.year == year)
+            .group_by(PayrollLeaveSnapshot.employee_id)
+            .subquery()
+        )
 
         rows = (
             db.session.query(PayrollLeaveSnapshot, Employee)
             .join(Employee, Employee.id == PayrollLeaveSnapshot.employee_id)
-            .filter(PayrollLeaveSnapshot.month_key == month_key)
+            .join(
+                latest_subq,
+                db.and_(
+                    PayrollLeaveSnapshot.employee_id == latest_subq.c.employee_id,
+                    PayrollLeaveSnapshot.month_key == latest_subq.c.latest_month,
+                ),
+            )
             .order_by(Employee.employee_code.asc())
             .all()
         )
@@ -318,15 +337,18 @@ def register_payroll_routes(app):
 
         total_used = sum(float(item[0].used_days or 0) for item in rows)
         total_remaining = sum(float(item[0].remaining_days or 0) for item in rows)
+        total_entitled = sum(float(item[0].entitled_days or 0) for item in rows)
 
         return render_template(
             "payroll_leave.html",
             title="Phep nam",
             month_key=month_key,
+            year=year,
             search_query=search_query,
             rows=rows,
             total_used=round(total_used, 2),
             total_remaining=round(total_remaining, 2),
+            total_entitled=round(total_entitled, 2),
         )
 
     @app.route("/payroll/slips", methods=["GET"])

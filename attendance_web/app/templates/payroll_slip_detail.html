@@ -1,122 +1,384 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel employees-header">
-    <div>
-        <p class="dashboard-eyebrow">Luong va thue</p>
-        <h2>Phieu luong - {{ employee.full_name }}</h2>
-        <p class="muted">Thang: {{ month_key }}</p>
+
+{# ── Topbar ── #}
+<div class="psd-topbar">
+    <div class="psd-bread">
+        <a href="{{ url_for('payroll_slips', month=month_key) }}" style="color:#94A3B8;text-decoration:none;display:flex;align-items:center;gap:4px;">
+            <i class="bi bi-chevron-left" style="font-size:11px;"></i> Phiếu lương
+        </a>
+        <span class="sep">/</span>
+        <span class="cur">{{ employee.full_name }}</span>
     </div>
-    <form method="get" class="inline-filter-form">
-        <input type="month" name="month" value="{{ month_key }}">
+    <form method="get" class="psd-month-form" style="margin-left:auto;">
+        <label for="psd-month">Tháng:</label>
+        <input id="psd-month" type="month" name="month" value="{{ month_key }}">
         <button type="submit">Xem</button>
     </form>
-</section>
+    <a href="{{ url_for('employee_detail', employee_id=employee.id, month=month_key) }}" class="det-btn">
+        <i class="bi bi-person-lines-fill"></i> Chấm công
+    </a>
+</div>
 
-<section class="card-grid employees-summary-grid">
-    <article class="card">
-        <div class="kpi-title">Tong gio duoc tinh</div>
-        <div class="kpi-value">{{ "{:.2f}".format(total_hours) }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Tong luong thang</div>
-        <div class="kpi-value">{{ "{:,.0f}".format(slip.gross_total if slip else 0) }}</div>
-    </article>
-</section>
+{# ── Page body ── #}
+<div class="psd-content">
 
-<section class="panel data-panel">
-    <h3>Bảng phép năm</h3>
-    {% if leave %}
-    <table class="small">
-        <thead><tr><th>Năm</th><th>Tổng phép</th><th>Đã dùng</th><th>Còn lại</th></tr></thead>
-        <tbody>
-            <tr>
-                <td>{{ leave.year }}</td>
-                <td>{{ leave.entitled_days }}</td>
-                <td>{{ leave.used_days }}</td>
-                <td>{{ leave.remaining_days }}</td>
-            </tr>
-        </tbody>
-    </table>
-    {% else %}
-    <div>Không có dữ liệu phép năm.</div>
-    {% endif %}
-</section>
-
-<section class="panel data-panel">
-    <h3>Lịch sử lương</h3>
-    <table class="small">
-        <thead><tr><th>Tháng</th><th>Lương tháng</th><th>Công chuẩn</th><th>Lương ngày quy đổi</th><th>Hình thức</th></tr></thead>
-        <tbody>
-        {% for row in salary_history %}
-            <tr>
-                <td>{{ row.month_key }}</td>
-                <td>{{ "{:,.0f}".format(row.base_daily_wage or 0) }}</td>
-                <td>{{ row.salary_coefficient }}</td>
-                <td>{{ "{:,.0f}".format((row.base_daily_wage or 0) / (row.salary_coefficient or 1)) }}</td>
-                <td>{{ row.pay_method or '-' }}</td>
-            </tr>
-        {% else %}
-            <tr><td colspan="5">Không có lịch sử lương.</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</section>
-
-<section class="panel data-panel">
-    <h3>Chi tiết chấm công tháng {{ month_key }}</h3>
-    <div class="table-wrap">
-    <table>
-        <thead><tr><th>Ngày</th><th>Ca</th><th>Giờ thực</th><th>Giờ trả</th><th>Tăng ca</th><th>Ghi chú</th></tr></thead>
-        <tbody>
-        {% for d in attendance_details %}
-            <tr{% if d.status_code == 'admin_confirmed' %} class="muted"{% endif %}>
-                <td>{{ d.work_date }}</td>
-                <td>{{ d.shift_name }}</td>
-                <td>{{ "{:.2f}".format(d.actual_work_hours or 0) }}</td>
-                <td>{{ "{:.2f}".format(d.paid_hours or 0) }}</td>
-                <td>{{ "{:.2f}".format(d.overtime_hours or 0) }}</td>
-                <td>{{ d.notes or '' }}</td>
-            </tr>
-        {% else %}
-            <tr><td colspan="6">Không có dữ liệu chấm công.</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    {# ── Employee header ── #}
+    <div class="psd-emp-card">
+        <div class="psd-emp-avatar">{{ employee.full_name[0] | upper }}</div>
+        <div class="psd-emp-info">
+            <div class="psd-emp-name">{{ employee.full_name }}</div>
+            <div class="psd-emp-meta">
+                <span><i class="bi bi-person-badge"></i>{{ employee.employee_code }}</span>
+                {% if employee.department %}<span><i class="bi bi-building"></i>{{ employee.department }}</span>{% endif %}
+                {% if employee.job_title %}<span><i class="bi bi-briefcase"></i>{{ employee.job_title }}</span>{% endif %}
+            </div>
+        </div>
+        <div class="psd-emp-badges">
+            <span class="psd-emp-badge psd-badge-month"><i class="bi bi-calendar3"></i> {{ month_key }}</span>
+            {% if slip and slip.payroll_group %}
+            <span class="psd-emp-badge psd-badge-group"><i class="bi bi-diagram-3"></i> {{ slip.payroll_group }}</span>
+            {% endif %}
+        </div>
     </div>
-</section>
 
-<section class="panel data-panel">
-    <h3>Tổng theo ca</h3>
-    {% set shift_map = {} %}
-    {% for d in attendance_details %}
-        {% set key = d.shift_code or 'X' %}
-        {% if key not in shift_map %}
-            {% set _ = shift_map.__setitem__(key, {'name': d.shift_name or key, 'days': 0, 'work_hours': 0.0, 'actual_hours': 0.0, 'ot': 0.0, 'salary': 0.0}) %}
-        {% endif %}
-        {% set _ = shift_map[key].__setitem__('days', shift_map[key].days + 1) %}
-        {% set _ = shift_map[key].__setitem__('work_hours', shift_map[key].work_hours + (d.standard_hours or 0)) %}
-        {% set _ = shift_map[key].__setitem__('actual_hours', shift_map[key].actual_hours + (d.actual_work_hours or 0)) %}
-        {% set _ = shift_map[key].__setitem__('ot', shift_map[key].ot + (d.overtime_hours or 0)) %}
-    {% endfor %}
+    {% if slip %}
 
-    <table class="small">
-        <thead><tr><th>Mã ca</th><th>Tên ca</th><th>Số ngày</th><th>Tổng giờ công</th><th>Tổng giờ thực</th><th>Tổng tăng ca</th><th>Tổng lương</th></tr></thead>
-        <tbody>
-        {% for key, s in shift_map.items() %}
-            <tr>
-                <td>{{ key }}</td>
-                <td>{{ s.name }}</td>
-                <td>{{ s.days }}</td>
-                <td>{{ "{:.2f}".format(s.work_hours) }}</td>
-                <td>{{ "{:.2f}".format(s.actual_hours) }}</td>
-                <td>{{ "{:.2f}".format(s.ot) }}</td>
-                <td>{{ "{:,.0f}".format(slip.gross_total if slip else 0) }}</td>
-            </tr>
-        {% else %}
-            <tr><td colspan="7">Không có dữ liệu.</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</section>
+    {# ── Net income highlight ── #}
+    <div class="psd-net-bar">
+        <div>
+            <div class="psd-net-bar-label">
+                Thực lĩnh
+                <span>Sau khi trừ toàn bộ khấu trừ</span>
+            </div>
+        </div>
+        <div class="psd-net-bar-value">{{ "{:,.0f}".format(slip.net_income or 0) }} ₫</div>
+        <div class="psd-net-bar-days">
+            <div class="psd-net-bar-label" style="text-align:right;">
+                Ngày công
+                <span style="font-size:18px;font-weight:800;color:#fff;display:block;margin-top:1px;">{{ slip.attendance_days }}</span>
+            </div>
+        </div>
+    </div>
+
+    {# ── Earnings / Deductions two-column ── #}
+    <div class="psd-slip-grid">
+
+        {# Earnings #}
+        <div class="psd-slip-card psd-slip-card-earn">
+            <div class="psd-slip-card-head psd-slip-card-head-earn">
+                <i class="bi bi-plus-circle-fill"></i> Thu nhập
+            </div>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>Lương theo công</td>
+                        <td {% if not slip.salary_by_attendance %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.salary_by_attendance or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Tăng ca ngày thường</td>
+                        <td {% if not slip.overtime_weekday_hours %}class="psd-zero"{% endif %}>
+                            {{ "{:.2f}".format(slip.overtime_weekday_hours or 0) }}h
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Tăng ca Chủ nhật</td>
+                        <td {% if not slip.overtime_sunday_hours %}class="psd-zero"{% endif %}>
+                            {{ "{:.2f}".format(slip.overtime_sunday_hours or 0) }}h
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Tiền tăng ca</td>
+                        <td {% if not slip.overtime_pay %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.overtime_pay or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Phụ cấp chức vụ</td>
+                        <td {% if not slip.role_allowance %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.role_allowance or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Phụ cấp con nhỏ</td>
+                        <td {% if not slip.child_allowance %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.child_allowance or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Xăng xe / điện thoại</td>
+                        <td {% if not slip.transport_phone_allowance %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.transport_phone_allowance or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Tiền ăn ca</td>
+                        <td {% if not slip.meal_allowance %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.meal_allowance or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Thưởng chuyên cần</td>
+                        <td {% if not slip.attendance_allowance %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.attendance_allowance or 0) }}
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Tổng thu nhập (Gross)</td>
+                        <td>{{ "{:,.0f}".format(slip.gross_total or 0) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        {# Deductions #}
+        <div class="psd-slip-card psd-slip-card-deduct">
+            <div class="psd-slip-card-head psd-slip-card-head-deduct">
+                <i class="bi bi-dash-circle-fill"></i> Khấu trừ
+            </div>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>BHXH / BHYT / BHTN (NLĐ)</td>
+                        <td {% if not slip.social_insurance_deduction %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.social_insurance_deduction or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Phí công đoàn</td>
+                        <td {% if not slip.union_fee_deduction %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.union_fee_deduction or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Thuế TNCN</td>
+                        <td {% if not slip.pit_tax_deduction %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.pit_tax_deduction or 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Tạm ứng</td>
+                        <td {% if not slip.advance_deduction %}class="psd-zero"{% endif %}>
+                            {{ "{:,.0f}".format(slip.advance_deduction or 0) }}
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Tổng khấu trừ</td>
+                        <td>
+                            {% set total_ded = (slip.social_insurance_deduction or 0) + (slip.union_fee_deduction or 0) + (slip.pit_tax_deduction or 0) + (slip.advance_deduction or 0) %}
+                            {{ "{:,.0f}".format(total_ded) }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+    </div>
+
+    {% else %}
+    <div style="background:#fff;border:1px solid #E8EEF4;border-radius:10px;padding:32px;text-align:center;color:#94A3B8;">
+        <i class="bi bi-receipt" style="font-size:32px;display:block;margin-bottom:8px;"></i>
+        Chưa có phiếu lương cho tháng {{ month_key }}.
+    </div>
+    {% endif %}
+
+    {# ── Insurance breakdown ── #}
+    {% if insurance %}
+    <div class="psd-section">
+        <div class="psd-section-head"><i class="bi bi-shield-check"></i> BHXH / BHYT / BHTN</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Khoản</th>
+                    <th class="num">Lương đóng BH</th>
+                    <th class="num">Người LĐ</th>
+                    <th class="num">Công ty</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>BHXH</td>
+                    <td class="num">{{ "{:,.0f}".format(insurance.insured_salary or 0) }}</td>
+                    <td class="num num-employee">{{ "{:,.0f}".format(insurance.employee_bhxh or 0) }}</td>
+                    <td class="num num-employer">{{ "{:,.0f}".format(insurance.employer_bhxh or 0) }}</td>
+                </tr>
+                <tr>
+                    <td>BHYT</td>
+                    <td class="num">—</td>
+                    <td class="num num-employee">{{ "{:,.0f}".format(insurance.employee_bhyt or 0) }}</td>
+                    <td class="num num-employer">{{ "{:,.0f}".format(insurance.employer_bhyt or 0) }}</td>
+                </tr>
+                <tr>
+                    <td>BHTN</td>
+                    <td class="num">—</td>
+                    <td class="num num-employee">{{ "{:,.0f}".format(insurance.employee_bhtn or 0) }}</td>
+                    <td class="num num-employer">{{ "{:,.0f}".format(insurance.employer_bhtn or 0) }}</td>
+                </tr>
+                {% if insurance.employer_accident %}
+                <tr>
+                    <td>TNLĐ / BNN (Công ty)</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num num-employer">{{ "{:,.0f}".format(insurance.employer_accident) }}</td>
+                </tr>
+                {% endif %}
+                <tr style="font-weight:700;">
+                    <td>Tổng</td>
+                    <td class="num">—</td>
+                    <td class="num num-employee num-bold">{{ "{:,.0f}".format(insurance.employee_total or 0) }}</td>
+                    <td class="num num-employer num-bold">{{ "{:,.0f}".format(insurance.employer_total or 0) }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {# ── Leave snapshot ── #}
+    {% if leave %}
+    <div class="psd-section">
+        <div class="psd-section-head"><i class="bi bi-calendar2-check"></i> Phép năm {{ leave.year }}</div>
+        <div class="psd-leave-row">
+            <div class="psd-leave-chip">
+                <strong>{{ leave.entitled_days }}</strong>
+                <span>Tổng phép<br>được hưởng</span>
+            </div>
+            {% if leave.bonus_entitled_days %}
+            <div class="psd-leave-chip">
+                <strong>{{ leave.bonus_entitled_days }}</strong>
+                <span>Phép thưởng<br>thêm</span>
+            </div>
+            {% endif %}
+            <div class="psd-leave-chip psd-leave-chip-used">
+                <strong>{{ leave.used_days }}</strong>
+                <span>Đã dùng</span>
+            </div>
+            <div class="psd-leave-chip psd-leave-chip-remaining">
+                <strong>{{ leave.remaining_days }}</strong>
+                <span>Còn lại</span>
+            </div>
+            {% if leave.work_days %}
+            <div class="psd-leave-chip">
+                <strong>{{ leave.work_days }}</strong>
+                <span>Ngày<br>làm việc</span>
+            </div>
+            {% endif %}
+            {% if leave.sick_leave_days %}
+            <div class="psd-leave-chip">
+                <strong>{{ leave.sick_leave_days }}</strong>
+                <span>Nghỉ<br>ốm đau</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Attendance detail ── #}
+    {% if attendance_details %}
+    <div class="psd-section">
+        <div class="psd-section-head">
+            <i class="bi bi-table"></i> Chấm công tháng {{ month_key }}
+            <span style="margin-left:auto;font-size:11px;color:#94A3B8;font-weight:400;text-transform:none;letter-spacing:0;">
+                {{ attendance_details|length }} dòng &nbsp;·&nbsp;
+                Giờ thực: <strong style="color:#1E293B;">{{ "{:.2f}".format(total_hours) }}h</strong> &nbsp;·&nbsp;
+                Giờ trả: <strong style="color:#2563EB;">{{ "{:.2f}".format(total_paid_hours) }}h</strong>
+            </span>
+        </div>
+        <table class="psd-att-table">
+            <thead>
+                <tr>
+                    <th>Ngày</th>
+                    <th>Ca</th>
+                    <th style="text-align:right;">Giờ chuẩn</th>
+                    <th style="text-align:right;">Giờ thực</th>
+                    <th style="text-align:right;">Giờ trả</th>
+                    <th style="text-align:right;">Tăng ca</th>
+                    <th>Trạng thái</th>
+                    <th>Ghi chú</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in attendance_details %}
+                <tr class="{% if d.status_code == 'N' %}psd-att-row-n{% elif d.status_code == 'admin_confirmed' %}psd-att-row-confirmed{% endif %}">
+                    <td>{{ d.work_date }}</td>
+                    <td style="color:#64748B;">{{ d.shift_name or d.shift_code or '—' }}</td>
+                    <td style="text-align:right;color:#94A3B8;">{{ "{:.2f}".format(d.standard_hours or 0) }}</td>
+                    <td style="text-align:right;">{{ "{:.2f}".format(d.actual_work_hours or 0) }}</td>
+                    <td style="text-align:right;color:#2563EB;font-weight:600;">{{ "{:.2f}".format(d.paid_hours or 0) }}</td>
+                    <td style="text-align:right;color:#D97706;">
+                        {% if d.overtime_hours %}{{ "{:.2f}".format(d.overtime_hours) }}{% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if d.status_code == 'N' %}
+                            <span class="det-status det-status-n">N</span>
+                        {% elif d.status_code == 'P' %}
+                            <span class="det-status det-status-p">P</span>
+                        {% elif d.status_code in ['OFF', 'off'] %}
+                            <span class="det-status det-status-off">OFF</span>
+                        {% elif d.status_code == 'admin_confirmed' %}
+                            <span class="det-status" style="background:#F1F5F9;color:#64748B;">✓</span>
+                        {% else %}
+                            <span class="det-status det-status-ok">{{ d.status_code or 'OK' }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="color:#64748B;font-size:11px;">{{ d.notes or '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {# ── Salary history mini bars ── #}
+    {% if salary_history %}
+    <div class="psd-section">
+        <div class="psd-section-head"><i class="bi bi-bar-chart-line"></i> Lịch sử lương (12 tháng gần nhất)</div>
+        {% set max_wage = salary_history | map(attribute='base_daily_wage') | select | list %}
+        {% set max_val = max_wage | max if max_wage else 1 %}
+        <div class="psd-history-list">
+            {% for row in salary_history | reverse %}
+            {% set bar_h = ((row.base_daily_wage or 0) / max_val * 52) | int %}
+            <div class="psd-history-bar-wrap" title="{{ row.month_key }}: {{ '{:,.0f}'.format(row.base_daily_wage or 0) }}">
+                <div class="psd-history-bar {% if row.month_key == month_key %}is-current{% endif %}"
+                     style="height:{{ [bar_h, 4] | max }}px;"></div>
+                <div class="psd-history-label">{{ row.month_key[5:] }}/{{ row.month_key[2:4] }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <table style="border-top:1px solid #F0F4FA;">
+            <thead>
+                <tr>
+                    <th>Tháng</th>
+                    <th style="text-align:right;">Lương tháng</th>
+                    <th style="text-align:right;">Công chuẩn</th>
+                    <th style="text-align:right;">Lương/ngày</th>
+                    <th>Hình thức</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in salary_history %}
+                <tr {% if row.month_key == month_key %}style="background:#EFF6FF;"{% endif %}>
+                    <td>{{ row.month_key }}</td>
+                    <td style="text-align:right;font-variant-numeric:tabular-nums;">{{ "{:,.0f}".format(row.base_daily_wage or 0) }}</td>
+                    <td style="text-align:right;color:#64748B;">{{ row.salary_coefficient or '—' }}</td>
+                    <td style="text-align:right;color:#475569;font-variant-numeric:tabular-nums;">
+                        {% if row.salary_coefficient and row.base_daily_wage %}
+                        {{ "{:,.0f}".format((row.base_daily_wage or 0) / (row.salary_coefficient or 1)) }}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td style="color:#64748B;">{{ row.pay_method or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+</div>{# end psd-content #}
 
 {% endblock %}

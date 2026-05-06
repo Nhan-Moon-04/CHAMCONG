@@ -1,63 +1,110 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel employees-header">
-    <div>
-        <p class="dashboard-eyebrow">Luong va thue</p>
-        <h2>Phieu luong</h2>
-        <p class="muted">Chi tiet luong tung nhan vien theo thang.</p>
+
+{# ── Topbar ── #}
+<div class="psl-topbar">
+    <div class="psl-bread">
+        <span>Lương &amp; Thuế</span>
+        <span class="sep">/</span>
+        <span class="cur">Phiếu lương</span>
     </div>
-    <form method="get" class="inline-filter-form">
-        <input type="month" name="month" value="{{ month_key }}">
-        <input type="text" name="q" value="{{ search_query }}" placeholder="Tim ma NV / ho ten">
-        <button type="submit">Loc</button>
+
+    {# Month picker #}
+    <form method="get" class="psl-month-form">
+        <label for="psl-month">Tháng:</label>
+        <input id="psl-month" type="month" name="month" value="{{ month_key }}">
+        {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+        <button type="submit">Xem</button>
     </form>
-</section>
 
-<section class="card-grid employees-summary-grid">
-    <article class="card">
-        <div class="kpi-title">Tong luong gross</div>
-        <div class="kpi-value">{{ "{:,.0f}".format(gross_total) }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Tong thuc lanh</div>
-        <div class="kpi-value">{{ "{:,.0f}".format(net_total) }}</div>
-    </article>
-</section>
+    {# KPI chips #}
+    {% if gross_total %}
+    <span class="psl-kpi-chip psl-kpi-chip-gross">
+        <i class="bi bi-cash-stack"></i>
+        Tổng gross: <strong>{{ "{:,.0f}".format(gross_total) }}</strong>
+    </span>
+    <span class="psl-kpi-chip psl-kpi-chip-net">
+        <i class="bi bi-wallet2"></i>
+        Tổng thực lĩnh: <strong>{{ "{:,.0f}".format(net_total) }}</strong>
+    </span>
+    {% endif %}
 
-<section class="panel data-panel">
+    {# Search #}
+    <div class="det-actions" style="margin-left:auto;">
+        <form method="get" class="det-search-wrap">
+            <input type="hidden" name="month" value="{{ month_key }}">
+            <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm mã NV, họ tên…">
+            <button type="submit" class="det-search-btn"><i class="bi bi-search"></i></button>
+        </form>
+        {% if search_query %}
+        <a href="{{ url_for('payroll_slips', month=month_key) }}" class="det-btn" style="color:#DC2626;border-color:#FECACA;">
+            <i class="bi bi-x-circle"></i> Xóa
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{# ── Data table ── #}
+<section class="panel data-panel" id="psl-table-panel">
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Ma NV</th>
-                    <th>Ho ten</th>
-                    <th>Ngay cong</th>
-                    <th>Tong luong</th>
-                    <th>BHXH tru</th>
-                    <th>Thue TNCN</th>
-                    <th>Tam ung</th>
-                    <th>Thuc lanh</th>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th style="text-align:right;">Ngày công</th>
+                    <th style="text-align:right;">Tổng lương (Gross)</th>
+                    <th style="text-align:right;">Trừ BHXH</th>
+                    <th style="text-align:right;">Thuế TNCN</th>
+                    <th style="text-align:right;">Tạm ứng</th>
+                    <th style="text-align:right;">Thực lĩnh (Net)</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for slip, employee in rows %}
                 <tr>
-                    <td>{{ employee.employee_code }}</td>
-                    <td><a href="{{ url_for('payroll_slip_detail', employee_id=employee.id, month=month_key) }}">{{ employee.full_name }}</a></td>
-                    <td>{{ slip.attendance_days }}</td>
-                    <td>{{ "{:,.0f}".format(slip.gross_total or 0) }}</td>
-                    <td>{{ "{:,.0f}".format(slip.social_insurance_deduction or 0) }}</td>
-                    <td>{{ "{:,.0f}".format(slip.pit_tax_deduction or 0) }}</td>
-                    <td>{{ "{:,.0f}".format(slip.advance_deduction or 0) }}</td>
-                    <td><strong>{{ "{:,.0f}".format(slip.net_income or 0) }}</strong></td>
+                    <td class="psl-emp-code">{{ employee.employee_code }}</td>
+                    <td>
+                        <a href="{{ url_for('payroll_slip_detail', employee_id=employee.id, month=month_key) }}">
+                            {{ employee.full_name }}
+                        </a>
+                    </td>
+                    <td class="psl-num">{{ slip.attendance_days }}</td>
+                    <td class="psl-num">{{ "{:,.0f}".format(slip.gross_total or 0) }}</td>
+                    <td class="psl-num psl-deduct">
+                        {% if slip.social_insurance_deduction %}
+                        ({{ "{:,.0f}".format(slip.social_insurance_deduction) }})
+                        {% else %}–{% endif %}
+                    </td>
+                    <td class="psl-num psl-deduct">
+                        {% if slip.pit_tax_deduction %}
+                        ({{ "{:,.0f}".format(slip.pit_tax_deduction) }})
+                        {% else %}–{% endif %}
+                    </td>
+                    <td class="psl-num psl-deduct">
+                        {% if slip.advance_deduction %}
+                        ({{ "{:,.0f}".format(slip.advance_deduction) }})
+                        {% else %}–{% endif %}
+                    </td>
+                    <td class="psl-num psl-net">{{ "{:,.0f}".format(slip.net_income or 0) }}</td>
+                    <td>
+                        <a href="{{ url_for('payroll_slip_detail', employee_id=employee.id, month=month_key) }}"
+                           class="det-btn" style="font-size:11px;height:26px;padding:0 9px;">
+                            <i class="bi bi-receipt"></i> Chi tiết
+                        </a>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8">Khong co du lieu.</td>
+                    <td colspan="9" style="text-align:center;color:#94A3B8;padding:36px 12px;">
+                        Chưa có phiếu lương cho tháng {{ month_key }}.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </section>
+
 {% endblock %}

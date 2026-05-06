@@ -1,116 +1,162 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel employees-header">
-    <div>
-        <p class="dashboard-eyebrow">Danh mục nhân sự</p>
-        <h2>Danh sách nhân viên</h2>
-        {% if employee_records_locked %}
-        <p class="muted">Đã khóa</p>
-        {% endif %}
+
+{# ── Topbar ── #}
+<div class="emp-topbar">
+    <div class="emp-bread">
+        <span>Nhân sự</span>
+        <span class="sep">/</span>
+        <span class="cur">Danh sách nhân viên</span>
     </div>
-    {% if employee_edit_blocked %}
-    <span class="badge badge-warn">Đã khóa</span>
-    {% else %}
-    <a class="button-link" href="{{ url_for('create_employee') }}">Thêm nhân viên</a>
+
+    {# KPI chips #}
+    <span class="emp-kpi-chip emp-chip-total">
+        <i class="bi bi-people"></i>
+        Tổng <strong>{{ total_employees }}</strong>
+    </span>
+    <span class="emp-kpi-chip emp-chip-active">
+        <i class="bi bi-person-check"></i>
+        Hoạt động <strong>{{ active_employees }}</strong>
+    </span>
+    {% set inactive_count = total_employees - active_employees %}
+    {% if inactive_count > 0 %}
+    <span class="emp-kpi-chip emp-chip-inactive">
+        <i class="bi bi-person-dash"></i>
+        Tạm ngưng <strong>{{ inactive_count }}</strong>
+    </span>
     {% endif %}
-</section>
 
-<section class="panel soft-panel">
-    <form method="get" class="employee-search-form">
-        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo mọi cột trong bảng nhân viên">
-        <div class="scope-choice">
-            <label>
-                <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
-                Hiện tại
-            </label>
-            <label>
-                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
-                ALL
-            </label>
+    {# Actions #}
+    <div class="det-actions" style="margin-left:auto;">
+
+        {# Search #}
+        <form method="get" class="det-search-wrap" id="emp-search-form">
+            <input type="hidden" name="scope" id="emp-scope-val" value="{{ search_scope or 'current' }}">
+            <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm mã NV, họ tên, ca, quê quán…">
+            <button type="submit" class="det-search-btn"><i class="bi bi-search"></i></button>
+        </form>
+
+        <div class="det-scope-toggle">
+            <button type="button"
+                class="det-scope-btn {% if (search_scope or 'current') == 'current' %}det-scope-active{% endif %}"
+                onclick="empScope('current')">Đang làm</button>
+            <button type="button"
+                class="det-scope-btn {% if search_scope == 'all' %}det-scope-active{% endif %}"
+                onclick="empScope('all')">Tất cả</button>
         </div>
-        <button type="submit">Tìm kiếm</button>
+
         {% if search_query or search_scope == 'all' %}
-        <a class="button-link button-link-secondary" href="{{ url_for('employees') }}">Xóa lọc</a>
+        <a href="{{ url_for('employees') }}" class="det-btn" style="color:#DC2626;border-color:#FECACA;">
+            <i class="bi bi-x-circle"></i> Xóa
+        </a>
         {% endif %}
-    </form>
-    <p class="muted">
-        {% if search_scope == 'all' %}
-        Đang tìm trong toàn bộ dữ liệu từ trước đến nay, ưu tiên bản ghi mới nhất.
+
+        <div class="det-topbar-sep"></div>
+
+        {% if employee_edit_blocked %}
+        <span class="sal-lock-badge"><i class="bi bi-lock-fill"></i> Đã khóa</span>
         {% else %}
-        Đang tìm trong dữ liệu hiện tại (mặc định).
+        <a href="{{ url_for('create_employee') }}" class="emp-add-btn">
+            <i class="bi bi-person-plus"></i> Thêm nhân viên
+        </a>
         {% endif %}
-    </p>
-</section>
 
-<section class="card-grid employees-summary-grid">
-    <article class="card">
-        <div class="kpi-title">Tổng nhân viên</div>
-        <div class="kpi-value">{{ total_employees }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Đang hoạt động</div>
-        <div class="kpi-value">{{ active_employees }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Tạm ngưng</div>
-        <div class="kpi-value">{{ total_employees - active_employees }}</div>
-    </article>
-</section>
+    </div>
+</div>
 
-<section class="panel data-panel">
+{# ── Data table ── #}
+<section class="panel data-panel" id="emp-table-panel">
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Mã NV</th>
-                    <th>Họ tên</th>
+                    <th>Nhân viên</th>
                     <th>Giới tính</th>
-                    <th>Quê quán</th>
                     <th>Năm sinh</th>
-                    <th>Ca mặc định</th>
-                    <th>Trạng thái</th>
-                    <th>Hành động</th>
+                    <th>Quê quán</th>
+                    <th style="text-align:center;">Ca mặc định</th>
+                    <th style="text-align:center;">Trạng thái</th>
+                    <th style="text-align:right;">Hành động</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in employees %}
-                <tr>
-                    <td>{{ row.employee_code }}</td>
-                    <td><a href="{{ url_for('employee_detail', employee_id=row.id) }}">{{ row.full_name }}</a></td>
-                    <td>{{ row.gender or "-" }}</td>
-                    <td>{{ row.hometown or "-" }}</td>
-                    <td>{{ row.birth_year or "-" }}</td>
-                    <td><span class="badge">{{ row.default_shift_code }}</span></td>
+                <tr class="{% if not row.is_active %}emp-row-inactive{% endif %}">
                     <td>
+                        <div class="emp-name-cell">
+                            <div class="emp-avatar {% if not row.is_active %}emp-avatar-inactive{% endif %}">
+                                {{ row.full_name[0] | upper }}
+                            </div>
+                            <div class="emp-name-wrap">
+                                <a href="{{ url_for('employee_detail', employee_id=row.id) }}">{{ row.full_name }}</a>
+                                <div class="emp-code-sub">{{ row.employee_code }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="color:#64748B;">{{ row.gender or '—' }}</td>
+                    <td style="color:#64748B;">{{ row.birth_year or '—' }}</td>
+                    <td style="color:#64748B;max-width:140px;overflow:hidden;text-overflow:ellipsis;">
+                        {{ row.hometown or '—' }}
+                    </td>
+                    <td style="text-align:center;">
+                        <span class="emp-shift-badge">{{ row.default_shift_code }}</span>
+                    </td>
+                    <td style="text-align:center;">
                         {% if row.is_active %}
-                            <span class="badge badge-ok">Hoạt động</span>
+                        <span class="emp-status-active">Hoạt động</span>
                         {% else %}
-                            <span class="badge badge-warn">Tạm ngưng</span>
+                        <span class="emp-status-inactive">Tạm ngưng</span>
                         {% endif %}
                     </td>
-                    <td class="employees-actions-cell">
-                        {% if employee_edit_blocked %}
-                        <span class="badge badge-warn">Đã khóa</span>
-                        {% else %}
-                        <a class="link-pill" href="{{ url_for('edit_employee', employee_id=row.id) }}">Sửa thông tin</a>
-                        <form method="post" action="{{ url_for('delete_employee', employee_id=row.id) }}" class="row-action-form" data-confirm="Xóa nhân viên {{ row.full_name }} ({{ row.employee_code }})? Dữ liệu lương/chấm công liên quan cũng sẽ bị xóa vĩnh viễn.">
-                            <input type="hidden" name="scope" value="{{ search_scope or 'current' }}">
-                            {% if search_query %}
-                            <input type="hidden" name="q" value="{{ search_query }}">
+                    <td>
+                        <div class="emp-actions" style="justify-content:flex-end;">
+                            {% if employee_edit_blocked %}
+                            <span style="color:#94A3B8;font-size:11px;"><i class="bi bi-lock"></i> Đã khóa</span>
+                            {% else %}
+                            <a href="{{ url_for('edit_employee', employee_id=row.id) }}" class="emp-action-btn">
+                                <i class="bi bi-pencil"></i> Sửa
+                            </a>
+                            <form method="post" action="{{ url_for('delete_employee', employee_id=row.id) }}"
+                                  class="row-action-form"
+                                  data-confirm="Xóa nhân viên {{ row.full_name }} ({{ row.employee_code }})? Dữ liệu lương/chấm công liên quan cũng sẽ bị xóa vĩnh viễn.">
+                                <input type="hidden" name="scope" value="{{ search_scope or 'current' }}">
+                                {% if search_query %}
+                                <input type="hidden" name="q" value="{{ search_query }}">
+                                {% endif %}
+                                <button type="submit" class="emp-action-btn emp-action-btn-danger">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </button>
+                            </form>
                             {% endif %}
-                            <button type="submit" class="secondary danger">Xóa</button>
-                        </form>
-                        {% endif %}
-                        <a class="link-pill link-pill-secondary" href="{{ url_for('employee_detail', employee_id=row.id) }}">Xem chi tiết</a>
+                            <a href="{{ url_for('employee_detail', employee_id=row.id) }}" class="emp-action-btn">
+                                <i class="bi bi-person-lines-fill"></i> Chi tiết
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8">Chưa có nhân viên.</td>
+                    <td colspan="7" style="text-align:center;color:#94A3B8;padding:36px 12px;">
+                        {% if search_query %}
+                        Không tìm thấy nhân viên khớp với "<strong>{{ search_query }}</strong>".
+                        {% else %}
+                        Chưa có nhân viên nào.
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </section>
+
+<script>
+function empScope(scope) {
+    var inp = document.getElementById('emp-scope-val');
+    if (inp) inp.value = scope;
+    var frm = document.getElementById('emp-search-form');
+    if (frm) frm.submit();
+}
+</script>
+
 {% endblock %}

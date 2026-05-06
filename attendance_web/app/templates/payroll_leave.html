@@ -1,61 +1,137 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel employees-header">
-    <div>
-        <p class="dashboard-eyebrow">Luong va phep</p>
-        <h2>Phep nam theo thang</h2>
-        <p class="muted">Du lieu tach tu sheet phep nam.</p>
+
+{# ── Topbar ── #}
+<div class="plv-topbar">
+    <div class="plv-bread">
+        <span>Lương &amp; Thuế</span>
+        <span class="sep">/</span>
+        <span class="cur">Phép năm {{ year }}</span>
     </div>
-    <form method="get" class="inline-filter-form">
-        <input type="month" name="month" value="{{ month_key }}">
-        <input type="text" name="q" value="{{ search_query }}" placeholder="Tim ma NV / ho ten">
-        <button type="submit">Loc</button>
+
+    {# Year picker — send month so route extracts correct year #}
+    <form method="get" class="plv-year-form">
+        <label for="plv-month">Năm:</label>
+        <input id="plv-month" type="month" name="month" value="{{ month_key }}">
+        {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+        <button type="submit">Xem</button>
     </form>
-</section>
 
-<section class="card-grid employees-summary-grid">
-    <article class="card">
-        <div class="kpi-title">Tong phep da dung</div>
-        <div class="kpi-value">{{ total_used }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Tong phep con lai</div>
-        <div class="kpi-value">{{ total_remaining }}</div>
-    </article>
-</section>
+    {# Summary chips #}
+    {% if rows %}
+    <span class="plv-kpi-chip plv-chip-entitled">
+        <i class="bi bi-calendar2-week"></i>
+        Tổng phép: <strong>{{ total_entitled }}</strong>
+    </span>
+    <span class="plv-kpi-chip plv-chip-used">
+        <i class="bi bi-calendar2-x"></i>
+        Đã dùng: <strong>{{ total_used }}</strong>
+    </span>
+    <span class="plv-kpi-chip plv-chip-remaining">
+        <i class="bi bi-calendar2-check"></i>
+        Còn lại: <strong>{{ total_remaining }}</strong>
+    </span>
+    {% endif %}
 
-<section class="panel data-panel">
+    {# Search #}
+    <div class="det-actions" style="margin-left:auto;">
+        <form method="get" class="det-search-wrap">
+            <input type="hidden" name="month" value="{{ month_key }}">
+            <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm mã NV, họ tên…">
+            <button type="submit" class="det-search-btn"><i class="bi bi-search"></i></button>
+        </form>
+        {% if search_query %}
+        <a href="{{ url_for('payroll_leave', month=month_key) }}" class="det-btn" style="color:#DC2626;border-color:#FECACA;">
+            <i class="bi bi-x-circle"></i> Xóa
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{# ── Data table ── #}
+<section class="panel data-panel" id="plv-table-panel">
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Ma NV</th>
-                    <th>Ho ten</th>
-                    <th>Phep duoc huong</th>
-                    <th>Phep them (5 nam)</th>
-                    <th>Da dung</th>
-                    <th>Con lai</th>
-                    <th>Phep benh</th>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th style="text-align:right;">Phép được hưởng</th>
+                    <th style="text-align:right;">Phép thêm (≥5 năm)</th>
+                    <th style="text-align:right;">Đã dùng</th>
+                    <th style="text-align:right;">Còn lại</th>
+                    <th style="text-align:right;">Nghỉ ốm</th>
+                    <th>Mức sử dụng</th>
+                    <th>Theo tháng</th>
+                    <th>Dữ liệu từ</th>
                 </tr>
             </thead>
             <tbody>
                 {% for leave, employee in rows %}
+                {% set entitled = (leave.entitled_days or 0) + (leave.bonus_entitled_days or 0) %}
+                {% set used = leave.used_days or 0 %}
+                {% set pct = ((used / entitled * 100) | int) if entitled > 0 else 0 %}
                 <tr>
-                    <td>{{ employee.employee_code }}</td>
-                    <td>{{ employee.full_name }}</td>
-                    <td>{{ leave.entitled_days }}</td>
-                    <td>{{ leave.bonus_entitled_days }}</td>
-                    <td>{{ leave.used_days }}</td>
-                    <td>{{ leave.remaining_days }}</td>
-                    <td>{{ leave.sick_leave_days }}</td>
+                    <td class="plv-emp-code">{{ employee.employee_code }}</td>
+                    <td>
+                        <a href="{{ url_for('employee_detail', employee_id=employee.id, month=month_key) }}">
+                            {{ employee.full_name }}
+                        </a>
+                    </td>
+                    <td style="text-align:right;">{{ leave.entitled_days }}</td>
+                    <td style="text-align:right;color:{% if leave.bonus_entitled_days %}#D97706{% else %}#CBD5E1{% endif %};">
+                        {{ leave.bonus_entitled_days if leave.bonus_entitled_days else '—' }}
+                    </td>
+                    <td style="text-align:right;color:#DC2626;font-weight:600;">{{ used }}</td>
+                    <td style="text-align:right;">
+                        {% set rem = leave.remaining_days or 0 %}
+                        {% if rem <= 0 %}
+                        <span class="plv-remain-badge plv-remain-none">{{ rem }}</span>
+                        {% elif rem <= 2 %}
+                        <span class="plv-remain-badge plv-remain-low">{{ rem }}</span>
+                        {% else %}
+                        <span class="plv-remain-badge plv-remain-ok">{{ rem }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;color:#64748B;">
+                        {{ leave.sick_leave_days if leave.sick_leave_days else '—' }}
+                    </td>
+                    <td>
+                        <div class="plv-bar-wrap">
+                            <div class="plv-bar-track">
+                                <div class="plv-bar-fill {% if pct >= 90 %}plv-bar-high{% elif pct >= 60 %}plv-bar-warn{% endif %}"
+                                     style="width:{{ [pct, 100] | min }}%;"></div>
+                            </div>
+                            <span class="plv-bar-pct">{{ pct }}%</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if leave.monthly_breakdown %}
+                        <div class="plv-breakdown" title="Phép từng tháng (t1–t12)">
+                            {% for m in range(1, 13) %}
+                            {% set val = leave.monthly_breakdown.get('t' ~ m, 0) or 0 %}
+                            <div class="plv-breakdown-dot {% if val > 0 %}has-val{% endif %}"
+                                 style="height:{{ [((val * 8)|int), 4] | max }}px;"
+                                 title="T{{ m }}: {{ val }}"></div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <span style="color:#CBD5E1;">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="color:#94A3B8;font-size:11px;">{{ leave.month_key }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7">Khong co du lieu.</td>
+                    <td colspan="10" style="text-align:center;color:#94A3B8;padding:36px 12px;">
+                        Chưa có dữ liệu phép năm {{ year }}.<br>
+                        <span style="font-size:11px;">Hãy import file lương có sheet "Phép năm" cho bất kỳ tháng nào trong năm {{ year }}.</span>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </section>
+
 {% endblock %}
