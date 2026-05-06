@@ -3070,6 +3070,96 @@ button.secondary.danger.sidebar-logout-btn:hover {
 .dashboard-warning-panel table tr:nth-child(even) td { background: transparent; }
 .dashboard-warning-panel table tbody tr:hover td { background: #EFF6FF; }
 
+.dashboard-warning-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 16px 12px;
+    border-top: 1px solid #EBF0F6;
+    flex-wrap: wrap;
+}
+
+.dashboard-warning-summary {
+    font-size: 11px;
+    color: #64748B;
+    font-weight: 500;
+}
+
+.dashboard-warning-pagination {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.warning-page-size-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.warning-page-size-form label {
+    font-size: 11px;
+    color: #64748B;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.warning-page-size-form select {
+    height: 28px;
+    min-width: 84px;
+    border-radius: 6px;
+    border-color: #E2E8F0;
+    background: #F8FAFC;
+    padding: 0 8px;
+    font-size: 12px;
+}
+
+.warning-page-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.warning-page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid #E2E8F0;
+    background: #fff;
+    color: #475569;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.warning-page-btn:hover {
+    background: #F8FAFC;
+    border-color: #CBD5E1;
+    color: #1E293B;
+    transform: none;
+    box-shadow: none;
+}
+
+.warning-page-btn.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.warning-page-current {
+    font-size: 11.5px;
+    color: #334155;
+    font-weight: 600;
+    padding: 0 4px;
+    white-space: nowrap;
+}
+
 /* Badge refresh */
 .badge { font-size: 10.5px; font-weight: 700; border-radius: 100px; padding: 2px 8px; background: #E2E8F0; color: #334155; }
 .badge.badge-critical { background: #FEE2E2; color: #991B1B; }
@@ -3079,7 +3169,7 @@ button.secondary.danger.sidebar-logout-btn:hover {
 /* KPI responsive */
 @media (max-width:1280px) { .dashboard-kpi-grid { grid-template-columns: repeat(3,1fr); } }
 @media (max-width:1100px) { .dashboard-chart-grid { grid-template-columns: 1fr; } }
-@media (max-width:980px)  { .page-dashboard { padding: 0; } .dash-topbar { flex-direction: column; height: auto; padding: 10px 14px; gap: 8px; } .dash-month-form { margin-left: 0; } }
+@media (max-width:980px)  { .page-dashboard { padding: 0; } .dash-topbar { flex-direction: column; height: auto; padding: 10px 14px; gap: 8px; } .dash-month-form { margin-left: 0; } .dashboard-warning-footer { padding-left: 12px; padding-right: 12px; } .dashboard-warning-pagination { margin-left: 0; width: 100%; justify-content: space-between; } }
 
 /* ═══════════════════════════════════════════════════════════
    DETAILS PAGE REDESIGN

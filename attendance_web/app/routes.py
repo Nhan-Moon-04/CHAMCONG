@@ -663,6 +663,23 @@ def register_routes(app):
     def dashboard():
         month_key = _safe_month_key(request.args.get("month"))
         warning_query = (request.args.get("q") or "").strip()
+        warning_page_raw = (request.args.get("page") or "1").strip()
+        warning_per_page_raw = (request.args.get("per_page") or "50").strip()
+
+        try:
+            warning_page = int(warning_page_raw)
+        except ValueError:
+            warning_page = 1
+
+        try:
+            warning_per_page = int(warning_per_page_raw)
+        except ValueError:
+            warning_per_page = 50
+
+        warning_per_page_options = [25, 50, 100, 200]
+        if warning_per_page not in warning_per_page_options:
+            warning_per_page = 50
+        warning_page = max(1, warning_page)
 
         # Keep dashboard numbers in sync with source tables (schedule, shifts, attendance, salary).
         month_is_locked = _month_lock_enabled(month_key)
@@ -732,11 +749,21 @@ def register_routes(app):
             )
 
         warning_total = warning_rows_query.count()
+        warning_total_pages = max(1, (warning_total + warning_per_page - 1) // warning_per_page) if warning_total else 1
+        if warning_page > warning_total_pages:
+            warning_page = warning_total_pages
+        warning_offset = (warning_page - 1) * warning_per_page
         warning_rows = (
             warning_rows_query
             .order_by(AttendanceDetail.work_date.desc(), AttendanceDetail.id.desc())
+            .offset(warning_offset)
+            .limit(warning_per_page)
             .all()
         )
+        warning_start_index = warning_offset + 1 if warning_total else 0
+        warning_end_index = min(warning_offset + warning_per_page, warning_total)
+        warning_has_prev = warning_page > 1
+        warning_has_next = warning_page < warning_total_pages
 
         attendance_rate = (
             ((total_rows - absent_days) / total_rows * 100.0) if total_rows > 0 else 0.0
@@ -754,6 +781,16 @@ def register_routes(app):
             total_wage=float(total_wage or 0),
             absent_days=absent_days,
             warning_total=int(warning_total or 0),
+            warning_page=warning_page,
+            warning_per_page=warning_per_page,
+            warning_total_pages=warning_total_pages,
+            warning_start_index=warning_start_index,
+            warning_end_index=warning_end_index,
+            warning_has_prev=warning_has_prev,
+            warning_has_next=warning_has_next,
+            warning_prev_page=max(1, warning_page - 1),
+            warning_next_page=min(warning_total_pages, warning_page + 1),
+            warning_per_page_options=warning_per_page_options,
             attendance_rate=attendance_rate,
             average_paid_hours=average_paid_hours,
             average_daily_wage=average_daily_wage,

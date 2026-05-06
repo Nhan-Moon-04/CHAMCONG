@@ -114,6 +114,8 @@
             </h3>
             <form method="get" class="warning-search-form">
                 <input type="hidden" name="month" value="{{ month_key }}">
+                <input type="hidden" name="per_page" value="{{ warning_per_page }}">
+                <input type="hidden" name="page" value="1">
                 <input type="text" name="q" value="{{ warning_query }}" placeholder="Tìm mã NV, họ tên, ghi chú…">
                 <button type="submit">Tìm kiếm</button>
                 {% if warning_query %}
@@ -174,6 +176,40 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        <div class="dashboard-warning-footer">
+            <div class="dashboard-warning-summary">
+                {% if warning_total %}
+                Hiển thị {{ warning_start_index }}-{{ warning_end_index }} / {{ warning_total }} dòng
+                {% else %}
+                Không có cảnh báo trong tháng này.
+                {% endif %}
+            </div>
+            <div class="dashboard-warning-pagination">
+                <form method="get" class="warning-page-size-form">
+                    <input type="hidden" name="month" value="{{ month_key }}">
+                    {% if warning_query %}<input type="hidden" name="q" value="{{ warning_query }}">{% endif %}
+                    <label for="warning-per-page">Số dòng/trang</label>
+                    <select id="warning-per-page" name="per_page" onchange="this.form.page.value=1; this.form.submit()">
+                        {% for option in warning_per_page_options %}
+                        <option value="{{ option }}" {% if option == warning_per_page %}selected{% endif %}>{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="page" value="1">
+                </form>
+
+                <div class="warning-page-nav">
+                    <a class="warning-page-btn {% if not warning_has_prev %}is-disabled{% endif %}"
+                       href="{% if warning_has_prev %}{{ url_for('dashboard', month=month_key, q=warning_query or None, page=warning_prev_page, per_page=warning_per_page) }}{% else %}#{% endif %}">
+                        Trước
+                    </a>
+                    <span class="warning-page-current">Trang {{ warning_page }} / {{ warning_total_pages }}</span>
+                    <a class="warning-page-btn {% if not warning_has_next %}is-disabled{% endif %}"
+                       href="{% if warning_has_next %}{{ url_for('dashboard', month=month_key, q=warning_query or None, page=warning_next_page, per_page=warning_per_page) }}{% else %}#{% endif %}">
+                        Sau
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
