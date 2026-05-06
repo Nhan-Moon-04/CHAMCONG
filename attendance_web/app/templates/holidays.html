@@ -2,8 +2,9 @@
 {% block content %}
 <section class="panel page-toolbar">
     <div>
+        <p class="topbar-eyebrow">Hệ thống / Ngày OFF và lễ</p>
         <h2>Bảng ngày OFF, Chủ nhật, ngày lễ</h2>
-        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong></p>
+        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong> • {{ holidays|length }} dòng</p>
     </div>
     <div class="toolbar-actions">
         <form method="get" class="toolbar-month-form">
@@ -41,9 +42,9 @@
     </div>
 </section>
 
-<section class="panel data-panel">
+<section class="panel data-panel" id="holiday-table-panel">
     <div class="table-wrap">
-        <table>
+        <table id="holiday-table">
             <thead>
                 <tr>
                     <th>Ngày</th>
@@ -58,8 +59,8 @@
             <tbody>
                 {% for row in holidays %}
                 <tr>
-                    <td>{{ row.holiday_date }}</td>
-                    <td>
+                    <td style="white-space:nowrap;">{{ row.holiday_date }}</td>
+                    <td style="white-space:nowrap;">
                         {% if row.holiday_date.weekday() == 6 %}
                         Chủ nhật
                         {% else %}
@@ -68,6 +69,7 @@
                     </td>
                     <td>
                         <input
+                            class="holiday-text-input"
                             name="name"
                             value="{{ row.name }}"
                             form="holiday-edit-{{ row.id }}"
@@ -87,6 +89,7 @@
                     </td>
                     <td>
                         <input
+                            class="holiday-text-input"
                             name="notes"
                             value="{{ row.notes or '' }}"
                             form="holiday-edit-{{ row.id }}"
@@ -95,6 +98,7 @@
                     </td>
                     <td>
                         <input
+                            class="holiday-text-input"
                             name="changed_by"
                             value="admin"
                             form="holiday-edit-{{ row.id }}"
@@ -107,7 +111,7 @@
                             <input type="hidden" name="month_key" value="{{ month_key }}">
                             <input type="hidden" name="holiday_id" value="{{ row.id }}">
                         </form>
-                        <button type="submit" form="holiday-edit-{{ row.id }}">Lưu</button>
+                        <button type="submit" form="holiday-edit-{{ row.id }}" class="holiday-save-btn">Lưu</button>
                     </td>
                 </tr>
                 {% else %}

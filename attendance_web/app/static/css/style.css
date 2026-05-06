@@ -1181,7 +1181,17 @@ tr.meal-selected-row:hover td {
     max-height: calc(100dvh - 290px);
 }
 
+#holiday-table-panel .table-wrap {
+    max-height: calc(100vh - 290px);
+    max-height: calc(100dvh - 290px);
+}
+
 #schedule-tools-container.tools-collapsed + #schedules-table-panel .table-wrap {
+    max-height: calc(100vh - 205px);
+    max-height: calc(100dvh - 205px);
+}
+
+#holiday-tools-container.tools-collapsed + #holiday-table-panel .table-wrap {
     max-height: calc(100vh - 205px);
     max-height: calc(100dvh - 205px);
 }
@@ -1208,6 +1218,46 @@ tr.meal-selected-row:hover td {
 
 #details-table-panel {
     margin-bottom: 0;
+}
+
+#holiday-table {
+    min-width: 980px;
+}
+
+#holiday-table th,
+#holiday-table td {
+    vertical-align: middle;
+}
+
+#holiday-table td input[type="text"],
+#holiday-table td input[type="date"],
+#holiday-table td input:not([type]) {
+    width: 100%;
+    min-width: 140px;
+}
+
+#holiday-table td input[name="name"] {
+    min-width: 180px;
+}
+
+#holiday-table td input[name="notes"] {
+    min-width: 220px;
+}
+
+#holiday-table td input[name="changed_by"] {
+    min-width: 120px;
+}
+
+#holiday-table td label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+#holiday-table td .holiday-save-btn {
+    width: auto;
+    min-width: 72px;
 }
 
 table {
