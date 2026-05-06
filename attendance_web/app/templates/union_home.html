@@ -1,154 +1,204 @@
 {% extends "base.html" %}
 {% block content %}
-{% set union_page_title = "Bảng điều phối Công đoàn" %}
-{% set union_page_desc = "Tách theo nhóm nghiệp vụ để vận hành rõ ràng: cấu hình năm, chuyển khoản, tiền mặt và quản lý chi lễ theo nhân viên." %}
+{% set union_page_title = "Tổng quan Công đoàn" %}
 {% include "union_header_nav.html" %}
 
-{% set total_in_all = bank_view.total_in + cash_view.total_in %}
+{% set total_in_all  = bank_view.total_in  + cash_view.total_in %}
 {% set total_out_all = bank_view.total_out + cash_view.total_out %}
 
-<section class="unionv2-card-grid">
-    <article class="card unionv2-kpi-card">
-        <p class="kpi-title">Số dư cuối năm</p>
-        <p class="kpi-value">{{ "{:,.0f}".format(combined_closing) }}</p>
-    </article>
-    <article class="card unionv2-kpi-card">
-        <p class="kpi-title">Tổng thu trong năm</p>
-        <p class="kpi-value">{{ "{:,.0f}".format(total_in_all) }}</p>
-    </article>
-    <article class="card unionv2-kpi-card">
-        <p class="kpi-title">Tổng chi trong năm</p>
-        <p class="kpi-value">{{ "{:,.0f}".format(total_out_all) }}</p>
-    </article>
-    <article class="card unionv2-kpi-card">
-        <p class="kpi-title">Tổng chi lễ đang lập</p>
-        <p class="kpi-value">{{ "{:,.0f}".format(total_holiday_budget) }}</p>
-    </article>
-    <article class="card unionv2-kpi-card">
-        <p class="kpi-title">Số sự kiện lễ</p>
-        <p class="kpi-value">{{ holiday_rows|length }}</p>
-    </article>
-    <article class="card unionv2-kpi-card">
-        <p class="kpi-title">Nhân viên active</p>
-        <p class="kpi-value">{{ month_ref.active_total }}</p>
-    </article>
-</section>
+<div class="un-body">
 
-<section class="panel soft-panel unionv2-section">
-    <div class="unionv2-section-head">
-        <div>
-            <h3>Cấu hình số dư đầu năm</h3>
-            <p class="muted">Cấu hình tại đây áp dụng cho cả trang chuyển khoản và trang tiền mặt.</p>
+    {# ── KPI strip ── #}
+    <div class="un-kpi-strip">
+        <div class="un-kpi-card">
+            <div class="un-kpi-label">Số dư cuối năm</div>
+            <div class="un-kpi-value">{{ "{:,.0f}".format(combined_closing) }}</div>
+        </div>
+        <div class="un-kpi-card un-kpi-card-green">
+            <div class="un-kpi-label">Tổng thu trong năm</div>
+            <div class="un-kpi-value">{{ "{:,.0f}".format(total_in_all) }}</div>
+        </div>
+        <div class="un-kpi-card un-kpi-card-red">
+            <div class="un-kpi-label">Tổng chi trong năm</div>
+            <div class="un-kpi-value">{{ "{:,.0f}".format(total_out_all) }}</div>
+        </div>
+        <div class="un-kpi-card un-kpi-card-amber">
+            <div class="un-kpi-label">Tổng chi lễ dự kiến</div>
+            <div class="un-kpi-value">{{ "{:,.0f}".format(total_holiday_budget) }}</div>
+        </div>
+        <div class="un-kpi-card un-kpi-card-purple">
+            <div class="un-kpi-label">Số sự kiện lễ</div>
+            <div class="un-kpi-value">{{ holiday_rows | length }}</div>
+        </div>
+        <div class="un-kpi-card">
+            <div class="un-kpi-label">Nhân viên hoạt động</div>
+            <div class="un-kpi-value">{{ month_ref.active_total }}</div>
         </div>
     </div>
-    <form method="post" class="unionv2-form-grid">
-        <input type="hidden" name="action" value="save_year_config">
-        <input type="hidden" name="year" value="{{ year }}">
-        <input type="hidden" name="month_key" value="{{ month_key }}">
 
-        <div class="field-stack">
-            <label for="opening-bank">Số dư đầu năm - Chuyển khoản</label>
-            <input id="opening-bank" name="opening_bank_balance" type="number" step="0.01" value="{{ config_row.opening_bank_balance if config_row else 0 }}">
+    {# ── Year config ── #}
+    <div class="un-panel">
+        <div class="un-panel-head">
+            <div class="un-panel-head-left">
+                <h3>Cấu hình số dư đầu năm {{ year }}</h3>
+                <p>Số dư đầu năm áp dụng cho cả sổ chuyển khoản và sổ tiền mặt.</p>
+            </div>
+            <i class="bi bi-gear un-panel-head-icon"></i>
         </div>
-
-        <div class="field-stack">
-            <label for="opening-cash">Số dư đầu năm - Tiền mặt</label>
-            <input id="opening-cash" name="opening_cash_balance" type="number" step="0.01" value="{{ config_row.opening_cash_balance if config_row else 0 }}">
+        <div class="un-panel-body">
+            <form method="post" class="un-form">
+                <input type="hidden" name="action" value="save_year_config">
+                <input type="hidden" name="year" value="{{ year }}">
+                <input type="hidden" name="month_key" value="{{ month_key }}">
+                <div class="un-form-row">
+                    <div class="un-field">
+                        <label>Số dư đầu năm – Chuyển khoản</label>
+                        <input type="number" step="0.01" name="opening_bank_balance"
+                               value="{{ config_row.opening_bank_balance if config_row else 0 }}" placeholder="0">
+                    </div>
+                    <div class="un-field">
+                        <label>Số dư đầu năm – Tiền mặt</label>
+                        <input type="number" step="0.01" name="opening_cash_balance"
+                               value="{{ config_row.opening_cash_balance if config_row else 0 }}" placeholder="0">
+                    </div>
+                    <div class="un-field un-field-wide">
+                        <label>Ghi chú</label>
+                        <input type="text" name="notes"
+                               value="{{ config_row.notes if config_row else '' }}"
+                               placeholder="Ghi chú năm {{ year }}">
+                    </div>
+                    <button type="submit" class="un-submit">
+                        <i class="bi bi-floppy"></i> Lưu cấu hình
+                    </button>
+                </div>
+            </form>
         </div>
+    </div>
 
-        <div class="field-stack unionv2-span-2">
-            <label for="year-notes">Ghi chú</label>
-            <input id="year-notes" name="notes" value="{{ config_row.notes if config_row else '' }}" placeholder="Ghi chú năm {{ year }}">
-        </div>
+    {# ── Split: personnel + nav cards ── #}
+    <div class="un-split-grid">
 
-        <button type="submit">Lưu cấu hình năm</button>
-    </form>
-</section>
-
-<section class="unionv2-split-grid">
-    <article class="panel soft-panel unionv2-section">
-        <div class="unionv2-section-head">
-            <div>
-                <h3>Đối chiếu nhân sự theo tháng</h3>
-                <p class="muted">Dữ liệu này dùng để tạo danh sách chi lễ tự động theo tháng.</p>
+        <div class="un-panel">
+            <div class="un-panel-head">
+                <div class="un-panel-head-left">
+                    <h3>Đối chiếu nhân sự tháng {{ month_key }}</h3>
+                    <p>Dùng để sinh danh sách chi lễ tự động theo tháng.</p>
+                </div>
+                <i class="bi bi-people un-panel-head-icon"></i>
+            </div>
+            <div class="un-panel-body">
+                <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+                    <div class="un-kpi-card" style="flex:1;min-width:100px;">
+                        <div class="un-kpi-label">Active</div>
+                        <div class="un-kpi-value" style="font-size:18px;">{{ month_ref.active_total }}</div>
+                    </div>
+                    <div class="un-kpi-card" style="flex:1;min-width:100px;">
+                        <div class="un-kpi-label">Có lịch</div>
+                        <div class="un-kpi-value" style="font-size:18px;">{{ month_ref.scheduled_total }}</div>
+                    </div>
+                    <div class="un-kpi-card" style="flex:1;min-width:100px;">
+                        <div class="un-kpi-label">Có ngày làm</div>
+                        <div class="un-kpi-value" style="font-size:18px;">{{ month_ref.worked_total }}</div>
+                    </div>
+                    <div class="un-kpi-card un-kpi-card-amber" style="flex:1;min-width:100px;">
+                        <div class="un-kpi-label">Nghỉ / OFF</div>
+                        <div class="un-kpi-value" style="font-size:18px;">{{ month_ref.off_or_leave_total }}</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="{{ url_for('employees') }}" class="un-btn un-btn-primary">
+                        <i class="bi bi-people"></i> Danh sách NV
+                    </a>
+                    <a href="{{ url_for('details', month=month_key) }}" class="un-btn">
+                        <i class="bi bi-table"></i> Chi tiết tháng
+                    </a>
+                </div>
             </div>
         </div>
-        <div class="unionv2-mini-metrics">
-            <span>NV active: <strong>{{ month_ref.active_total }}</strong></span>
-            <span>NV có lịch: <strong>{{ month_ref.scheduled_total }}</strong></span>
-            <span>NV có ngày làm: <strong>{{ month_ref.worked_total }}</strong></span>
-            <span>NV nghỉ/OFF: <strong>{{ month_ref.off_or_leave_total }}</strong></span>
-        </div>
-        <div class="unionv2-link-row">
-            <a class="link-pill" href="{{ url_for('employees') }}">Danh sách nhân viên</a>
-            <a class="link-pill link-pill-secondary" href="{{ url_for('details', month=month_key) }}">Chi tiết tháng</a>
-        </div>
-    </article>
 
-    <article class="panel soft-panel unionv2-section">
-        <div class="unionv2-section-head">
-            <div>
-                <h3>Đi nhanh theo nghiệp vụ</h3>
-                <p class="muted">Mỗi nhóm nghiệp vụ là một trang riêng để dễ dùng cho vận hành quy mô lớn.</p>
+        <div class="un-panel">
+            <div class="un-panel-head">
+                <div class="un-panel-head-left">
+                    <h3>Đi nhanh theo nghiệp vụ</h3>
+                    <p>Mỗi nhóm nghiệp vụ là một trang riêng.</p>
+                </div>
+                <i class="bi bi-lightning un-panel-head-icon"></i>
+            </div>
+            <div class="un-panel-body">
+                <div class="un-nav-cards">
+                    <a class="un-nav-card" href="{{ url_for('union_bank_page', year=year, month_key=month_key) }}">
+                        <i class="bi bi-bank2"></i>
+                        <h4>Chuyển khoản</h4>
+                        <p>Sổ tiền gửi ngân hàng và dòng tiền vào/ra.</p>
+                    </a>
+                    <a class="un-nav-card" href="{{ url_for('union_cash_page', year=year, month_key=month_key) }}">
+                        <i class="bi bi-wallet2"></i>
+                        <h4>Tiền mặt</h4>
+                        <p>Phiếu thu, phiếu chi và tồn quỹ tiền mặt.</p>
+                    </a>
+                    <a class="un-nav-card" href="{{ url_for('union_events_page', year=year, month_key=month_key) }}">
+                        <i class="bi bi-calendar-event"></i>
+                        <h4>Sự kiện lễ</h4>
+                        <p>Tạo đợt chi lễ và quản lý danh sách nhận.</p>
+                    </a>
+                </div>
             </div>
         </div>
-        <div class="unionv2-nav-cards">
-            <a class="unionv2-nav-card" href="{{ url_for('union_bank_page', year=year, month_key=month_key) }}">
-                <h4>Trang chuyển khoản</h4>
-                <p>Theo dõi sổ tiền gửi ngân hàng và dòng tiền vào/ra.</p>
-            </a>
-            <a class="unionv2-nav-card" href="{{ url_for('union_cash_page', year=year, month_key=month_key) }}">
-                <h4>Trang tiền mặt</h4>
-                <p>Quản lý phiếu thu, phiếu chi và tồn quỹ tiền mặt.</p>
-            </a>
-            <a class="unionv2-nav-card" href="{{ url_for('union_events_page', year=year, month_key=month_key) }}">
-                <h4>Trang sự kiện lễ</h4>
-                <p>Tạo đợt chi lễ, sinh danh sách nhân viên, sửa và xóa từng người.</p>
-            </a>
-        </div>
-    </article>
-</section>
 
-<section class="panel unionv2-section">
-    <div class="unionv2-section-head">
-        <div>
-            <h3>Sự kiện lễ gần nhất</h3>
-            <p class="muted">Mở từng sự kiện để sửa số tiền theo nhân viên hoặc xóa nhân viên khỏi danh sách nhận.</p>
+    </div>
+
+    {# ── Recent events table ── #}
+    <div class="un-panel">
+        <div class="un-panel-head">
+            <div class="un-panel-head-left">
+                <h3>Sự kiện lễ năm {{ year }}</h3>
+                <p>Mở từng sự kiện để sửa số tiền hoặc xóa nhân viên khỏi danh sách nhận.</p>
+            </div>
+            <a href="{{ url_for('union_events_page', year=year, month_key=month_key) }}" class="un-btn un-btn-primary">
+                <i class="bi bi-arrow-right"></i> Xem tất cả
+            </a>
+        </div>
+        <div class="un-table-wrap">
+            <table class="un-table">
+                <thead>
+                    <tr>
+                        <th style="width:36px;">#</th>
+                        <th>Tên sự kiện</th>
+                        <th>Ngày</th>
+                        <th>Quý</th>
+                        <th style="text-align:center;">Số NV</th>
+                        <th class="num">Tổng dự chi</th>
+                        <th style="text-align:right;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in holiday_rows %}
+                    <tr>
+                        <td style="color:#94A3B8;">{{ loop.index }}</td>
+                        <td style="font-weight:500;color:#1E293B;">{{ item.event.event_name }}</td>
+                        <td>{{ item.event.event_date or '—' }}</td>
+                        <td>{% if item.event.quarter %}<span class="un-badge-custom">Q{{ item.event.quarter }}</span>{% else %}—{% endif %}</td>
+                        <td style="text-align:center;">{{ item.recipient_count }}</td>
+                        <td class="num num-out">{{ "{:,.0f}".format(item.total_amount) }}</td>
+                        <td style="text-align:right;">
+                            <a href="{{ url_for('union_event_detail', event_id=item.event.id, year=year, month_key=month_key) }}"
+                               class="un-btn un-btn-primary">
+                                <i class="bi bi-list-ul"></i> Mở
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align:center;color:#94A3B8;padding:28px 12px;">
+                            Chưa có sự kiện lễ.
+                            <a href="{{ url_for('union_events_page', year=year, month_key=month_key) }}" style="color:#2563EB;">Tạo ngay</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-    <div class="table-wrap unionv2-table-wrap">
-        <table class="unionv2-table">
-            <thead>
-                <tr>
-                    <th>STT</th>
-                    <th>Tên sự kiện</th>
-                    <th>Ngày</th>
-                    <th>Quý</th>
-                    <th>Số nhân viên</th>
-                    <th class="num">Tổng dự chi</th>
-                    <th>Thao tác</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in holiday_rows[:8] %}
-                <tr>
-                    <td>{{ loop.index }}</td>
-                    <td>{{ item.event.event_name }}</td>
-                    <td>{{ item.event.event_date or '-' }}</td>
-                    <td>{% if item.event.quarter %}Q{{ item.event.quarter }}{% else %}-{% endif %}</td>
-                    <td>{{ item.recipient_count }}</td>
-                    <td class="num">{{ "{:,.0f}".format(item.total_amount) }}</td>
-                    <td>
-                        <a href="{{ url_for('union_event_detail', event_id=item.event.id, year=year, month_key=month_key) }}">Mở danh sách chi</a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="7">Chưa có sự kiện lễ.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
+
+</div>
 {% endblock %}

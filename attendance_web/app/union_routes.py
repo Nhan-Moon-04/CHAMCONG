@@ -1,6 +1,10 @@
 from datetime import date, datetime
 
-from flask import flash, redirect, render_template, request, session, url_for
+from io import BytesIO
+
+from flask import flash, redirect, render_template, request, send_file, session, url_for
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import func
 
 from .database import db
@@ -1129,3 +1133,114 @@ def register_union_routes(app):
             total_amount=total_amount,
             available_employees=available_employees,
         )
+
+    # ── Excel exports ─────────────────────────────────────────────────
+
+    def _xl_header(ws, cols):
+        hdr_fill = PatternFill("solid", fgColor="1E3A5F")
+        hdr_font = Font(color="FFFFFF", bold=True, size=10)
+        ws.append(cols)
+        for cell in ws[1]:
+            cell.fill = hdr_fill
+            cell.font = hdr_font
+            cell.alignment = Alignment(horizontal="center")
+
+    def _xl_response(wb, filename):
+        buf = BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        return send_file(buf, download_name=filename, as_attachment=True,
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    @app.route("/union/bank/export.xlsx")
+    def union_bank_export():
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+        year = _safe_year(request.args.get("year"))
+        config, bank_view, _ = _build_union_year_views(year)
+        opening = _to_float(config.opening_bank_balance if config else 0)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"CK {year}"
+        _xl_header(ws, ["STT", "Ngày", "Quý", "Số hiệu chứng từ", "Nội dung", "Tiền vào", "Tiền ra", "Còn lại", "Ghi chú"])
+        ws.append(["", "", "", "Số dư đầu năm", "", opening, "", opening, ""])
+        for i, item in enumerate(bank_view["rows"], 1):
+            e = item["entry"]
+            ws.append([i, str(e.event_date or ""), f"Q{item['quarter']}",
+                       e.voucher_code or "", e.description,
+                       float(item["amount_in"]), float(item["amount_out"]),
+                       float(item["running_balance"]), e.notes or ""])
+        ws.append(["", "", "", "TỔNG CỘNG", "",
+                   bank_view["total_in"], bank_view["total_out"],
+                   bank_view["closing_balance"], ""])
+        for col in ["F", "G", "H"]:
+            for row_idx in range(2, ws.max_row + 1):
+                ws[f"{col}{row_idx}"].number_format = '#,##0'
+        return _xl_response(wb, f"so_ck_{year}.xlsx")
+
+    @app.route("/union/cash/export.xlsx")
+    def union_cash_export():
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+        year = _safe_year(request.args.get("year"))
+        config, _, cash_view = _build_union_year_views(year)
+        opening = _to_float(config.opening_cash_balance if config else 0)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"TM {year}"
+        _xl_header(ws, ["STT", "Ngày", "Quý", "Phiếu thu", "Phiếu chi", "Nội dung", "Thu", "Chi", "Tồn quỹ", "Ghi chú"])
+        ws.append(["", "", "", "", "", "Số dư đầu năm", opening, "", opening, ""])
+        for i, item in enumerate(cash_view["rows"], 1):
+            e = item["entry"]
+            ws.append([i, str(e.event_date or ""), f"Q{item['quarter']}",
+                       e.receipt_code or "", e.payment_code or "", e.description,
+                       float(item["amount_in"]), float(item["amount_out"]),
+                       float(item["running_balance"]), e.notes or ""])
+        ws.append(["", "", "", "", "", "TỔNG CỘNG",
+                   cash_view["total_in"], cash_view["total_out"],
+                   cash_view["closing_balance"], ""])
+        for col in ["G", "H", "I"]:
+            for row_idx in range(2, ws.max_row + 1):
+                ws[f"{col}{row_idx}"].number_format = '#,##0'
+        return _xl_response(wb, f"so_tm_{year}.xlsx")
+
+    @app.route("/union/events/<int:event_id>/export.xlsx")
+    def union_event_export(event_id):
+        blocked = _require_admin()
+        if blocked:
+            return blocked
+        event_row = UnionHolidayEvent.query.get(event_id)
+        if not event_row:
+            flash("Không tìm thấy sự kiện.", "error")
+            return redirect(url_for("union_events_page"))
+
+        recipients = UnionHolidayRecipient.query.filter_by(holiday_event_id=event_id).order_by(
+            UnionHolidayRecipient.sort_order.asc(),
+            UnionHolidayRecipient.employee_code.asc(),
+        ).all()
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Danh sách chi"
+        ws["A1"] = f"SỰ KIỆN: {event_row.event_name}"
+        ws["A1"].font = Font(bold=True, size=12)
+        ws["A2"] = f"Ngày: {event_row.event_date or 'Chưa chốt'}  |  Đơn giá: {float(event_row.planned_amount or 0):,.0f}"
+        ws.append([])
+        _xl_header(ws, ["STT", "Mã NV", "Họ tên", "Giới tính", "Số tiền", "Ghi chú", "Ký nhận"])
+        for i, row in enumerate(recipients, 1):
+            ws.append([i, row.employee_code, row.full_name, row.gender or "",
+                       float(row.amount or 0), row.notes or "", ""])
+        total = sum(_to_float(r.amount, 0) for r in recipients)
+        ws.append(["", "", "TỔNG CỘNG", "", total, "", ""])
+        for row_idx in range(5, ws.max_row + 1):
+            ws[f"E{row_idx}"].number_format = '#,##0'
+        ws.column_dimensions["B"].width = 12
+        ws.column_dimensions["C"].width = 24
+        ws.column_dimensions["E"].width = 14
+        ws.column_dimensions["G"].width = 16
+        safe_name = "".join(c for c in event_row.event_name if c.isalnum() or c in " _-")[:30].strip()
+        return _xl_response(wb, f"ds_chi_{safe_name}_{event_row.year}.xlsx")
