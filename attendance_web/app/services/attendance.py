@@ -25,6 +25,7 @@ from .nu_shift import (
     build_nu_shift_day_results,
     is_nu_dynamic_shift_code,
 )
+from flask import current_app
 
 
 def month_key_for_date(value):
@@ -765,7 +766,18 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                 and (shift.code or "").upper() in DRIVER_AUTO_OT_SHIFT_CODES
                 and status_code != "OFF"
             ):
+                # Existing driver OT: count late checkout OT
                 overtime_hours = _compute_late_checkout_overtime(shift, current, check_out)
+                # New rule: if employee checks in at least 1 hour earlier than scheduled start,
+                # give 1 extra hour counted as OT (business request).
+                try:
+                    if check_in and shift.start_time:
+                        scheduled_start_at = datetime.combine(current, shift.start_time)
+                        early_hours = (scheduled_start_at - check_in).total_seconds() / 3600.0
+                        if early_hours >= 1.0:
+                            overtime_hours = max(overtime_hours + 1.0, 0.0)
+                except Exception:
+                    pass
             elif shift:
                 overtime_hours = _to_float(shift.default_overtime_hours)
 
@@ -823,6 +835,25 @@ def _compute_month_detail_payloads(month_key, target_employee_id=None):
                     else 0.0
                 )
             )
+
+            # Optional policy: if enabled in app config, count 1 meal when OT reaches/passes 18:00
+            # Example: shift ends at 16:00, employee works until 18:00 (2h OT) -> count 1 meal.
+            try:
+                if (
+                    not nu_shift_result
+                    and current_app.config.get("ENABLE_OT_AFTER_6PM_MEAL", False)
+                    and shift
+                    and not shift.is_leave_code
+                    and status_code not in {"N", "O", "OFF"}
+                    and check_out
+                ):
+                    # check if the worker worked up to or beyond 18:00 on the work_date
+                    if check_out.hour >= 18:
+                        # Avoid double-counting if meal_allowance already set by NU logic above
+                        if meal_allowance == 0.0:
+                            meal_allowance = _to_float(shift.meal_allowance) if _to_float(shift.meal_allowance) > 0 else 35000.0
+            except Exception:
+                pass
 
             context_note = None
             if has_scan and not has_explicit_schedule:

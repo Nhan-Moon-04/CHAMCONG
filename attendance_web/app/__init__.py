@@ -8,7 +8,9 @@ from sqlalchemy.exc import OperationalError
 
 from .config import Config
 from .database import db
+from .payroll_routes import register_payroll_routes
 from .routes import register_routes
+from .user_routes import register_user_routes
 from .union_routes import register_union_routes
 from .services.attendance import ensure_default_data
 from .services.backup import register_scheduler
@@ -72,6 +74,8 @@ def create_app():
         _initialize_database(app)
 
     register_routes(app)
+    register_user_routes(app)
+    register_payroll_routes(app)
     register_union_routes(app)
     register_scheduler(app)
 

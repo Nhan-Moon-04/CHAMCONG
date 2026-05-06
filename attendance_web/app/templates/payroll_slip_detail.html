@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employees-header">
+    <div>
+        <p class="dashboard-eyebrow">Luong va thue</p>
+        <h2>Phieu luong - {{ employee.full_name }}</h2>
+        <p class="muted">Thang: {{ month_key }}</p>
+    </div>
+    <form method="get" class="inline-filter-form">
+        <input type="month" name="month" value="{{ month_key }}">
+        <button type="submit">Xem</button>
+    </form>
+</section>
+
+<section class="card-grid employees-summary-grid">
+    <article class="card">
+        <div class="kpi-title">Tong gio duoc tinh</div>
+        <div class="kpi-value">{{ "{:.2f}".format(total_hours) }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Tong luong thang</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(slip.gross_total if slip else 0) }}</div>
+    </article>
+</section>
+
+<section class="panel data-panel">
+    <h3>Bảng phép năm</h3>
+    {% if leave %}
+    <table class="small">
+        <thead><tr><th>Năm</th><th>Tổng phép</th><th>Đã dùng</th><th>Còn lại</th></tr></thead>
+        <tbody>
+            <tr>
+                <td>{{ leave.year }}</td>
+                <td>{{ leave.entitled_days }}</td>
+                <td>{{ leave.used_days }}</td>
+                <td>{{ leave.remaining_days }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% else %}
+    <div>Không có dữ liệu phép năm.</div>
+    {% endif %}
+</section>
+
+<section class="panel data-panel">
+    <h3>Lịch sử lương</h3>
+    <table class="small">
+        <thead><tr><th>Tháng</th><th>Lương tháng</th><th>Công chuẩn</th><th>Lương ngày quy đổi</th><th>Hình thức</th></tr></thead>
+        <tbody>
+        {% for row in salary_history %}
+            <tr>
+                <td>{{ row.month_key }}</td>
+                <td>{{ "{:,.0f}".format(row.base_daily_wage or 0) }}</td>
+                <td>{{ row.salary_coefficient }}</td>
+                <td>{{ "{:,.0f}".format((row.base_daily_wage or 0) / (row.salary_coefficient or 1)) }}</td>
+                <td>{{ row.pay_method or '-' }}</td>
+            </tr>
+        {% else %}
+            <tr><td colspan="5">Không có lịch sử lương.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<section class="panel data-panel">
+    <h3>Chi tiết chấm công tháng {{ month_key }}</h3>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Ngày</th><th>Ca</th><th>Giờ thực</th><th>Giờ trả</th><th>Tăng ca</th><th>Ghi chú</th></tr></thead>
+        <tbody>
+        {% for d in attendance_details %}
+            <tr{% if d.status_code == 'admin_confirmed' %} class="muted"{% endif %}>
+                <td>{{ d.work_date }}</td>
+                <td>{{ d.shift_name }}</td>
+                <td>{{ "{:.2f}".format(d.actual_work_hours or 0) }}</td>
+                <td>{{ "{:.2f}".format(d.paid_hours or 0) }}</td>
+                <td>{{ "{:.2f}".format(d.overtime_hours or 0) }}</td>
+                <td>{{ d.notes or '' }}</td>
+            </tr>
+        {% else %}
+            <tr><td colspan="6">Không có dữ liệu chấm công.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<section class="panel data-panel">
+    <h3>Tổng theo ca</h3>
+    {% set shift_map = {} %}
+    {% for d in attendance_details %}
+        {% set key = d.shift_code or 'X' %}
+        {% if key not in shift_map %}
+            {% set _ = shift_map.__setitem__(key, {'name': d.shift_name or key, 'days': 0, 'work_hours': 0.0, 'actual_hours': 0.0, 'ot': 0.0, 'salary': 0.0}) %}
+        {% endif %}
+        {% set _ = shift_map[key].__setitem__('days', shift_map[key].days + 1) %}
+        {% set _ = shift_map[key].__setitem__('work_hours', shift_map[key].work_hours + (d.standard_hours or 0)) %}
+        {% set _ = shift_map[key].__setitem__('actual_hours', shift_map[key].actual_hours + (d.actual_work_hours or 0)) %}
+        {% set _ = shift_map[key].__setitem__('ot', shift_map[key].ot + (d.overtime_hours or 0)) %}
+    {% endfor %}
+
+    <table class="small">
+        <thead><tr><th>Mã ca</th><th>Tên ca</th><th>Số ngày</th><th>Tổng giờ công</th><th>Tổng giờ thực</th><th>Tổng tăng ca</th><th>Tổng lương</th></tr></thead>
+        <tbody>
+        {% for key, s in shift_map.items() %}
+            <tr>
+                <td>{{ key }}</td>
+                <td>{{ s.name }}</td>
+                <td>{{ s.days }}</td>
+                <td>{{ "{:.2f}".format(s.work_hours) }}</td>
+                <td>{{ "{:.2f}".format(s.actual_hours) }}</td>
+                <td>{{ "{:.2f}".format(s.ot) }}</td>
+                <td>{{ "{:,.0f}".format(slip.gross_total if slip else 0) }}</td>
+            </tr>
+        {% else %}
+            <tr><td colspan="7">Không có dữ liệu.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+{% endblock %}

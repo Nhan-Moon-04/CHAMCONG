@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employees-header">
+    <div>
+        <p class="dashboard-eyebrow">Luong va thue</p>
+        <h2>BHXH / Thue TNCN</h2>
+        <p class="muted">Tong hop dong BHXH va thue theo nhan vien.</p>
+    </div>
+    <form method="get" class="inline-filter-form">
+        <input type="month" name="month" value="{{ month_key }}">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Tim ma NV / ho ten">
+        <button type="submit">Loc</button>
+    </form>
+</section>
+
+<section class="card-grid employees-summary-grid">
+    <article class="card">
+        <div class="kpi-title">DN dong BH</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(total_employer) }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">NLD dong BH</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(total_employee) }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Tong thue TNCN</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(total_tax) }}</div>
+    </article>
+</section>
+
+<section class="panel data-panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ma NV</th>
+                    <th>Ho ten</th>
+                    <th>Luong dong BH</th>
+                    <th>DN dong</th>
+                    <th>NLD dong</th>
+                    <th>Kinh phi CD</th>
+                    <th>Thue TNCN</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for insurance, tax, employee in rows %}
+                <tr>
+                    <td>{{ employee.employee_code }}</td>
+                    <td>{{ employee.full_name }}</td>
+                    <td>{{ "{:,.0f}".format(insurance.insured_salary or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(insurance.employer_total or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(insurance.employee_total or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(insurance.union_fund or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(tax.pit_tax or 0) if tax else 0 }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">Khong co du lieu.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

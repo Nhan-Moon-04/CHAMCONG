@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employees-header">
+    <div>
+        <p class="dashboard-eyebrow">He thong</p>
+        <h2>Cai dat</h2>
+        <p class="muted">Quan ly cac tuy chon nghiep vu.</p>
+    </div>
+</section>
+
+<section class="panel data-panel">
+    <h3>Quy tac tinh tien an</h3>
+    <p class="muted">Bat/Tat rule: Lam OT den sau 18:00 thi duoc tinh 1 suat an.</p>
+    <form method="post" action="{{ url_for('settings_toggle_ot_after_6pm') }}">
+        <button type="submit">{{ 'Tat' if enable_ot_after_6pm_meal else 'Bat' }} tinh an OT sau 18:00</button>
+        <span class="muted" style="margin-left:8px;">Trang thai: {{ 'Dang bat' if enable_ot_after_6pm_meal else 'Dang tat' }}</span>
+    </form>
+</section>
+{% endblock %}

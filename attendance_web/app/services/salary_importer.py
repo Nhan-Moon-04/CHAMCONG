@@ -3,11 +3,20 @@ import re
 import uuid
 import unicodedata
 from collections import Counter
+from datetime import datetime
 
 import pandas as pd
 
 from ..database import db
-from ..models import Employee, MonthlySalary, MonthlyWorkdayConfig
+from ..models import (
+    Employee,
+    MonthlySalary,
+    MonthlyWorkdayConfig,
+    PayrollInsuranceContribution,
+    PayrollLeaveSnapshot,
+    PayrollSlip,
+    PayrollTaxContribution,
+)
 from .audit import log_action
 
 
@@ -41,6 +50,14 @@ def _normalize_employee_code(value):
     return text
 
 
+def _normalize_person_name(value):
+    text = str(value or "").strip().lower()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = re.sub(r"[^a-z0-9]+", "", text)
+    return text
+
+
 def _to_float(value):
     if value is None:
         return None
@@ -66,6 +83,11 @@ def _to_float(value):
         return float(text)
     except ValueError:
         return None
+
+
+def _safe_number(value, default=0.0):
+    parsed = _to_float(value)
+    return float(parsed if parsed is not None else default)
 
 
 def _extract_number_candidates(value):
@@ -353,6 +375,347 @@ def _find_columns(frame):
         "allowance": allowance_col,
         "workday_coeff": workday_coeff_col,
         "pay_method": pay_method_col,
+    }
+
+
+def _find_sheet_name(workbook, target_name):
+    target_norm = _normalize_text(target_name)
+    for name in workbook.sheet_names:
+        if _normalize_text(name) == target_norm:
+            return name
+    return None
+
+
+def _build_employee_maps():
+    employee_rows = Employee.query.all()
+    by_code = {}
+    by_name = {}
+
+    for row in employee_rows:
+        normalized_code = _normalize_employee_code(row.employee_code)
+        if normalized_code:
+            by_code[normalized_code] = row
+
+        normalized_name = _normalize_person_name(row.full_name)
+        if normalized_name and normalized_name not in by_name:
+            by_name[normalized_name] = row
+
+    return by_code, by_name
+
+
+def _resolve_employee(by_code, by_name, code_value=None, name_value=None):
+    code = _normalize_employee_code(code_value)
+    if code and code in by_code:
+        return by_code[code]
+
+    name_key = _normalize_person_name(name_value)
+    if name_key and name_key in by_name:
+        return by_name[name_key]
+
+    return None
+
+
+def _upsert_leave_snapshots(workbook, month_key, source_name, by_code, by_name):
+    sheet_name = _find_sheet_name(workbook, "phep nam")
+    if not sheet_name:
+        return {"sheet": None, "created": 0, "updated": 0, "skipped": 0}
+
+    frame = workbook.parse(sheet_name=sheet_name, header=None).fillna("")
+    year = int(str(month_key).split("-")[0])
+
+    created = 0
+    updated = 0
+    skipped = 0
+
+    for row_index in range(3, len(frame.index)):
+        row = frame.iloc[row_index]
+        name_value = row.iloc[1] if len(row) > 1 else None
+
+        employee = _resolve_employee(by_code, by_name, name_value=name_value)
+        if not employee:
+            skipped += 1
+            continue
+
+        monthly_breakdown = {
+            f"t{month}": _safe_number(row.iloc[9 + month]) if len(row) > (9 + month) else 0.0
+            for month in range(1, 13)
+        }
+
+        values = {
+            "year": year,
+            "entitled_days": _safe_number(row.iloc[9] if len(row) > 9 else 0),
+            "bonus_entitled_days": _safe_number(row.iloc[22] if len(row) > 22 else 0),
+            "used_days": _safe_number(row.iloc[23] if len(row) > 23 else 0),
+            "remaining_days": _safe_number(row.iloc[24] if len(row) > 24 else 0),
+            "work_days": _safe_number(row.iloc[25] if len(row) > 25 else 0),
+            "sick_leave_days": _safe_number(row.iloc[26] if len(row) > 26 else 0),
+            "monthly_breakdown": monthly_breakdown,
+            "source_file": source_name,
+        }
+
+        existing = PayrollLeaveSnapshot.query.filter_by(
+            employee_id=employee.id,
+            month_key=month_key,
+        ).first()
+        if existing:
+            for key, value in values.items():
+                setattr(existing, key, value)
+            updated += 1
+        else:
+            db.session.add(
+                PayrollLeaveSnapshot(
+                    employee_id=employee.id,
+                    month_key=month_key,
+                    **values,
+                )
+            )
+            created += 1
+
+    return {"sheet": sheet_name, "created": created, "updated": updated, "skipped": skipped}
+
+
+def _upsert_insurance_rows(workbook, month_key, source_name, by_code, by_name):
+    sheet_name = _find_sheet_name(workbook, "BAO HIEM")
+    if not sheet_name:
+        return {"sheet": None, "created": 0, "updated": 0, "skipped": 0}
+
+    frame = workbook.parse(sheet_name=sheet_name, header=None).fillna("")
+
+    created = 0
+    updated = 0
+    skipped = 0
+
+    for row_index in range(5, len(frame.index)):
+        row = frame.iloc[row_index]
+        name_value = row.iloc[4] if len(row) > 4 else None
+        employee = _resolve_employee(by_code, by_name, name_value=name_value)
+        if not employee:
+            skipped += 1
+            continue
+
+        values = {
+            "insured_salary": _safe_number(row.iloc[12] if len(row) > 12 else 0),
+            "employer_bhxh": _safe_number(row.iloc[13] if len(row) > 13 else 0),
+            "employee_bhxh": _safe_number(row.iloc[14] if len(row) > 14 else 0),
+            "employer_bhyt": _safe_number(row.iloc[15] if len(row) > 15 else 0),
+            "employee_bhyt": _safe_number(row.iloc[16] if len(row) > 16 else 0),
+            "employer_bhtn": _safe_number(row.iloc[17] if len(row) > 17 else 0),
+            "employee_bhtn": _safe_number(row.iloc[18] if len(row) > 18 else 0),
+            "employer_accident": _safe_number(row.iloc[19] if len(row) > 19 else 0),
+            "employer_total": _safe_number(row.iloc[20] if len(row) > 20 else 0),
+            "employee_total": _safe_number(row.iloc[21] if len(row) > 21 else 0),
+            "union_fund": _safe_number(row.iloc[23] if len(row) > 23 else 0),
+            "source_file": source_name,
+        }
+
+        existing = PayrollInsuranceContribution.query.filter_by(
+            employee_id=employee.id,
+            month_key=month_key,
+        ).first()
+        if existing:
+            for key, value in values.items():
+                setattr(existing, key, value)
+            updated += 1
+        else:
+            db.session.add(
+                PayrollInsuranceContribution(
+                    employee_id=employee.id,
+                    month_key=month_key,
+                    **values,
+                )
+            )
+            created += 1
+
+    return {"sheet": sheet_name, "created": created, "updated": updated, "skipped": skipped}
+
+
+def _parse_slip_block(frame, start_col):
+    max_col = start_col + 2
+    if frame.shape[1] <= max_col:
+        return None
+
+    name_value = frame.iat[1, start_col + 1] if frame.shape[0] > 1 else None
+    if not str(name_value or "").strip():
+        return None
+
+    raw_values = {}
+    payroll_group = frame.iat[3, start_col + 2] if frame.shape[0] > 3 else None
+
+    for row_index in range(5, min(frame.shape[0], 40)):
+        label = frame.iat[row_index, start_col + 1]
+        value = frame.iat[row_index, start_col + 2]
+        norm_label = _normalize_text(label)
+        if norm_label:
+            raw_values[norm_label] = value
+
+    return {
+        "name": str(name_value).strip(),
+        "payroll_group": str(payroll_group).strip() if payroll_group is not None else None,
+        "values": raw_values,
+    }
+
+
+def _upsert_slip_rows(workbook, month_key, source_name, by_code, by_name):
+    sheet_name = _find_sheet_name(workbook, "PHIEU LUONG")
+    if not sheet_name:
+        return {"sheet": None, "created": 0, "updated": 0, "skipped": 0, "tax_updates": 0}
+
+    frame = workbook.parse(sheet_name=sheet_name, header=None).fillna("")
+
+    blocks = []
+    for start_col in (0, 4, 8, 12):
+        block = _parse_slip_block(frame, start_col)
+        if block:
+            blocks.append(block)
+
+    created = 0
+    updated = 0
+    skipped = 0
+    tax_updates = 0
+
+    for block in blocks:
+        employee = _resolve_employee(by_code, by_name, name_value=block["name"])
+        if not employee:
+            skipped += 1
+            continue
+
+        values_map = block["values"]
+
+        def _clamp_small(value, max_abs=9999.99):
+            try:
+                v = float(value) if value is not None else 0.0
+            except Exception:
+                v = 0.0
+            if abs(v) > max_abs:
+                return max_abs if v >= 0 else -max_abs
+            return v
+
+        values = {
+            "payroll_group": block["payroll_group"],
+            "attendance_days": _clamp_small(_safe_number(values_map.get("ngaydilam"))),
+            "leave_used_days": _clamp_small(_safe_number(values_map.get("songayphepsudungthang"))),
+            "leave_remaining_days": _clamp_small(_safe_number(values_map.get("songayphepnamton"))),
+            "salary_by_attendance": _safe_number(values_map.get("luongngaycongthang")),
+            "overtime_weekday_hours": _clamp_small(_safe_number(values_map.get("tonggiotangcathuong"))),
+            "overtime_sunday_hours": _clamp_small(_safe_number(values_map.get("tonggiotangcachunhat"))),
+            "overtime_pay": _safe_number(values_map.get("tongtientangca")),
+            "role_allowance": _safe_number(values_map.get("boiduongchucvutrachnhiem")),
+            "child_allowance": _safe_number(values_map.get("boiduongphucapnuoiconnho6tuoi")),
+            "transport_phone_allowance": _safe_number(values_map.get("tienxangdienthoaithuong")),
+            "meal_allowance": _safe_number(values_map.get("tiencom")),
+            "attendance_allowance": _safe_number(values_map.get("tienchuyencan")),
+            "gross_total": _safe_number(values_map.get("tongluong")),
+            "social_insurance_deduction": _safe_number(values_map.get("trubhxh105")),
+            "union_fee_deduction": _safe_number(values_map.get("tiencongdoan")),
+            "pit_tax_deduction": _safe_number(values_map.get("thuetncn")),
+            "advance_deduction": _safe_number(values_map.get("trutientamung")),
+            "net_income": _safe_number(values_map.get("luongthuclanh")),
+            "source_file": source_name,
+            "extra_data": values_map,
+        }
+
+        existing = PayrollSlip.query.filter_by(employee_id=employee.id, month_key=month_key).first()
+        if existing:
+            for key, value in values.items():
+                setattr(existing, key, value)
+            updated += 1
+        else:
+            db.session.add(PayrollSlip(employee_id=employee.id, month_key=month_key, **values))
+            created += 1
+
+        tax = PayrollTaxContribution.query.filter_by(employee_id=employee.id, month_key=month_key).first()
+        tax_values = {
+            "pit_tax": values["pit_tax_deduction"],
+            "source_file": source_name,
+            "notes": "Auto from PHIEU LUONG",
+        }
+        if tax:
+            for key, value in tax_values.items():
+                setattr(tax, key, value)
+        else:
+            db.session.add(
+                PayrollTaxContribution(
+                    employee_id=employee.id,
+                    month_key=month_key,
+                    **tax_values,
+                )
+            )
+        tax_updates += 1
+
+    return {
+        "sheet": sheet_name,
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "tax_updates": tax_updates,
+    }
+
+
+def import_salary_detail_file(
+    file_path,
+    source_name,
+    actor="system",
+    target_month=None,
+    replace_existing=False,
+):
+    if not target_month:
+        raise ValueError("Can chon thang de import du lieu luong chi tiet")
+
+    extension = os.path.splitext(file_path)[1].lower()
+    if extension not in {".xlsx", ".xls", ".xlsm", ".xltx", ".xltm"}:
+        return {"detected": False, "reason": "not_excel"}
+
+    workbook = pd.ExcelFile(file_path)
+    normalized_sheet_names = {_normalize_text(name) for name in workbook.sheet_names}
+    has_detail_sheets = any(
+        key in normalized_sheet_names
+        for key in {
+            _normalize_text("phep nam"),
+            _normalize_text("PHIEU LUONG"),
+            _normalize_text("BAO HIEM"),
+        }
+    )
+
+    if not has_detail_sheets:
+        return {"detected": False, "reason": "detail_sheets_not_found"}
+
+    by_code, by_name = _build_employee_maps()
+
+    if replace_existing:
+        PayrollLeaveSnapshot.query.filter_by(month_key=target_month).delete(synchronize_session=False)
+        PayrollSlip.query.filter_by(month_key=target_month).delete(synchronize_session=False)
+        PayrollInsuranceContribution.query.filter_by(month_key=target_month).delete(
+            synchronize_session=False
+        )
+        PayrollTaxContribution.query.filter_by(month_key=target_month).delete(synchronize_session=False)
+
+    leave_result = _upsert_leave_snapshots(workbook, target_month, source_name, by_code, by_name)
+    slip_result = _upsert_slip_rows(workbook, target_month, source_name, by_code, by_name)
+    insurance_result = _upsert_insurance_rows(workbook, target_month, source_name, by_code, by_name)
+
+    batch_id = str(uuid.uuid4())
+    log_action(
+        "salary_detail_import",
+        batch_id,
+        "IMPORT",
+        changed_by=actor,
+        after_data={
+            "month_key": target_month,
+            "source_file": source_name,
+            "leave": leave_result,
+            "slips": slip_result,
+            "insurance": insurance_result,
+        },
+        notes="Import luong chi tiet: phep nam, phieu luong, BHXH, thue",
+    )
+
+    return {
+        "detected": True,
+        "batch_id": batch_id,
+        "month_key": target_month,
+        "leave": leave_result,
+        "slips": slip_result,
+        "insurance": insurance_result,
     }
 
 

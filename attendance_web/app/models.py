@@ -283,6 +283,112 @@ class LeaveBalance(db.Model, TimestampMixin, SerializableMixin):
     )
 
 
+class PayrollLeaveSnapshot(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "payroll_leave_snapshots"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=False, index=True)
+    month_key = db.Column(db.String(7), nullable=False, index=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+    entitled_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    bonus_entitled_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    used_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    remaining_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    work_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    sick_leave_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    monthly_breakdown = db.Column(db.JSON, nullable=True)
+    source_file = db.Column(db.String(255), nullable=True)
+
+    employee = db.relationship("Employee")
+
+    __table_args__ = (
+        db.UniqueConstraint("employee_id", "month_key", name="uq_leave_snapshot_employee_month"),
+    )
+
+
+class PayrollSlip(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "payroll_slips"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=False, index=True)
+    month_key = db.Column(db.String(7), nullable=False, index=True)
+    payroll_group = db.Column(db.String(32), nullable=True)
+    attendance_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    leave_used_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    leave_remaining_days = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    salary_by_attendance = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    overtime_weekday_hours = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    overtime_sunday_hours = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    overtime_pay = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    role_allowance = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    child_allowance = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    transport_phone_allowance = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    meal_allowance = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    attendance_allowance = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    gross_total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    social_insurance_deduction = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    union_fee_deduction = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    pit_tax_deduction = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    advance_deduction = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    net_income = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    source_file = db.Column(db.String(255), nullable=True)
+    extra_data = db.Column(db.JSON, nullable=True)
+
+    employee = db.relationship("Employee")
+
+    __table_args__ = (
+        db.UniqueConstraint("employee_id", "month_key", name="uq_payroll_slip_employee_month"),
+    )
+
+
+class PayrollInsuranceContribution(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "payroll_insurance_contributions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=False, index=True)
+    month_key = db.Column(db.String(7), nullable=False, index=True)
+    insured_salary = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employer_bhxh = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employee_bhxh = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employer_bhyt = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employee_bhyt = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employer_bhtn = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employee_bhtn = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employer_accident = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employer_total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    employee_total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    union_fund = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    source_file = db.Column(db.String(255), nullable=True)
+
+    employee = db.relationship("Employee")
+
+    __table_args__ = (
+        db.UniqueConstraint("employee_id", "month_key", name="uq_insurance_employee_month"),
+    )
+
+
+class PayrollTaxContribution(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = "payroll_tax_contributions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=False, index=True)
+    month_key = db.Column(db.String(7), nullable=False, index=True)
+    taxable_income = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    pit_tax = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    self_deduction = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    dependent_deduction = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    insurance_deduction = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    total_deduction = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    source_file = db.Column(db.String(255), nullable=True)
+    notes = db.Column(db.String(255), nullable=True)
+
+    employee = db.relationship("Employee")
+
+    __table_args__ = (
+        db.UniqueConstraint("employee_id", "month_key", name="uq_tax_employee_month"),
+    )
+
+
 class AuditLog(db.Model, SerializableMixin):
     __tablename__ = "audit_logs"
 

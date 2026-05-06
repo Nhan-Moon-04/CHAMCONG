@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employees-header">
+    <div>
+        <p class="dashboard-eyebrow">Luong va phep</p>
+        <h2>Phep nam theo thang</h2>
+        <p class="muted">Du lieu tach tu sheet phep nam.</p>
+    </div>
+    <form method="get" class="inline-filter-form">
+        <input type="month" name="month" value="{{ month_key }}">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Tim ma NV / ho ten">
+        <button type="submit">Loc</button>
+    </form>
+</section>
+
+<section class="card-grid employees-summary-grid">
+    <article class="card">
+        <div class="kpi-title">Tong phep da dung</div>
+        <div class="kpi-value">{{ total_used }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Tong phep con lai</div>
+        <div class="kpi-value">{{ total_remaining }}</div>
+    </article>
+</section>
+
+<section class="panel data-panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ma NV</th>
+                    <th>Ho ten</th>
+                    <th>Phep duoc huong</th>
+                    <th>Phep them (5 nam)</th>
+                    <th>Da dung</th>
+                    <th>Con lai</th>
+                    <th>Phep benh</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave, employee in rows %}
+                <tr>
+                    <td>{{ employee.employee_code }}</td>
+                    <td>{{ employee.full_name }}</td>
+                    <td>{{ leave.entitled_days }}</td>
+                    <td>{{ leave.bonus_entitled_days }}</td>
+                    <td>{{ leave.used_days }}</td>
+                    <td>{{ leave.remaining_days }}</td>
+                    <td>{{ leave.sick_leave_days }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">Khong co du lieu.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

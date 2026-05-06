@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel employees-header">
+    <div>
+        <p class="dashboard-eyebrow">Luong va thue</p>
+        <h2>Phieu luong</h2>
+        <p class="muted">Chi tiet luong tung nhan vien theo thang.</p>
+    </div>
+    <form method="get" class="inline-filter-form">
+        <input type="month" name="month" value="{{ month_key }}">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Tim ma NV / ho ten">
+        <button type="submit">Loc</button>
+    </form>
+</section>
+
+<section class="card-grid employees-summary-grid">
+    <article class="card">
+        <div class="kpi-title">Tong luong gross</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(gross_total) }}</div>
+    </article>
+    <article class="card">
+        <div class="kpi-title">Tong thuc lanh</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(net_total) }}</div>
+    </article>
+</section>
+
+<section class="panel data-panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ma NV</th>
+                    <th>Ho ten</th>
+                    <th>Ngay cong</th>
+                    <th>Tong luong</th>
+                    <th>BHXH tru</th>
+                    <th>Thue TNCN</th>
+                    <th>Tam ung</th>
+                    <th>Thuc lanh</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for slip, employee in rows %}
+                <tr>
+                    <td>{{ employee.employee_code }}</td>
+                    <td><a href="{{ url_for('payroll_slip_detail', employee_id=employee.id, month=month_key) }}">{{ employee.full_name }}</a></td>
+                    <td>{{ slip.attendance_days }}</td>
+                    <td>{{ "{:,.0f}".format(slip.gross_total or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(slip.social_insurance_deduction or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(slip.pit_tax_deduction or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(slip.advance_deduction or 0) }}</td>
+                    <td><strong>{{ "{:,.0f}".format(slip.net_income or 0) }}</strong></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">Khong co du lieu.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
