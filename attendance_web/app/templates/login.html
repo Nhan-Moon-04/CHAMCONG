@@ -2,9 +2,17 @@
 {% block content %}
 <section class="login-shell">
     <div class="login-branding">
-        <p class="login-eyebrow">Hiệp Lợi Group</p>
+        <div class="login-brand-row">
+            <span class="login-badge">Hiệp Lợi Group</span>
+            <span class="login-pill">Internal Access</span>
+        </div>
         <h1>Cổng chấm công nội bộ</h1>
-        <p>Công cụ nội bộ cho khối vận hành nhân sự, chấm công, lương và audit dữ liệu theo tháng.</p>
+        <p class="login-lead">Công cụ tập trung cho vận hành nhân sự, lương và audit dữ liệu theo tháng.</p>
+        <div class="login-tags">
+            <span>Chấm công</span>
+            <span>Phiếu lương</span>
+            <span>Audit</span>
+        </div>
         <ul class="login-points">
             <li>Điều phối nhân sự theo đơn vị</li>
             <li>Quan sát KPI chấm công theo thời gian thực</li>
@@ -13,18 +21,28 @@
     </div>
 
     <div class="login-card panel">
-        <h2>Đăng nhập hệ thống</h2>
-        <p class="muted">Chỉ cấp tài khoản nội bộ, không hỗ trợ đăng ký tại đây.</p>
-        <form method="post" class="form-grid login-form">
+        <div class="login-card-head">
+            <h2>Đăng nhập hệ thống</h2>
+            <p class="muted">Chỉ cấp tài khoản nội bộ, không hỗ trợ đăng ký tại đây.</p>
+        </div>
+        <form method="post" class="login-form">
             <input type="hidden" name="next" value="{{ next_url }}">
-            <label for="username">Tài khoản</label>
-            <input id="username" name="username" autocomplete="username" placeholder="Nhập tài khoản" required>
+            <div class="login-field">
+                <label for="username">Tài khoản</label>
+                <input id="username" name="username" autocomplete="username" placeholder="Nhập tài khoản" required>
+            </div>
 
-            <label for="password">Mật khẩu</label>
-            <input id="password" type="password" name="password" autocomplete="current-password" placeholder="Nhập mật khẩu" required>
+            <div class="login-field">
+                <label for="password">Mật khẩu</label>
+                <input id="password" type="password" name="password" autocomplete="current-password" placeholder="Nhập mật khẩu" required>
+            </div>
 
-            <button type="submit">Đăng nhập</button>
+            <button type="submit" class="login-submit">Đăng nhập</button>
         </form>
+        <div class="login-footnote">
+            <i class="bi bi-shield-lock"></i>
+            Truy cập được ghi log theo chính sách bảo mật nội bộ.
+        </div>
     </div>
 </section>
 {% endblock %}

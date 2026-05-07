@@ -93,9 +93,13 @@ def _ensure_payroll_month_data(month_key):
 
 def _month_has_salary_data(month_key):
     return bool(
-        db.session.query(MonthlySalary.id)
-        .filter(MonthlySalary.month_key == month_key)
-        .first()
+        PayrollSlip.query.filter_by(month_key=month_key).first()
+        or PayrollInsuranceContribution.query.filter_by(month_key=month_key).first()
+        or PayrollLeaveSnapshot.query.filter_by(month_key=month_key).first()
+        or PayrollTaxContribution.query.filter_by(month_key=month_key).first()
+        or db.session.query(MonthlySalary.id)
+            .filter(MonthlySalary.month_key == month_key)
+            .first()
     )
 
 
@@ -356,6 +360,8 @@ def register_payroll_routes(app):
         month_key = _safe_month_key(request.args.get("month"))
         search_query = (request.args.get("q") or "").strip().lower()
 
+        _ensure_payroll_month_data(month_key)
+
         if not _month_has_salary_data(month_key):
             return render_template(
                 "payroll_slips.html",
@@ -383,6 +389,8 @@ def register_payroll_routes(app):
     @app.route("/payroll/slips/<int:employee_id>", methods=["GET"])
     def payroll_slip_detail(employee_id):
         month_key = _safe_month_key(request.args.get("month"))
+
+        _ensure_payroll_month_data(month_key)
 
         employee = Employee.query.filter_by(id=employee_id).first()
         if not employee:
