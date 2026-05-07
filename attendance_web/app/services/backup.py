@@ -25,7 +25,18 @@ from ..models import (
     MonthlySalary,
     MonthlyWorkdayConfig,
     OvertimeEntry,
+    PayrollInsuranceContribution,
+    PayrollLeaveSnapshot,
+    PayrollMonthLock,
+    PayrollPaymentStatus,
+    PayrollSlip,
+    PayrollTaxContribution,
     ShiftTemplate,
+    UnionHdRule,
+    UnionHolidayEvent,
+    UnionHolidayRecipient,
+    UnionLedgerEntry,
+    UnionYearConfig,
     WorkSchedule,
 )
 from .audit import log_action
@@ -38,15 +49,26 @@ BACKUP_MODELS = [
     AppUser,
     Employee,
     MonthlyWorkdayConfig,
+    PayrollMonthLock,
     Holiday,
     WorkSchedule,
     OvertimeEntry,
     MonthlySalary,
     AdvancePayment,
     LeaveBalance,
+    PayrollPaymentStatus,
+    PayrollLeaveSnapshot,
+    PayrollSlip,
+    PayrollInsuranceContribution,
+    PayrollTaxContribution,
     AttendanceLog,
     AttendanceDaily,
     AttendanceDetail,
+    UnionYearConfig,
+    UnionHdRule,
+    UnionHolidayEvent,
+    UnionHolidayRecipient,
+    UnionLedgerEntry,
     AuditLog,
 ]
 
@@ -94,7 +116,13 @@ def cleanup_old_backups(target_dir, retention_days):
     cutoff = datetime.now() - timedelta(days=retention_days)
 
     candidates = []
-    for pattern in ("attendance_*.dump", "attendance_full_*.json", "attendance_full_*.json.gz"):
+    for pattern in (
+        "attendance_*.dump",
+        "attendance_full_*.json",
+        "attendance_full_*.json.gz",
+        "backup_full_*.json",
+        "backup_full_*.json.gz",
+    ):
         candidates.extend(Path(target_dir).glob(pattern))
 
     for file_path in sorted(set(candidates)):
@@ -168,7 +196,7 @@ def run_portable_backup(target_dir, retention_days=30):
     target_path.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = target_path / f"attendance_full_{timestamp}.json.gz"
+    backup_file = target_path / f"backup_full_{timestamp}.json.gz"
 
     table_payload, row_counts = _serialize_database_payload()
     with gzip.open(backup_file, "wt", encoding="utf-8") as output:
@@ -183,18 +211,8 @@ def run_portable_backup(target_dir, retention_days=30):
 
 
 def run_database_backup(database_url, target_dir, retention_days=30, pg_dump_path="pg_dump"):
-    try:
-        backup_file, removed_files = run_pg_dump(
-            database_url,
-            target_dir,
-            retention_days,
-            pg_dump_path=pg_dump_path,
-        )
-        return backup_file, removed_files, "pg_dump", {}
-    except FileNotFoundError as exc:
-        backup_file, removed_files, summary = run_portable_backup(target_dir, retention_days)
-        summary["fallback_reason"] = str(exc)
-        return backup_file, removed_files, "portable_json", summary
+    backup_file, removed_files, summary = run_portable_backup(target_dir, retention_days)
+    return backup_file, removed_files, "portable_json", summary
 
 
 def list_backup_files(target_dir):
@@ -203,7 +221,13 @@ def list_backup_files(target_dir):
         return []
 
     file_map = {}
-    for pattern in ("attendance_*.dump", "attendance_full_*.json", "attendance_full_*.json.gz"):
+    for pattern in (
+        "attendance_*.dump",
+        "attendance_full_*.json",
+        "attendance_full_*.json.gz",
+        "backup_full_*.json",
+        "backup_full_*.json.gz",
+    ):
         for file_path in target_path.glob(pattern):
             if file_path.is_file():
                 file_map[file_path.name] = file_path

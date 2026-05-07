@@ -1,59 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel page-toolbar">
-    <div>
-        <h2>Lịch làm và bảng tăng ca</h2>
-        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong></p>
+
+<div class="sch-topbar">
+    <div class="sch-bread">
+        <span>Chấm công</span>
+        <span class="sep">/</span>
+        <span class="cur">Lịch làm & tăng ca</span>
     </div>
-    <div class="toolbar-actions">
-        <form method="get" class="toolbar-month-form">
+
+    <span class="sch-period"><i class="bi bi-calendar3"></i> Tháng {{ month_key }}</span>
+    <span class="sch-count-chip"><i class="bi bi-table"></i> <strong>{{ schedules | length }}</strong> dòng</span>
+
+    <div class="sch-actions">
+        <form method="get" class="sch-month-form">
             <label for="month">Tháng</label>
             <input id="month" type="month" name="month" value="{{ month_key }}">
-            <button type="submit">Xem</button>
+            <button type="submit" class="det-btn">
+                <i class="bi bi-arrow-clockwise"></i> Xem
+            </button>
         </form>
-        <button type="button" id="schedule-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
+        <button type="button" id="schedule-tools-toggle-btn" class="det-btn" aria-expanded="false">
+            <i class="bi bi-sliders"></i> Mở công cụ
+        </button>
     </div>
-</section>
+</div>
 
-<section id="schedule-tools-container" class="page-tools tools-collapsed">
-    <div class="panel soft-panel">
-        <h3>Import lịch làm từ Excel</h3>
-        <form method="post" action="{{ url_for('import_schedules') }}" enctype="multipart/form-data" class="form-grid">
-            <input type="file" name="schedule_file" accept=".xlsx,.xls,.xlsm,.xltx,.xltm" required>
-            <input type="month" name="month_key" value="{{ month_key }}" required>
-            <label><input type="checkbox" name="replace_existing_month" checked> Xóa lịch cũ của tháng trước khi import</label>
-            <label><input type="checkbox" name="open_details_after_import" checked> Mở bảng chi tiết sau khi import</label>
-            <input name="changed_by" placeholder="Người import" value="admin">
-            <button type="submit" class="secondary">Import lịch làm</button>
-        </form>
-    </div>
+<div id="schedule-tools-container" class="sch-tools tools-collapsed">
+    <div class="sch-tools-grid">
+        <div class="panel soft-panel sch-tool-card">
+            <h3>Import lịch làm từ Excel</h3>
+            <form method="post" action="{{ url_for('import_schedules') }}" enctype="multipart/form-data" class="sch-form-grid">
+                <input type="file" name="schedule_file" accept=".xlsx,.xls,.xlsm,.xltx,.xltm" required>
+                <input type="month" name="month_key" value="{{ month_key }}" required>
+                <div class="sch-form-options">
+                    <label><input type="checkbox" name="replace_existing_month" checked> Xóa lịch cũ của tháng trước khi import</label>
+                    <label><input type="checkbox" name="open_details_after_import" checked> Mở bảng chi tiết sau khi import</label>
+                </div>
+                <input name="changed_by" placeholder="Người import" value="admin">
+                <button type="submit" class="sch-submit secondary">Import lịch làm</button>
+            </form>
+        </div>
 
-    <div class="panel soft-panel">
-        <h3>Nhập nhanh lịch làm</h3>
-        <form method="post" class="form-grid" id="schedule-form">
-            <select name="employee_id" required>
-                <option value="">Nhân viên</option>
-                {% for row in employees %}
-                <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
-                {% endfor %}
-            </select>
-            <input type="date" name="work_date" required>
-            <input name="shift_code" list="shift-codes" placeholder="Mã ca (gõ để gợi ý)" required>
-            <datalist id="shift-codes">
-                {% for row in shift_codes %}
-                <option value="{{ row.code }}">{{ row.name }}</option>
-                {% endfor %}
-            </datalist>
-            <input type="number" name="absence_hours" step="0.5" min="0" max="8" value="0" placeholder="Nghỉ 1-2h">
-            <input type="number" name="overtime_hours" step="0.5" min="0" placeholder="Tăng ca (để trống -> lấy mặc định)">
-            <input name="overtime_reason" placeholder="Lý do tăng ca">
-            <input name="notes" placeholder="Ghi chú">
-            <input name="changed_by" placeholder="Người sửa" value="admin">
-            <button type="submit">Lưu lịch</button>
-        </form>
-        <p class="muted">Mã X4 mặc định 8h + 4h tăng ca, mã X3 mặc định 8h + 3h tăng ca. TX1/TX2 tu dong tinh OT neu checkout tre hon gio ket thuc ca. Dòng ca NU được tô đỏ để dễ nhận biết.</p>
+        <div class="panel soft-panel sch-tool-card">
+            <h3>Nhập nhanh lịch làm</h3>
+            <form method="post" class="sch-form-grid" id="schedule-form">
+                <select name="employee_id" required>
+                    <option value="">Nhân viên</option>
+                    {% for row in employees %}
+                    <option value="{{ row.id }}">{{ row.employee_code }} - {{ row.full_name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="date" name="work_date" required>
+                <input name="shift_code" list="shift-codes" placeholder="Mã ca (gõ để gợi ý)" required>
+                <datalist id="shift-codes">
+                    {% for row in shift_codes %}
+                    <option value="{{ row.code }}">{{ row.name }}</option>
+                    {% endfor %}
+                </datalist>
+                <input type="number" name="absence_hours" step="0.5" min="0" max="8" value="0" placeholder="Nghỉ 1-2h">
+                <input type="number" name="overtime_hours" step="0.5" min="0" placeholder="Tăng ca (để trống -> lấy mặc định)">
+                <input name="overtime_reason" placeholder="Lý do tăng ca">
+                <input name="notes" placeholder="Ghi chú">
+                <input name="changed_by" placeholder="Người sửa" value="admin">
+                <button type="submit" class="sch-submit">Lưu lịch</button>
+            </form>
+            <p class="sch-note">Mã X4 mặc định 8h + 4h tăng ca, mã X3 mặc định 8h + 3h tăng ca. TX1/TX2 tu dong tinh OT neu checkout tre hon gio ket thuc ca. Dòng ca NU được tô đỏ để dễ nhận biết.</p>
+        </div>
     </div>
-</section>
+</div>
 
 <section class="panel data-panel" id="schedules-table-panel">
     <div class="table-wrap">
@@ -157,8 +171,11 @@ const scheduleToggleButton = document.getElementById("schedule-tools-toggle-btn"
 if (scheduleToolsContainer && scheduleToggleButton) {
     const setToolsState = (collapsed) => {
         scheduleToolsContainer.classList.toggle("tools-collapsed", collapsed);
-        scheduleToggleButton.textContent = collapsed ? "Mở công cụ" : "Thu gọn";
+        scheduleToggleButton.classList.toggle("det-active", !collapsed);
         scheduleToggleButton.setAttribute("aria-expanded", String(!collapsed));
+        scheduleToggleButton.innerHTML = collapsed
+            ? '<i class="bi bi-sliders"></i> Mở công cụ'
+            : '<i class="bi bi-dash-lg"></i> Thu gọn';
     };
 
     scheduleToggleButton.addEventListener("click", () => {

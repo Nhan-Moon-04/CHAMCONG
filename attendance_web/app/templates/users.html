@@ -1,36 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel employees-header">
-    <div>
-        <p class="dashboard-eyebrow">Kiểm soát truy cập</p>
-        <h2>Quản lý user</h2>
-        <p class="muted">Chỉ tài khoản admin mới có quyền thêm, sửa, xóa user đăng nhập.</p>
+
+<div class="usr-topbar">
+    <div class="usr-bread">
+        <span>Hệ thống</span>
+        <span class="sep">/</span>
+        <span class="cur">Quản lý user</span>
     </div>
-    <div>
-        <a class="button-link" href="{{ url_for('create_user') }}">Thêm user</a>
-        <form method="post" action="{{ url_for('toggle_ot_after_6pm') }}" style="display:inline-block;margin-left:10px;">
-            <button type="submit" class="button-link">{{ 'Tắt' if enable_ot_after_6pm_meal else 'Bật' }} tính ăn OT sau 18:00</button>
+
+    <span class="usr-kpi-chip usr-chip-total"><i class="bi bi-people"></i> Tổng <strong>{{ total_users }}</strong></span>
+    <span class="usr-kpi-chip usr-chip-active"><i class="bi bi-person-check"></i> Hoạt động <strong>{{ active_users }}</strong></span>
+    <span class="usr-kpi-chip usr-chip-admin"><i class="bi bi-shield-lock"></i> Admin <strong>{{ admin_users }}</strong></span>
+
+    <div class="usr-actions">
+        <a class="usr-add-btn" href="{{ url_for('create_user') }}">
+            <i class="bi bi-person-plus"></i> Thêm user
+        </a>
+        <form method="post" action="{{ url_for('toggle_ot_after_6pm') }}" class="usr-ot-form">
+            <button type="submit" class="usr-ot-btn {% if enable_ot_after_6pm_meal %}usr-ot-btn-on{% else %}usr-ot-btn-off{% endif %}">
+                <i class="bi bi-moon-stars"></i> {{ 'Tắt' if enable_ot_after_6pm_meal else 'Bật' }} ăn OT sau 18:00
+            </button>
         </form>
-        <div style="display:inline-block;margin-left:8px;vertical-align:middle;color:#666;">({{ 'Đang bật' if enable_ot_after_6pm_meal else 'Đang tắt' }})</div>
+        <span class="usr-ot-state {% if enable_ot_after_6pm_meal %}usr-ot-state-on{% else %}usr-ot-state-off{% endif %}">
+            {{ 'Đang bật' if enable_ot_after_6pm_meal else 'Đang tắt' }}
+        </span>
     </div>
-</section>
+</div>
 
-<section class="card-grid employees-summary-grid">
-    <article class="card">
-        <div class="kpi-title">Tổng user</div>
-        <div class="kpi-value">{{ total_users }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Đang hoạt động</div>
-        <div class="kpi-value">{{ active_users }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Admin</div>
-        <div class="kpi-value">{{ admin_users }}</div>
-    </article>
-</section>
+<div class="usr-note">
+    <i class="bi bi-info-circle"></i>
+    Chỉ tài khoản admin mới có quyền thêm, sửa, xóa user đăng nhập.
+</div>
 
-<section class="panel data-panel">
+<section class="panel data-panel" id="usr-table-panel">
     <div class="table-wrap">
         <table>
             <thead>
@@ -45,8 +47,8 @@
             </thead>
             <tbody>
                 {% for row in users %}
-                <tr>
-                    <td>{{ row.username }}</td>
+                <tr class="{% if not row.is_active %}usr-row-inactive{% endif %}">
+                    <td class="usr-username">{{ row.username }}</td>
                     <td>{{ row.full_name or "-" }}</td>
                     <td>
                         {% if row.is_admin %}
@@ -62,16 +64,22 @@
                             <span class="badge badge-warn">Đã khóa</span>
                         {% endif %}
                     </td>
-                    <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '-' }}</td>
-                    <td class="employees-actions-cell">
-                        <a class="link-pill" href="{{ url_for('edit_user', user_id=row.id) }}">Sửa</a>
-                        {% if row.id != current_user_id %}
-                        <form method="post" action="{{ url_for('delete_user', user_id=row.id) }}" class="row-action-form" data-confirm="Xóa user này?">
-                            <button type="submit" class="secondary danger">Xóa</button>
-                        </form>
-                        {% else %}
-                            <span class="muted">Đang đăng nhập</span>
-                        {% endif %}
+                    <td class="usr-created-at">{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '-' }}</td>
+                    <td class="usr-actions-cell">
+                        <div class="emp-actions" style="justify-content:flex-end;">
+                            <a class="emp-action-btn" href="{{ url_for('edit_user', user_id=row.id) }}">
+                                <i class="bi bi-pencil"></i> Sửa
+                            </a>
+                            {% if row.id != current_user_id %}
+                            <form method="post" action="{{ url_for('delete_user', user_id=row.id) }}" class="row-action-form" data-confirm="Xóa user này?">
+                                <button type="submit" class="emp-action-btn emp-action-btn-danger">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </button>
+                            </form>
+                            {% else %}
+                                <span class="usr-self">Đang đăng nhập</span>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% else %}
