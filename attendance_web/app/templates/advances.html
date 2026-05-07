@@ -1,99 +1,86 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel page-toolbar">
-    <div>
-        <h2>Ứng tiền theo nhân viên</h2>
-        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong></p>
-        {% if month_is_locked %}
-        <p class="muted">Đã khóa</p>
-        {% endif %}
-    </div>
-    <div class="toolbar-actions">
-        <form method="get" class="toolbar-month-form">
-            <label for="advance-month">Tháng</label>
-            <input id="advance-month" type="month" name="month" value="{{ month_key }}">
-            {% if search_query %}
-            <input type="hidden" name="q" value="{{ search_query }}">
-            {% endif %}
-            {% if search_scope == 'all' %}
-            <input type="hidden" name="scope" value="all">
-            {% endif %}
-            {% if advance_filter != 'all' %}
-            <input type="hidden" name="advance_filter" value="{{ advance_filter }}">
-            {% endif %}
-            <button type="submit">Xem</button>
-        </form>
-        {% if advance_edit_blocked %}
-        <span class="badge badge-warn">Đã khóa</span>
-        {% else %}
-        <button type="button" id="advance-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
-        {% endif %}
-        <button type="button" id="advances-show-all-btn" class="secondary" data-expanded="false">Show all</button>
-    </div>
-</section>
 
-<section class="panel soft-panel">
-    <form method="get" class="advances-search-form">
-        <input type="month" name="month" value="{{ month_key }}">
-        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Tìm theo tên, mã NV, tháng, ngày ứng, số tiền, hình thức, ghi chú">
-        <div class="scope-choice">
-            <label>
-                <input type="radio" name="scope" value="current" {% if (search_scope or 'current') == 'current' %}checked{% endif %}>
-                Tháng hiện tại
-            </label>
-            <label>
-                <input type="radio" name="scope" value="all" {% if search_scope == 'all' %}checked{% endif %}>
-                ALL
-            </label>
+{# ── Topbar ── #}
+<div class="adv-topbar">
+    <div class="adv-bread">
+        <span>Lương</span>
+        <span class="sep">/</span>
+        <span class="cur">Ứng tiền</span>
+    </div>
+
+    {% if month_is_locked %}
+    <span class="adv-lock-badge"><i class="bi bi-lock-fill"></i> Đã khóa</span>
+    {% endif %}
+
+    {# KPI chips #}
+    <span class="adv-kpi-chip">
+        <i class="bi bi-people"></i>
+        Hiển thị <strong>{{ employee_groups | length }}</strong>
+    </span>
+    <span class="adv-kpi-chip adv-kpi-chip-blue">
+        <i class="bi bi-person-check"></i>
+        Có ứng <strong>{{ employees_with_month_advance }}</strong>
+    </span>
+    <span class="adv-kpi-chip adv-kpi-chip-red">
+        <i class="bi bi-cash-stack"></i>
+        Tháng <strong>{{ "{:,.0f}".format(month_total_amount) }}</strong>
+    </span>
+    <span class="adv-kpi-chip adv-kpi-chip-green">
+        <i class="bi bi-diagram-3"></i>
+        Phạm vi <strong>{{ "{:,.0f}".format(scope_total_amount) }}</strong>
+    </span>
+
+    {# Unified search + filter form #}
+    <form method="get" class="adv-search-form" id="adv-main-form" style="margin-left:auto;">
+        <input type="hidden" name="month" value="{{ month_key }}">
+        <input type="hidden" name="scope" id="adv-scope-val" value="{{ search_scope or 'current' }}">
+
+        <div class="adv-search-wrap">
+            <input type="text" name="q" value="{{ search_query or '' }}"
+                   placeholder="Tìm tên, mã NV, số tiền, ghi chú…">
+            <button type="submit" class="adv-search-btn"><i class="bi bi-search"></i></button>
         </div>
-        <select name="advance_filter">
-            <option value="all" {% if (advance_filter or 'all') == 'all' %}selected{% endif %}>Tất cả (lọc theo tháng chọn)</option>
-            <option value="has" {% if advance_filter == 'has' %}selected{% endif %}>Có ứng tiền (tháng chọn)</option>
-            <option value="none" {% if advance_filter == 'none' %}selected{% endif %}>Không ứng tiền (tháng chọn)</option>
+
+        <div class="adv-scope-toggle">
+            <button type="button"
+                class="adv-scope-btn {% if (search_scope or 'current') == 'current' %}adv-scope-active{% endif %}"
+                onclick="advScope('current')">Tháng này</button>
+            <button type="button"
+                class="adv-scope-btn {% if search_scope == 'all' %}adv-scope-active{% endif %}"
+                onclick="advScope('all')">Tất cả</button>
+        </div>
+
+        <select name="advance_filter" class="adv-filter-select" onchange="this.form.submit()">
+            <option value="all"  {% if (advance_filter or 'all') == 'all' %}selected{% endif %}>Tất cả</option>
+            <option value="has"  {% if advance_filter == 'has' %}selected{% endif %}>Có ứng tiền</option>
+            <option value="none" {% if advance_filter == 'none' %}selected{% endif %}>Không ứng tiền</option>
         </select>
-        <button type="submit">Tìm kiếm</button>
-        {% if search_query or search_scope == 'all' or advance_filter != 'all' %}
-        <a class="button-link button-link-secondary" href="{{ url_for('advances', month=month_key) }}">Xóa lọc</a>
+
+        {% if search_query or search_scope == 'all' or advance_filter not in (none, 'all') %}
+        <a href="{{ url_for('advances', month=month_key) }}" class="adv-topbar-btn" style="color:#DC2626;border-color:#FECACA;">
+            <i class="bi bi-x-circle"></i>
+        </a>
         {% endif %}
     </form>
-    <p class="muted">
-        {% if search_scope == 'all' %}
-        Đang tìm trong toàn bộ lịch sử ứng tiền, sắp xếp theo tháng gần nhất.
-        {% else %}
-        Đang tìm trong tháng {{ month_key }} (mặc định).
-        {% endif %}
-        Bộ lọc Có/Không ứng tiền luôn bám theo tháng đang chọn.
-    </p>
-</section>
 
-<section class="card-grid advances-summary-grid">
-    <article class="card">
-        <div class="kpi-title">Nhân viên đang hiển thị</div>
-        <div class="kpi-value">{{ employee_groups|length }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Nhân viên có ứng tiền (tháng chọn)</div>
-        <div class="kpi-value">{{ employees_with_month_advance }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Tổng ứng theo tháng chọn</div>
-        <div class="kpi-value">{{ "{:,.0f}".format(month_total_amount) }}</div>
-    </article>
-    <article class="card">
-        <div class="kpi-title">Tổng ứng theo phạm vi tìm</div>
-        <div class="kpi-value">{{ "{:,.0f}".format(scope_total_amount) }}</div>
-    </article>
-</section>
+    <div class="adv-sep"></div>
 
-<section id="advances-tools-container" class="page-tools {% if not advance_edit_blocked %}tools-collapsed{% endif %}">
-    {% if advance_edit_blocked %}
-    <div class="panel soft-panel">
-        <h3>Đã khóa</h3>
-    </div>
-    {% else %}
-    <div class="panel soft-panel">
-        <h3>Thêm giao dịch ứng tiền</h3>
-        <form method="post" class="form-grid" id="advance-create-form">
+    {% if not advance_edit_blocked %}
+    <button type="button" id="advance-tools-toggle-btn" class="adv-topbar-btn" aria-expanded="false">
+        <i class="bi bi-plus-lg"></i> Thêm ứng tiền
+    </button>
+    {% endif %}
+
+    <button type="button" id="advances-show-all-btn" class="adv-topbar-btn">
+        <i class="bi bi-arrows-expand"></i> Show all
+    </button>
+</div>
+
+{# ── Collapsible create form ── #}
+<div id="advances-tools-container" class="tools-collapsed">
+    <div class="adv-form-wrap">
+        <form method="post" class="adv-form-grid" id="advance-create-form">
             <input type="hidden" name="action" value="create_advance">
             <input type="hidden" name="view_month" value="{{ month_key }}">
             <input type="hidden" name="view_q" value="{{ search_query or '' }}">
@@ -102,9 +89,10 @@
             <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
 
             <select name="employee_id" id="advance-employee-select" required>
-                <option value="">Chọn nhân viên</option>
+                <option value="">— Chọn nhân viên —</option>
                 {% for row in employees %}
-                <option value="{{ row.id }}" data-name="{{ row.full_name or '' }}" title="Mã NV: {{ row.employee_code }}">{{ row.full_name or row.employee_code }}</option>
+                <option value="{{ row.id }}" data-name="{{ row.full_name or '' }}"
+                        title="Mã NV: {{ row.employee_code }}">{{ row.full_name or row.employee_code }}</option>
                 {% endfor %}
             </select>
 
@@ -128,378 +116,331 @@
 
             <input type="date" name="advance_date" value="{{ default_advance_date }}">
             <input type="text" name="notes" placeholder="Ghi chú giao dịch">
-            <button type="submit">Thêm ứng tiền</button>
+            <button type="submit" class="adv-form-submit">
+                <i class="bi bi-plus-lg"></i> Thêm ứng tiền
+            </button>
         </form>
-        <p class="muted">Mẹo: tại ô Chọn nhân viên, gõ chữ cái đầu của họ để nhảy nhanh (ví dụ: N cho NGUYEN, L cho LE).</p>
-        <p class="muted">Nếu ứng theo ngày công, hệ thống tự quy đổi tiền theo lương tháng và công chuẩn của tháng tương ứng.</p>
-        <p class="muted">Nếu để trống ngày ứng, hệ thống tự lấy ngày hiện tại.</p>
-        <p class="muted">Hệ thống chặn khi tổng ứng vượt lương tháng; nếu vượt mốc 10% lương sẽ chỉ cảnh báo để bạn quyết định.</p>
+        <p class="adv-form-hint">
+            Gõ chữ cái đầu tên họ trong ô nhân viên để nhảy nhanh (N → NGUYEN, L → LE).
+            Nếu ứng theo ngày công, hệ thống tự quy đổi theo lương tháng và công chuẩn.
+            Tổng ứng không được vượt lương tháng; vượt 10% lương sẽ có cảnh báo.
+        </p>
     </div>
-    {% endif %}
-</section>
+</div>
 
-<section class="panel data-panel" id="advances-table-panel">
-    <div class="table-wrap">
+{# ── Main table ── #}
+<div class="adv-table-panel">
+    <div class="adv-table-wrap">
         <table id="advances-table">
             <thead>
                 <tr>
-                    <th>STT NV</th>
-                    <th>Mã NV</th>
+                    <th style="width:40px;">#</th>
                     <th>Nhân viên</th>
-                    <th>Số giao dịch</th>
-                    <th>Tổng ứng hiển thị</th>
-                    <th>Tổng ứng tháng {{ month_key }}</th>
-                    <th>Tháng gần nhất</th>
-                    <th>Thao tác</th>
+                    <th style="text-align:center;">Số GD</th>
+                    <th style="text-align:right;">Tổng hiển thị</th>
+                    <th style="text-align:right;">Tổng tháng {{ month_key }}</th>
+                    <th>Gần nhất</th>
+                    <th style="text-align:right;">Chi tiết</th>
                 </tr>
             </thead>
             <tbody>
                 {% for group in employee_groups %}
                 {% set shown_count = group.visible_count if search_query else group.scope_count %}
                 {% set shown_total = group.display_total if search_query else group.scope_total %}
-                <tr class="advance-summary-row" data-employee-id="{{ group.employee.id }}">
-                    <td>{{ loop.index }}</td>
-                    <td>{{ group.employee.employee_code }}</td>
+                <tr class="adv-summary-row advance-summary-row" data-employee-id="{{ group.employee.id }}">
+                    <td style="color:#94A3B8;">{{ loop.index }}</td>
                     <td>
-                        <strong>{{ group.employee.full_name }}</strong>
-                        <div class="muted advance-summary-subline">Tổng nhân viên: {{ "{:,.0f}".format(group.scope_total) }}</div>
+                        <div class="adv-emp-name">{{ group.employee.full_name }}</div>
+                        <div class="adv-emp-code">{{ group.employee.employee_code }}</div>
                     </td>
-                    <td>{{ shown_count }}</td>
-                    <td>{{ "{:,.0f}".format(shown_total) }}</td>
-                    <td>{{ "{:,.0f}".format(group.month_total) }}</td>
+                    <td style="text-align:center;">
+                        {% if shown_count > 0 %}
+                        <span style="font-weight:600;color:#1E293B;">{{ shown_count }}</span>
+                        {% else %}
+                        <span class="adv-none">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        {% if shown_total %}
+                        <span class="adv-scope-total">{{ "{:,.0f}".format(shown_total) }}</span>
+                        {% else %}
+                        <span class="adv-none">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        {% if group.month_total %}
+                        <span class="adv-month-total">{{ "{:,.0f}".format(group.month_total) }}</span>
+                        {% else %}
+                        <span class="adv-none">—</span>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if group.latest_scope_month %}
-                        {{ group.latest_scope_month }}
+                        <span style="font-weight:500;color:#1E293B;">{{ group.latest_scope_month }}</span>
                         {% if group.latest_scope_date %}
-                        <div class="muted">{{ group.latest_scope_date }}</div>
+                        <div style="font-size:11px;color:#94A3B8;">{{ group.latest_scope_date }}</div>
                         {% endif %}
                         {% else %}
-                        -
+                        <span class="adv-none">—</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td style="text-align:right;">
                         {% if group.visible_count > 0 %}
-                        <button type="button" class="secondary advance-toggle-btn">Xem</button>
+                        <button type="button" class="adv-toggle-btn advance-toggle-btn">
+                            <i class="bi bi-chevron-down"></i> Xem
+                        </button>
                         {% else %}
-                        <button type="button" class="secondary advance-toggle-btn" disabled>Không có</button>
+                        <button type="button" class="adv-toggle-btn advance-toggle-btn" disabled>
+                            Không có
+                        </button>
                         {% endif %}
                     </td>
                 </tr>
-                <tr class="advance-detail-row" data-employee-id="{{ group.employee.id }}" hidden>
-                    <td colspan="8">
+
+                {# ── Detail row (hidden by default) ── #}
+                <tr class="adv-detail-row advance-detail-row" data-employee-id="{{ group.employee.id }}" hidden>
+                    <td colspan="7">
                         {% if group.visible_rows %}
-                        <div class="table-wrap advance-inner-wrap">
-                            <table class="advance-inner-table">
+                        <div class="adv-inner-wrap">
+                            <table class="adv-inner-table">
                                 <thead>
                                     <tr>
                                         <th>Ngày ứng</th>
                                         <th>Tháng</th>
-                                        <th>Kiểu nhập</th>
-                                        <th>Hình thức nhận</th>
-                                        <th>Số ngày công</th>
-                                        <th>Số tiền ứng</th>
+                                        <th>Kiểu</th>
+                                        <th>Hình thức</th>
+                                        <th style="text-align:right;">Ngày công</th>
+                                        <th style="text-align:right;">Số tiền</th>
                                         <th>Ghi chú</th>
-                                        <th>Cập nhật</th>
-                                        <th>Xóa</th>
+                                        {% if not advance_edit_blocked %}
+                                        <th style="text-align:right;">Sửa / Xóa</th>
+                                        {% endif %}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for tx in group.visible_rows %}
                                     <tr>
                                         <td>{{ tx.advance_date }}</td>
-                                        <td>{{ tx.month_key }}</td>
+                                        <td style="font-family:monospace;font-size:11px;">{{ tx.month_key }}</td>
                                         <td>
-                                            {% if tx.input_mode == 'days' %}
-                                            Theo ngày công
-                                            {% else %}
-                                            Theo số tiền
-                                            {% endif %}
+                                            <span class="adv-mode-badge">
+                                                {% if tx.input_mode == 'days' %}Ngày công{% else %}Tiền{% endif %}
+                                            </span>
                                         </td>
                                         <td>
-                                            {% if tx.payment_method == 'salary_day' %}
-                                            Theo ngày lương
-                                            {% else %}
-                                            Tiền mặt
-                                            {% endif %}
+                                            <span class="adv-pay-badge {% if tx.payment_method == 'salary_day' %}adv-pay-badge-salary{% else %}adv-pay-badge-cash{% endif %}">
+                                                {% if tx.payment_method == 'salary_day' %}Ngày lương{% else %}Tiền mặt{% endif %}
+                                            </span>
                                         </td>
-                                        <td>
-                                            {% if tx.advance_days is not none %}
-                                            {{ "%.2f"|format(tx.advance_days) }}
-                                            {% else %}
-                                            -
-                                            {% endif %}
+                                        <td style="text-align:right;color:#64748B;">
+                                            {% if tx.advance_days is not none %}{{ "%.2f"|format(tx.advance_days) }}{% else %}<span class="adv-none">—</span>{% endif %}
                                         </td>
-                                        <td>{{ "{:,.0f}".format(tx.amount) }}</td>
-                                        <td>{{ tx.notes or '-' }}</td>
-                                        <td class="advances-actions-cell">
-                                            {% if advance_edit_blocked %}
-                                            <span class="badge badge-warn">Đã khóa</span>
-                                            {% else %}
-                                            <form method="post" class="advance-inline-edit-form">
-                                                <input type="hidden" name="action" value="update_advance">
-                                                <input type="hidden" name="advance_id" value="{{ tx.id }}">
-                                                <input type="hidden" name="view_month" value="{{ month_key }}">
-                                                <input type="hidden" name="view_q" value="{{ search_query or '' }}">
-                                                <input type="hidden" name="view_scope" value="{{ search_scope or 'current' }}">
-                                                <input type="hidden" name="view_advance_filter" value="{{ advance_filter or 'all' }}">
-                                                <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
-                                                <input type="date" name="advance_date" value="{{ tx.advance_date.isoformat() }}">
-                                                <select name="payment_method" required>
-                                                    <option value="cash" {% if tx.payment_method != 'salary_day' %}selected{% endif %}>Tiền mặt</option>
-                                                    <option value="salary_day" {% if tx.payment_method == 'salary_day' %}selected{% endif %}>Theo ngày lương</option>
-                                                </select>
-                                                <input type="number" step="1" min="0" name="amount" value="{{ '%.2f'|format(tx.amount) }}" required>
-                                                <input type="text" name="notes" value="{{ tx.notes or '' }}" placeholder="Ghi chú">
-                                                <button type="submit">Lưu</button>
-                                            </form>
-                                            {% endif %}
+                                        <td style="text-align:right;font-weight:700;color:#DC2626;font-variant-numeric:tabular-nums;">
+                                            {{ "{:,.0f}".format(tx.amount) }}
                                         </td>
-                                        <td>
-                                            {% if advance_edit_blocked %}
-                                            <span class="badge badge-warn">Đã khóa</span>
-                                            {% else %}
-                                            <form method="post" class="advance-delete-form" data-confirm="Xóa giao dịch ứng tiền này?">
-                                                <input type="hidden" name="action" value="delete_advance">
-                                                <input type="hidden" name="advance_id" value="{{ tx.id }}">
-                                                <input type="hidden" name="view_month" value="{{ month_key }}">
-                                                <input type="hidden" name="view_q" value="{{ search_query or '' }}">
-                                                <input type="hidden" name="view_scope" value="{{ search_scope or 'current' }}">
-                                                <input type="hidden" name="view_advance_filter" value="{{ advance_filter or 'all' }}">
-                                                <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
-                                                <button type="submit" class="danger">Xóa</button>
-                                            </form>
-                                            {% endif %}
+                                        <td style="color:#64748B;">{{ tx.notes or '—' }}</td>
+                                        {% if not advance_edit_blocked %}
+                                        <td style="text-align:right;">
+                                            <div style="display:flex;justify-content:flex-end;align-items:center;gap:5px;">
+                                                <form method="post" class="adv-inline-form">
+                                                    <input type="hidden" name="action" value="update_advance">
+                                                    <input type="hidden" name="advance_id" value="{{ tx.id }}">
+                                                    <input type="hidden" name="view_month" value="{{ month_key }}">
+                                                    <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+                                                    <input type="hidden" name="view_scope" value="{{ search_scope or 'current' }}">
+                                                    <input type="hidden" name="view_advance_filter" value="{{ advance_filter or 'all' }}">
+                                                    <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+                                                    <input type="date" name="advance_date" value="{{ tx.advance_date.isoformat() }}">
+                                                    <select name="payment_method">
+                                                        <option value="cash" {% if tx.payment_method != 'salary_day' %}selected{% endif %}>Tiền mặt</option>
+                                                        <option value="salary_day" {% if tx.payment_method == 'salary_day' %}selected{% endif %}>Ngày lương</option>
+                                                    </select>
+                                                    <input type="number" step="1" min="0" name="amount"
+                                                           value="{{ '%.2f'|format(tx.amount) }}" required>
+                                                    <input type="text" name="notes" value="{{ tx.notes or '' }}" placeholder="Ghi chú">
+                                                    <button type="submit" class="adv-inline-save">
+                                                        <i class="bi bi-floppy"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="post"
+                                                      data-confirm="Xóa giao dịch ứng {{ '{:,.0f}'.format(tx.amount) }} ngày {{ tx.advance_date }}?">
+                                                    <input type="hidden" name="action" value="delete_advance">
+                                                    <input type="hidden" name="advance_id" value="{{ tx.id }}">
+                                                    <input type="hidden" name="view_month" value="{{ month_key }}">
+                                                    <input type="hidden" name="view_q" value="{{ search_query or '' }}">
+                                                    <input type="hidden" name="view_scope" value="{{ search_scope or 'current' }}">
+                                                    <input type="hidden" name="view_advance_filter" value="{{ advance_filter or 'all' }}">
+                                                    <input type="hidden" name="changed_by" value="{{ current_user_username or 'admin' }}">
+                                                    <button type="submit" class="adv-inline-del">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
+                                        {% endif %}
                                     </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
                         {% else %}
-                        <p class="muted">Nhân viên này không có giao dịch trong phạm vi đang xem.</p>
+                        <div class="adv-inner-wrap">
+                            <p style="margin:0;font-size:12px;color:#94A3B8;">
+                                Không có giao dịch trong phạm vi đang xem.
+                            </p>
+                        </div>
                         {% endif %}
                     </td>
                 </tr>
+
                 {% else %}
                 <tr>
-                    <td colspan="8">Không có dữ liệu ứng tiền phù hợp.</td>
+                    <td colspan="7" style="text-align:center;color:#94A3B8;padding:36px 12px;">
+                        {% if search_query %}
+                        Không tìm thấy kết quả khớp với "<strong>{{ search_query }}</strong>".
+                        {% else %}
+                        Không có dữ liệu ứng tiền phù hợp.
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</section>
+</div>
 
 <script>
+/* ── Scope toggle ── */
+function advScope(scope) {
+    var inp = document.getElementById('adv-scope-val');
+    if (inp) inp.value = scope;
+    var frm = document.getElementById('adv-main-form');
+    if (frm) frm.submit();
+}
+
+/* ── Collapsible form ── */
 (() => {
-    const toolContainer = document.getElementById("advances-tools-container");
-    const toolToggleButton = document.getElementById("advance-tools-toggle-btn");
+    const toolContainer  = document.getElementById("advances-tools-container");
+    const toolToggleBtn  = document.getElementById("advance-tools-toggle-btn");
 
-    if (toolContainer && toolToggleButton) {
-        const setToolsState = (collapsed) => {
+    if (toolContainer && toolToggleBtn) {
+        const setState = (collapsed) => {
             toolContainer.classList.toggle("tools-collapsed", collapsed);
-            toolToggleButton.textContent = collapsed ? "Mở công cụ" : "Thu gọn";
-            toolToggleButton.setAttribute("aria-expanded", String(!collapsed));
+            toolToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+            toolToggleBtn.classList.toggle("det-active", !collapsed);
+            toolToggleBtn.innerHTML = collapsed
+                ? '<i class="bi bi-plus-lg"></i> Thêm ứng tiền'
+                : '<i class="bi bi-dash-lg"></i> Thu gọn';
         };
-
-        toolToggleButton.addEventListener("click", () => {
-            const collapsed = toolContainer.classList.contains("tools-collapsed");
-            setToolsState(!collapsed);
+        toolToggleBtn.addEventListener("click", () => {
+            setState(!toolContainer.classList.contains("tools-collapsed"));
         });
-
-        setToolsState(true);
+        setState(true);
     }
 
+    /* ── Input mode toggle (amount / days) ── */
     const createForm = document.getElementById("advance-create-form");
     if (createForm) {
-        const modeSelect = createForm.elements["input_mode"];
+        const modeSelect  = createForm.elements["input_mode"];
         const amountInput = createForm.elements["amount"];
-        const daysInput = createForm.elements["advance_days"];
-        const amountWrap = document.getElementById("advance-amount-wrap");
-        const daysWrap = document.getElementById("advance-days-wrap");
-        const employeeSelect = createForm.elements["employee_id"];
+        const daysInput   = createForm.elements["advance_days"];
+        const amountWrap  = document.getElementById("advance-amount-wrap");
+        const daysWrap    = document.getElementById("advance-days-wrap");
+        const empSelect   = createForm.elements["employee_id"];
 
         const syncMode = () => {
-            const mode = (modeSelect.value || "amount").toLowerCase();
-            const isDaysMode = mode === "days";
-
-            if (amountWrap) {
-                amountWrap.hidden = isDaysMode;
-            }
-            if (daysWrap) {
-                daysWrap.hidden = !isDaysMode;
-            }
-
-            if (amountInput) {
-                amountInput.required = !isDaysMode;
-                if (isDaysMode) {
-                    amountInput.value = "";
-                }
-            }
-            if (daysInput) {
-                daysInput.required = isDaysMode;
-                if (!isDaysMode) {
-                    daysInput.value = "";
-                }
-            }
+            const isDays = (modeSelect.value || "amount") === "days";
+            if (amountWrap) amountWrap.hidden = isDays;
+            if (daysWrap)   daysWrap.hidden   = !isDays;
+            if (amountInput) { amountInput.required = !isDays; if (isDays) amountInput.value = ""; }
+            if (daysInput)   { daysInput.required   = isDays;  if (!isDays) daysInput.value = ""; }
         };
-
         modeSelect.addEventListener("change", syncMode);
         syncMode();
 
-        if (employeeSelect) {
-            const TYPEAHEAD_RESET_MS = 900;
-            let typeaheadBuffer = "";
-            let lastTypeaheadAt = 0;
-
-            const normalizeName = (value) => {
-                return String(value || "")
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "")
-                    .trim()
-                    .toUpperCase();
-            };
-
-            const findOptionIndex = (prefix, startIndex) => {
-                for (let i = startIndex; i < employeeSelect.options.length; i += 1) {
-                    const option = employeeSelect.options[i];
-                    if (!option || !option.value) {
-                        continue;
-                    }
-
-                    const optionName = normalizeName(option.getAttribute("data-name") || option.textContent);
-                    const optionSurname = optionName.split(/\s+/).filter(Boolean)[0] || optionName;
-                    if (optionSurname.startsWith(prefix)) {
-                        return i;
-                    }
+        /* ── Typeahead for employee select ── */
+        if (empSelect) {
+            const RESET_MS = 900;
+            let buf = "", lastAt = 0;
+            const norm = v => String(v||"").normalize("NFD").replace(/[̀-ͯ]/g,"").trim().toUpperCase();
+            const findIdx = (prefix, start) => {
+                for (let i = start; i < empSelect.options.length; i++) {
+                    const opt = empSelect.options[i];
+                    if (!opt.value) continue;
+                    const name = norm(opt.getAttribute("data-name") || opt.textContent);
+                    if ((name.split(/\s+/).filter(Boolean)[0] || name).startsWith(prefix)) return i;
                 }
                 return -1;
             };
-
-            employeeSelect.addEventListener("keydown", (event) => {
-                if (event.ctrlKey || event.metaKey || event.altKey) {
-                    return;
-                }
-                if (event.key.length !== 1) {
-                    return;
-                }
-
-                const typed = normalizeName(event.key);
-                if (!typed) {
-                    return;
-                }
-
+            empSelect.addEventListener("keydown", e => {
+                if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+                const typed = norm(e.key);
+                if (!typed) return;
                 const now = Date.now();
-                if (now - lastTypeaheadAt > TYPEAHEAD_RESET_MS) {
-                    typeaheadBuffer = "";
-                }
-                lastTypeaheadAt = now;
-                typeaheadBuffer += typed;
-
-                const firstValidIndex = 1;
-                const nextIndex = Math.max(employeeSelect.selectedIndex + 1, firstValidIndex);
-
-                let targetIndex = findOptionIndex(typeaheadBuffer, nextIndex);
-                if (targetIndex < 0) {
-                    targetIndex = findOptionIndex(typeaheadBuffer, firstValidIndex);
-                }
-
-                if (targetIndex < 0 && typeaheadBuffer.length > 1) {
-                    typeaheadBuffer = typed;
-                    targetIndex = findOptionIndex(typeaheadBuffer, nextIndex);
-                    if (targetIndex < 0) {
-                        targetIndex = findOptionIndex(typeaheadBuffer, firstValidIndex);
-                    }
-                }
-
-                if (targetIndex >= 0) {
-                    employeeSelect.selectedIndex = targetIndex;
-                    employeeSelect.dispatchEvent(new Event("change", { bubbles: true }));
-                    event.preventDefault();
-                }
+                if (now - lastAt > RESET_MS) buf = "";
+                lastAt = now; buf += typed;
+                const start = Math.max(empSelect.selectedIndex + 1, 1);
+                let idx = findIdx(buf, start);
+                if (idx < 0) idx = findIdx(buf, 1);
+                if (idx < 0 && buf.length > 1) { buf = typed; idx = findIdx(buf, start); if (idx < 0) idx = findIdx(buf, 1); }
+                if (idx >= 0) { empSelect.selectedIndex = idx; empSelect.dispatchEvent(new Event("change", {bubbles:true})); e.preventDefault(); }
             });
         }
     }
 
-    const table = document.getElementById("advances-table");
-    const showAllButton = document.getElementById("advances-show-all-btn");
-    if (!table || !showAllButton) {
-        return;
-    }
+    /* ── Expandable rows ── */
+    const table      = document.getElementById("advances-table");
+    const showAllBtn = document.getElementById("advances-show-all-btn");
+    if (!table || !showAllBtn) return;
 
     const summaryRows = Array.from(table.querySelectorAll("tr.advance-summary-row"));
 
-    const setGroupExpanded = (summaryRow, expanded) => {
-        const employeeId = summaryRow.getAttribute("data-employee-id");
-        const detailRow = table.querySelector(`tr.advance-detail-row[data-employee-id="${employeeId}"]`);
-        const toggleButton = summaryRow.querySelector(".advance-toggle-btn");
-
+    const setExpanded = (summaryRow, expanded) => {
+        const eid = summaryRow.getAttribute("data-employee-id");
+        const detailRow = table.querySelector(`tr.advance-detail-row[data-employee-id="${eid}"]`);
+        const btn = summaryRow.querySelector(".advance-toggle-btn");
         summaryRow.classList.toggle("expanded", expanded);
-        if (detailRow) {
-            detailRow.hidden = !expanded;
-        }
-        if (toggleButton && !toggleButton.disabled) {
-            toggleButton.textContent = expanded ? "Ẩn" : "Xem";
+        if (detailRow) detailRow.hidden = !expanded;
+        if (btn && !btn.disabled) {
+            btn.innerHTML = expanded
+                ? '<i class="bi bi-chevron-up"></i> Ẩn'
+                : '<i class="bi bi-chevron-down"></i> Xem';
         }
     };
 
-    const getExpandableRows = () => {
-        return summaryRows.filter((row) => {
-            const button = row.querySelector(".advance-toggle-btn");
-            return Boolean(button) && !button.disabled;
-        });
+    const getExpandable = () => summaryRows.filter(r => {
+        const b = r.querySelector(".advance-toggle-btn");
+        return b && !b.disabled;
+    });
+
+    const syncShowAll = () => {
+        const rows = getExpandable();
+        if (!rows.length) { showAllBtn.disabled = true; showAllBtn.dataset.expanded = "false"; return; }
+        const allExp = rows.every(r => r.classList.contains("expanded"));
+        showAllBtn.disabled = false;
+        showAllBtn.dataset.expanded = allExp ? "true" : "false";
+        showAllBtn.innerHTML = allExp
+            ? '<i class="bi bi-arrows-collapse"></i> Ẩn all'
+            : '<i class="bi bi-arrows-expand"></i> Show all';
     };
 
-    const syncShowAllState = () => {
-        const expandableRows = getExpandableRows();
-        if (expandableRows.length === 0) {
-            showAllButton.disabled = true;
-            showAllButton.textContent = "Không có giao dịch";
-            showAllButton.dataset.expanded = "false";
-            return;
-        }
-
-        const expandedCount = expandableRows.filter((row) => row.classList.contains("expanded")).length;
-        const allExpanded = expandedCount === expandableRows.length;
-
-        showAllButton.disabled = false;
-        showAllButton.dataset.expanded = allExpanded ? "true" : "false";
-        showAllButton.textContent = allExpanded ? "Ẩn all" : "Show all";
-    };
-
-    summaryRows.forEach((row) => {
-        setGroupExpanded(row, false);
-
-        const toggleButton = row.querySelector(".advance-toggle-btn");
-        if (!toggleButton || toggleButton.disabled) {
-            return;
-        }
-
-        toggleButton.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const expanded = row.classList.contains("expanded");
-            setGroupExpanded(row, !expanded);
-            syncShowAllState();
-        });
-
-        row.addEventListener("click", (event) => {
-            if (event.target.closest("button, a, input, select, textarea, form, label")) {
-                return;
-            }
-            const expanded = row.classList.contains("expanded");
-            setGroupExpanded(row, !expanded);
-            syncShowAllState();
+    summaryRows.forEach(row => {
+        setExpanded(row, false);
+        const btn = row.querySelector(".advance-toggle-btn");
+        if (!btn || btn.disabled) return;
+        btn.addEventListener("click", e => { e.stopPropagation(); setExpanded(row, !row.classList.contains("expanded")); syncShowAll(); });
+        row.addEventListener("click", e => {
+            if (e.target.closest("button,a,input,select,textarea,form,label")) return;
+            setExpanded(row, !row.classList.contains("expanded")); syncShowAll();
         });
     });
 
-    showAllButton.addEventListener("click", () => {
-        const shouldExpand = showAllButton.dataset.expanded !== "true";
-        getExpandableRows().forEach((row) => setGroupExpanded(row, shouldExpand));
-        syncShowAllState();
+    showAllBtn.addEventListener("click", () => {
+        const expand = showAllBtn.dataset.expanded !== "true";
+        getExpandable().forEach(r => setExpanded(r, expand));
+        syncShowAll();
     });
-
-    syncShowAllState();
+    syncShowAll();
 })();
 </script>
 {% endblock %}
