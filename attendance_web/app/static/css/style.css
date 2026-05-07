@@ -4903,3 +4903,180 @@ body.details-pseudo-fullscreen #details-table-panel .table-wrap { flex: 1; max-h
 }
 .adv-pay-badge-cash   { background: #ECFDF5; color: #15803D; }
 .adv-pay-badge-salary { background: #EFF6FF; color: #1D4ED8; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   EMPLOYEE DETAIL PAGE  (.page-employee-detail)
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.page-employee-detail {
+    display: flex; flex-direction: column; overflow-y: auto;
+}
+
+/* â”€â”€ Topbar â”€â”€ */
+.edd-topbar {
+    background: #fff; border-bottom: 1px solid #E8EEF4;
+    height: 52px; display: flex; align-items: center; gap: 10px;
+    padding: 0 18px; flex-shrink: 0; position: sticky; top: 0; z-index: 20;
+}
+.edd-bread { font-size: 12.5px; color: #94A3B8; display: flex; align-items: center; gap: 5px; }
+.edd-bread .sep { color: #CBD5E1; }
+.edd-bread .cur { color: #1E293B; font-weight: 600; }
+.edd-month-form { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.edd-month-form label { font-size: 11.5px; color: #64748B; font-weight: 500; }
+.edd-month-form input[type="month"] {
+    height: 28px; border: 1px solid #E2E8F0; border-radius: 6px;
+    padding: 0 8px; font-size: 12px; color: #1E293B;
+    background: #F8FAFC; font-family: inherit; outline: none;
+}
+.edd-month-form input:focus { border-color: #2563EB; }
+.edd-month-form button {
+    height: 28px; padding: 0 11px; background: #2563EB; color: #fff;
+    border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transform: none; box-shadow: none;
+}
+.edd-month-form button:hover { background: #1D4ED8; transform: none; box-shadow: none; }
+.edd-topbar-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 28px; padding: 0 11px; border-radius: 6px;
+    font-size: 12px; font-weight: 500; text-decoration: none; flex-shrink: 0;
+    border: 1px solid #E2E8F0; background: #F8FAFC; color: #475569;
+    transition: background .12s;
+}
+.edd-topbar-btn:hover { background: #F1F5F9; }
+
+/* â”€â”€ Employee header card â”€â”€ */
+.edd-emp-card {
+    background: linear-gradient(135deg, #1E3A5F 0%, #2563EB 100%);
+    padding: 20px 24px; display: flex; align-items: center; gap: 18px;
+    flex-shrink: 0;
+}
+.edd-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(255,255,255,.2); border: 2px solid rgba(255,255,255,.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.edd-emp-info { flex: 1; }
+.edd-emp-name { font-size: 20px; font-weight: 800; color: #fff; line-height: 1.2; }
+.edd-emp-code { font-size: 12px; color: rgba(255,255,255,.7); margin-top: 2px; font-family: monospace; }
+.edd-emp-meta {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+}
+.edd-meta-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    height: 22px; padding: 0 9px; border-radius: 100px;
+    font-size: 11px; font-weight: 500;
+    background: rgba(255,255,255,.15); color: rgba(255,255,255,.9);
+    border: 1px solid rgba(255,255,255,.2);
+}
+.edd-status-active   { background: rgba(16,185,129,.25); border-color: rgba(16,185,129,.4); color: #6EE7B7; }
+.edd-status-inactive { background: rgba(239,68,68,.2); border-color: rgba(239,68,68,.3); color: #FCA5A5; }
+.edd-month-badge {
+    font-size: 28px; font-weight: 900; color: rgba(255,255,255,.25);
+    font-variant-numeric: tabular-nums; flex-shrink: 0; letter-spacing: -1px;
+}
+
+/* â”€â”€ Body â”€â”€ */
+.edd-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+
+/* â”€â”€ KPI strip â”€â”€ */
+.edd-kpi-strip { display: flex; gap: 10px; flex-wrap: wrap; }
+.edd-kpi-card {
+    flex: 1; min-width: 140px;
+    background: #fff; border: 1px solid #E8EEF4; border-radius: 10px;
+    padding: 14px 16px; position: relative; overflow: hidden;
+}
+.edd-kpi-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:#2563EB; }
+.edd-kpi-card-green::before { background: #16A34A; }
+.edd-kpi-card-amber::before { background: #D97706; }
+.edd-kpi-card-red::before   { background: #DC2626; }
+.edd-kpi-label { font-size:11px; color:#64748B; font-weight:500; text-transform:uppercase; letter-spacing:.04em; }
+.edd-kpi-value { font-size:22px; font-weight:800; color:#0F172A; font-variant-numeric:tabular-nums; margin-top:4px; line-height:1.2; }
+.edd-kpi-sub   { font-size:11px; color:#94A3B8; margin-top:3px; }
+
+/* â”€â”€ Generic panel â”€â”€ */
+.edd-panel {
+    background: #fff; border: 1px solid #E8EEF4; border-radius: 10px; overflow: hidden;
+}
+.edd-panel-head {
+    padding: 10px 16px; background: #F8FAFC; border-bottom: 1px solid #EBF0F6;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.edd-panel-head h3 { font-size: 13px; font-weight: 700; color: #1E293B; margin: 0; }
+.edd-panel-head p  { font-size: 11.5px; color: #64748B; margin: 2px 0 0; }
+.edd-panel-body { padding: 12px 16px; }
+
+/* â”€â”€ Two-column split â”€â”€ */
+.edd-split { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; }
+@media (max-width: 860px) { .edd-split { grid-template-columns: 1fr; } }
+
+/* â”€â”€ Tables inside panels â”€â”€ */
+.edd-table-wrap { overflow-x: auto; }
+.edd-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.edd-table thead th {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: #64748B;
+    background: #F8FAFC; padding: 6px 10px;
+    border-bottom: 2px solid #EBF0F6; white-space: nowrap;
+}
+.edd-table tbody td {
+    padding: 7px 10px; border-bottom: 1px solid #F3F7FB;
+    vertical-align: middle; color: #334155;
+}
+.edd-table tbody tr:last-child td { border-bottom: none; }
+.edd-table tbody tr:hover td { background: #F8FAFC; }
+.edd-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.edd-table tfoot td {
+    padding: 7px 10px; font-weight: 700; color: #1E293B;
+    background: #F8FAFC; border-top: 2px solid #EBF0F6;
+}
+
+/* â”€â”€ Leave balance remainder badge â”€â”€ */
+.edd-leave-rem-pos { color: #15803D; font-weight: 700; }
+.edd-leave-rem-warn { color: #D97706; font-weight: 700; }
+.edd-leave-rem-zero { color: #DC2626; font-weight: 700; }
+
+/* â”€â”€ Attendance section â”€â”€ */
+.edd-att-header {
+    padding: 10px 16px; background: #F8FAFC; border-bottom: 1px solid #EBF0F6;
+    display: flex; align-items: center; gap: 10px;
+}
+.edd-att-header h3 { font-size: 13px; font-weight: 700; color: #1E293B; margin: 0; flex: 1; }
+.edd-att-legend { display: flex; gap: 8px; flex-wrap: wrap; }
+.edd-att-dot {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10.5px; color: #64748B;
+}
+.edd-att-dot span {
+    display: inline-block; width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0;
+}
+
+/* shift-code badges in the attendance table */
+.edd-shift-badge {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    font-size: 11px; font-weight: 700;
+    background: #EFF6FF; color: #1D4ED8;
+    font-family: monospace;
+}
+.edd-shift-badge-off     { background: #F1F5F9; color: #64748B; }
+.edd-shift-badge-n       { background: #FEF2F2; color: #DC2626; }
+.edd-shift-badge-leave   { background: #F0FDF4; color: #15803D; }
+.edd-time { font-family: monospace; font-size: 11.5px; color: #475569; }
+.edd-time-none { color: #CBD5E1; }
+
+/* Admin action buttons inside attendance table */
+.edd-row-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.edd-act-btn {
+    display: inline-flex; align-items: center; gap: 3px;
+    height: 22px; padding: 0 8px; border-radius: 4px;
+    font-size: 10.5px; font-weight: 500; cursor: pointer;
+    border: 1px solid #E2E8F0; background: #F8FAFC; color: #475569;
+    font-family: inherit; white-space: nowrap;
+    transform: none; box-shadow: none; transition: background .1s;
+}
+.edd-act-btn:hover { background: #F1F5F9; transform: none; box-shadow: none; }
+.edd-act-btn-blue { border-color: #BFDBFE; background: #EFF6FF; color: #1D4ED8; }
+.edd-act-btn-blue:hover { background: #DBEAFE; }
+.edd-act-btn-red  { border-color: #FECACA; background: #FFF5F5; color: #DC2626; }
+.edd-act-btn-red:hover  { background: #FEE2E2; }
+.edd-act-btn-green { border-color: #BBF7D0; background: #F0FDF4; color: #15803D; }
+.edd-act-btn-green:hover { background: #DCFCE7; }

@@ -1,226 +1,382 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <div class="inline-form">
-        <div>
-            <h2>{{ employee.full_name }} ({{ employee.employee_code }})</h2>
-            <p class="muted">Giới tính: {{ employee.gender or "-" }} | Quê quán: {{ employee.hometown or "-" }} | Năm sinh: {{ employee.birth_year or "-" }}</p>
-        </div>
-        <form method="get">
-            <label for="month">Tháng</label>
-            <input id="month" type="month" name="month" value="{{ month_key }}">
-            <button type="submit">Xem</button>
+
+{# ── Topbar ── #}
+<div class="edd-topbar">
+    <div class="edd-bread">
+        <span>Nhân sự</span>
+        <span class="sep">/</span>
+        <a href="{{ url_for('employees') }}" style="color:#94A3B8;text-decoration:none;">Nhân viên</a>
+        <span class="sep">/</span>
+        <span class="cur">{{ employee.full_name }}</span>
+    </div>
+
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+        <form method="get" class="edd-month-form">
+            <label for="edd-month">Tháng</label>
+            <input id="edd-month" type="month" name="month" value="{{ month_key }}">
+            <button type="submit"><i class="bi bi-search"></i> Xem</button>
         </form>
+        <a href="{{ url_for('employees') }}" class="edd-topbar-btn">
+            <i class="bi bi-arrow-left"></i> Danh sách
+        </a>
     </div>
 </div>
 
-<div class="card-grid">
-    <div class="card">
-        <div class="kpi-title">Tổng giờ được tính</div>
-        <div class="kpi-value">{{ "%.2f"|format(summary_paid_hours) }}</div>
+{# ── Employee header card ── #}
+<div class="edd-emp-card">
+    <div class="edd-avatar">{{ employee.full_name[0] | upper }}</div>
+    <div class="edd-emp-info">
+        <div class="edd-emp-name">{{ employee.full_name }}</div>
+        <div class="edd-emp-code">{{ employee.employee_code }}</div>
+        <div class="edd-emp-meta">
+            {% if employee.gender %}
+            <span class="edd-meta-chip"><i class="bi bi-person"></i> {{ employee.gender }}</span>
+            {% endif %}
+            {% if employee.birth_year %}
+            <span class="edd-meta-chip"><i class="bi bi-calendar3"></i> {{ employee.birth_year }}</span>
+            {% endif %}
+            {% if employee.hometown %}
+            <span class="edd-meta-chip"><i class="bi bi-geo-alt"></i> {{ employee.hometown }}</span>
+            {% endif %}
+            {% if employee.default_shift_code %}
+            <span class="edd-meta-chip"><i class="bi bi-clock"></i> Ca {{ employee.default_shift_code }}</span>
+            {% endif %}
+            {% if employee.is_active %}
+            <span class="edd-meta-chip edd-status-active"><i class="bi bi-check-circle-fill"></i> Hoạt động</span>
+            {% else %}
+            <span class="edd-meta-chip edd-status-inactive"><i class="bi bi-dash-circle-fill"></i> Tạm ngưng</span>
+            {% endif %}
+        </div>
     </div>
-    <div class="card">
-        <div class="kpi-title">Tổng lương tháng</div>
-        <div class="kpi-value">{{ "{:,.0f}".format(summary_wage) }}</div>
-    </div>
+    <div class="edd-month-badge">{{ month_key }}</div>
 </div>
 
-<div class="panel">
-    <h3>Bảng phép năm</h3>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Năm</th>
-                    <th>Tổng phép</th>
-                    <th>Đã dùng</th>
-                    <th>Còn lại</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in balances %}
-                <tr>
-                    <td>{{ row.year }}</td>
-                    <td>{{ "%.1f"|format(row.total_days) }}</td>
-                    <td>{{ "%.1f"|format(row.used_days) }}</td>
-                    <td>{{ "%.1f"|format(row.total_days - row.used_days) }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4">Chưa có dữ liệu phép năm.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+{# ── Body ── #}
+<div class="edd-body">
 
-<div class="panel">
-    <h3>Lịch sử lương</h3>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Tháng</th>
-                    <th>Lương tháng</th>
-                    <th>Công chuẩn tháng</th>
-                    <th>Lương ngày quy đổi</th>
-                    <th>Hình thức nhận tiền</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in salary_history_rows %}
-                {% set row = item.salary %}
-                <tr>
-                    <td>{{ row.month_key }}</td>
-                    <td>{{ "{:,.0f}".format(item.monthly_wage) }}</td>
-                    <td>{{ item.company_work_days }}</td>
-                    <td>{{ "{:,.0f}".format(item.daily_rate) }}</td>
-                    <td>{{ row.pay_method or "-" }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5">Chưa có bảng lương theo tháng.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div class="panel">
-    <h3>Chi tiết chấm công tháng {{ month_key }}</h3>
-    <p class="muted">Dòng màu xám là ngày admin đã xác nhận có đi làm do máy chấm công bị lỗi/mất log.</p>
-
-    <div class="table-wrap" style="margin-bottom: 12px;">
-        <table>
-            <thead>
-                <tr>
-                    <th colspan="7">Tổng theo ca</th>
-                </tr>
-                <tr>
-                    <th>Mã ca</th>
-                    <th>Tên ca</th>
-                    <th>Số ngày</th>
-                    <th>Tổng giờ công</th>
-                    <th>Tổng giờ thực</th>
-                    <th>Tổng tăng ca</th>
-                    <th>Tổng lương</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in shift_summary_rows %}
-                <tr>
-                    <td>{{ item.shift_code }}</td>
-                    <td>{{ item.shift_name or '-' }}</td>
-                    <td>{{ item.days }}</td>
-                    <td>{{ "%.2f"|format(item.paid_hours) }}</td>
-                    <td>{{ "%.2f"|format(item.actual_work_hours) }}</td>
-                    <td>{{ "%.2f"|format(item.overtime_hours) }}</td>
-                    <td>{{ "{:,.0f}".format(item.wage_amount) }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="7">Chưa có dữ liệu để tổng hợp theo ca.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {# ── KPI strip ── #}
+    <div class="edd-kpi-strip">
+        {% set att_days = details | selectattr('status_code', 'ne', 'OFF') | selectattr('status_code', 'ne', 'N') | list | length %}
+        <div class="edd-kpi-card">
+            <div class="edd-kpi-label">Ngày công tháng {{ month_key }}</div>
+            <div class="edd-kpi-value">{{ att_days }}</div>
+            <div class="edd-kpi-sub">ngày</div>
+        </div>
+        <div class="edd-kpi-card edd-kpi-card-amber">
+            <div class="edd-kpi-label">Tổng giờ được tính</div>
+            <div class="edd-kpi-value">{{ "%.1f"|format(summary_paid_hours) }}</div>
+            <div class="edd-kpi-sub">giờ</div>
+        </div>
+        <div class="edd-kpi-card edd-kpi-card-green">
+            <div class="edd-kpi-label">Tổng lương tháng</div>
+            <div class="edd-kpi-value">{{ "{:,.0f}".format(summary_wage) }}</div>
+            <div class="edd-kpi-sub">đồng</div>
+        </div>
+        {% set ot_hours = details | sum(attribute='overtime_hours') %}
+        {% if ot_hours > 0 %}
+        <div class="edd-kpi-card edd-kpi-card-red">
+            <div class="edd-kpi-label">Tổng tăng ca</div>
+            <div class="edd-kpi-value">{{ "%.1f"|format(ot_hours) }}</div>
+            <div class="edd-kpi-sub">giờ OT</div>
+        </div>
+        {% endif %}
     </div>
 
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Ngày</th>
-                    <th>Mã ca</th>
-                    <th>Giờ vào</th>
-                    <th>Giờ ra</th>
-                    <th>Giờ thực</th>
-                    <th>Tăng ca</th>
-                    <th>Số giờ</th>
-                    <th>Ghi chú</th>
-                    {% if current_user_is_admin %}
-                    <th>Thao tác</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in details %}
-                {% set status_code = (row.status_code or '')|upper %}
-                {% set row_class = '' %}
-                {% if row.highlight_tag == 'manual-work-fixed' %}
-                    {% set row_class = 'details-status-manual-work-fixed' %}
-                {% elif row.highlight_tag == 'half-leave' %}
-                    {% set row_class = 'details-status-half-leave' %}
-                {% elif row.highlight_tag == 'paid-leave' %}
-                    {% set row_class = 'details-status-paid-leave' %}
-                {% elif row.highlight_tag == 'unexcused' %}
-                    {% set row_class = 'details-status-unexcused' %}
-                {% elif row.highlight_tag == 'missing-check' %}
-                    {% set row_class = 'details-status-missing-check' %}
-                {% elif row.work_date.weekday() == 6 or status_code == 'OFF' %}
-                    {% set row_class = 'sunday-row' %}
+    {# ── Split: Leave balance + Salary history ── #}
+    <div class="edd-split">
+
+        {# Leave balances #}
+        <div class="edd-panel">
+            <div class="edd-panel-head">
+                <div>
+                    <h3>Phép năm</h3>
+                    <p>Tổng phép, đã dùng và còn lại theo từng năm.</p>
+                </div>
+                <i class="bi bi-calendar-check" style="font-size:16px;color:#475569;"></i>
+            </div>
+            <div class="edd-table-wrap">
+                <table class="edd-table">
+                    <thead>
+                        <tr>
+                            <th>Năm</th>
+                            <th class="num">Tổng phép</th>
+                            <th class="num">Đã dùng</th>
+                            <th class="num">Còn lại</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in balances %}
+                        {% set remaining = row.total_days - row.used_days %}
+                        <tr>
+                            <td style="font-weight:600;">{{ row.year }}</td>
+                            <td class="num">{{ "%.1f"|format(row.total_days) }}</td>
+                            <td class="num">{{ "%.1f"|format(row.used_days) }}</td>
+                            <td class="num">
+                                <span class="{% if remaining > 5 %}edd-leave-rem-pos{% elif remaining > 0 %}edd-leave-rem-warn{% else %}edd-leave-rem-zero{% endif %}">
+                                    {{ "%.1f"|format(remaining) }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align:center;color:#94A3B8;padding:20px 10px;">
+                                Chưa có dữ liệu phép năm.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# Salary history #}
+        <div class="edd-panel">
+            <div class="edd-panel-head">
+                <div>
+                    <h3>Lịch sử lương</h3>
+                    <p>Mức lương tháng và lương ngày quy đổi.</p>
+                </div>
+                <i class="bi bi-cash-coin" style="font-size:16px;color:#475569;"></i>
+            </div>
+            <div class="edd-table-wrap">
+                <table class="edd-table">
+                    <thead>
+                        <tr>
+                            <th>Tháng</th>
+                            <th class="num">Lương tháng</th>
+                            <th class="num">Công chuẩn</th>
+                            <th class="num">Lương ngày</th>
+                            <th>Hình thức</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in salary_history_rows %}
+                        {% set row = item.salary %}
+                        <tr {% if row.month_key == month_key %}style="background:#EFF6FF;"{% endif %}>
+                            <td style="font-family:monospace;font-size:11.5px;{% if row.month_key == month_key %}font-weight:700;color:#1D4ED8;{% endif %}">
+                                {{ row.month_key }}
+                            </td>
+                            <td class="num" style="font-weight:600;">{{ "{:,.0f}".format(item.monthly_wage) }}</td>
+                            <td class="num">{{ item.company_work_days }}</td>
+                            <td class="num">{{ "{:,.0f}".format(item.daily_rate) }}</td>
+                            <td style="color:#64748B;font-size:11.5px;">{{ row.pay_method or '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align:center;color:#94A3B8;padding:20px 10px;">
+                                Chưa có bảng lương.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    {# ── Attendance: shift summary ── #}
+    <div class="edd-panel">
+        <div class="edd-panel-head">
+            <div>
+                <h3>Tổng hợp theo ca — {{ month_key }}</h3>
+                <p>Số ngày, giờ công và lương quy đổi cho từng loại ca.</p>
+            </div>
+            <i class="bi bi-bar-chart-line" style="font-size:16px;color:#475569;"></i>
+        </div>
+        <div class="edd-table-wrap">
+            <table class="edd-table">
+                <thead>
+                    <tr>
+                        <th>Mã ca</th>
+                        <th>Tên ca</th>
+                        <th class="num">Số ngày</th>
+                        <th class="num">Giờ tính</th>
+                        <th class="num">Giờ thực</th>
+                        <th class="num">Tăng ca</th>
+                        <th class="num">Lương</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in shift_summary_rows %}
+                    <tr>
+                        <td>
+                            <span class="edd-shift-badge {% if item.shift_code == 'OFF' or item.shift_code == 'OFF_PAID' %}edd-shift-badge-off{% elif item.shift_code == 'N' %}edd-shift-badge-n{% endif %}">
+                                {{ item.shift_code }}
+                            </span>
+                        </td>
+                        <td style="color:#475569;">{{ item.shift_name or '—' }}</td>
+                        <td class="num" style="font-weight:600;">{{ item.days }}</td>
+                        <td class="num">{{ "%.2f"|format(item.paid_hours) }}</td>
+                        <td class="num">{{ "%.2f"|format(item.actual_work_hours) }}</td>
+                        <td class="num" style="{% if item.overtime_hours > 0 %}color:#DC2626;font-weight:600;{% else %}color:#CBD5E1;{% endif %}">
+                            {{ "%.2f"|format(item.overtime_hours) if item.overtime_hours > 0 else '—' }}
+                        </td>
+                        <td class="num" style="font-weight:600;color:#1E293B;">{{ "{:,.0f}".format(item.wage_amount) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align:center;color:#94A3B8;padding:20px 10px;">
+                            Chưa có dữ liệu để tổng hợp.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if shift_summary_rows %}
+                <tfoot>
+                    <tr>
+                        <td colspan="2" style="color:#64748B;">Tổng cộng</td>
+                        <td class="num">{{ shift_summary_rows | sum(attribute='days') }}</td>
+                        <td class="num">{{ "%.2f"|format(shift_summary_rows | sum(attribute='paid_hours')) }}</td>
+                        <td class="num">{{ "%.2f"|format(shift_summary_rows | sum(attribute='actual_work_hours')) }}</td>
+                        <td class="num">{{ "%.2f"|format(shift_summary_rows | sum(attribute='overtime_hours')) }}</td>
+                        <td class="num">{{ "{:,.0f}".format(shift_summary_rows | sum(attribute='wage_amount')) }}</td>
+                    </tr>
+                </tfoot>
                 {% endif %}
-                <tr class="{{ row_class }}">
-                    <td>{{ row.work_date }}</td>
-                    <td>{% if status_code == 'OFF' %}OFF{% else %}{{ row.shift_code }}{% endif %}</td>
-                    <td>{{ row.check_in.strftime('%Y-%m-%d %H:%M') if row.check_in else '-' }}</td>
-                    <td>{{ row.check_out.strftime('%Y-%m-%d %H:%M') if row.check_out else '-' }}</td>
-                    <td>{{ "%.2f"|format(row.actual_work_hours) }}</td>
-                    <td>{{ "%.2f"|format(row.overtime_hours) }}</td>
-                    <td>{{ "%.2f"|format(row.paid_hours) }}</td>
-                    <td>
-                        {% if status_code == 'OFF' %}
-                            OFF{% if row.notes %} - {{ row.notes }}{% endif %}
-                        {% elif status_code == 'N' %}
-                            Nghỉ không phép{% if row.notes %} - {{ row.notes }}{% endif %}
-                        {% elif status_code in ['P', 'S', 'C'] %}
-                            Có phép{% if row.notes %} - {{ row.notes }}{% endif %}
-                        {% else %}
-                            {{ row.notes or '-' }}
-                        {% endif %}
-                    </td>
-                    {% if current_user_is_admin %}
-                    <td class="row-actions">
-                        {% set remaining_leave = leave_remaining_by_year.get(row.work_date.year, 0) %}
-                        {% if row.can_reset_override %}
-                        <form method="post" action="{{ url_for('reset_employee_day_override', employee_id=employee.id) }}" class="row-action-form" data-confirm="Reset ngày {{ row.work_date }} về trạng thái ban đầu trước khi admin chỉnh tay?">
-                            <input type="hidden" name="month_key" value="{{ month_key }}">
-                            <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
-                            <button type="submit" class="secondary danger">Reset về ban đầu</button>
-                        </form>
-                        {% endif %}
-                        {% if status_code == 'N' %}
-                        <form method="post" action="{{ url_for('convert_employee_missing_to_worked', employee_id=employee.id) }}" class="row-action-form" data-confirm="Xác nhận ngày {{ row.work_date }} có đi làm dù máy chấm công bị mất dữ liệu? Dòng này sẽ được tô xám để nhận biết chỉnh tay.">
-                            <input type="hidden" name="month_key" value="{{ month_key }}">
-                            <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
-                            <button type="submit" class="secondary">Đổi thành có đi làm</button>
-                        </form>
-                        {% if remaining_leave >= 1 %}
-                        <form method="post" action="{{ url_for('convert_employee_unexcused_to_paid_leave', employee_id=employee.id) }}" class="row-action-form" data-confirm="Đổi ngày này sang nghỉ có phép và trừ 1 ngày phép năm?">
-                            <input type="hidden" name="month_key" value="{{ month_key }}">
-                            <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
-                            <button type="submit" class="secondary">Đổi thành có phép</button>
-                        </form>
-                        {% else %}
-                        <span class="muted">Hết phép</span>
-                        {% endif %}
-                        {% else %}
-                        {% if not row.can_reset_override %}
-                        -
-                        {% endif %}
-                        {% endif %}
-                    </td>
-                    {% endif %}
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="{{ 9 if current_user_is_admin else 8 }}">Chưa có dữ liệu.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            </table>
+        </div>
     </div>
+
+    {# ── Attendance: daily detail ── #}
+    <div class="edd-panel">
+        <div class="edd-att-header">
+            <h3>Chi tiết chấm công — {{ month_key }}</h3>
+            <div class="edd-att-legend">
+                <span class="edd-att-dot"><span style="background:#F8FAFC;border:1px solid #E2E8F0;"></span> Admin xác nhận</span>
+                <span class="edd-att-dot"><span style="background:#FFF7ED;border:1px solid #FED7AA;"></span> Nửa ngày phép</span>
+                <span class="edd-att-dot"><span style="background:#F0FDF4;border:1px solid #BBF7D0;"></span> Nghỉ có phép</span>
+                <span class="edd-att-dot"><span style="background:#FEF2F2;border:1px solid #FECACA;"></span> Nghỉ không phép</span>
+                <span class="edd-att-dot"><span style="background:#FEFCE8;border:1px solid #FDE68A;"></span> Thiếu giờ / OFF</span>
+            </div>
+        </div>
+        <div class="edd-table-wrap">
+            <table class="edd-table">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Thứ</th>
+                        <th>Ca</th>
+                        <th>Giờ vào</th>
+                        <th>Giờ ra</th>
+                        <th class="num">Thực</th>
+                        <th class="num">OT</th>
+                        <th class="num">Tính</th>
+                        <th>Ghi chú</th>
+                        {% if current_user_is_admin %}
+                        <th style="text-align:right;">Thao tác</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in details %}
+                    {% set sc = (row.status_code or '') | upper %}
+                    {% set row_class = '' %}
+                    {% if row.highlight_tag == 'manual-work-fixed' %}{% set row_class = 'details-status-manual-work-fixed' %}
+                    {% elif row.highlight_tag == 'half-leave' %}{% set row_class = 'details-status-half-leave' %}
+                    {% elif row.highlight_tag == 'paid-leave' %}{% set row_class = 'details-status-paid-leave' %}
+                    {% elif row.highlight_tag == 'unexcused' %}{% set row_class = 'details-status-unexcused' %}
+                    {% elif row.highlight_tag == 'missing-check' %}{% set row_class = 'details-status-missing-check' %}
+                    {% elif row.work_date.weekday() == 6 or sc == 'OFF' %}{% set row_class = 'sunday-row' %}
+                    {% endif %}
+                    <tr class="{{ row_class }}">
+                        <td style="font-weight:500;font-variant-numeric:tabular-nums;">{{ row.work_date }}</td>
+                        <td style="color:#64748B;font-size:11.5px;">
+                            {% if row.work_date.weekday() == 6 %}CN{% else %}T{{ row.work_date.weekday() + 2 }}{% endif %}
+                        </td>
+                        <td>
+                            {% if sc == 'OFF' %}
+                            <span class="edd-shift-badge edd-shift-badge-off">OFF</span>
+                            {% elif sc == 'N' %}
+                            <span class="edd-shift-badge edd-shift-badge-n">N</span>
+                            {% elif sc in ['P','S','C'] %}
+                            <span class="edd-shift-badge edd-shift-badge-leave">{{ sc }}</span>
+                            {% else %}
+                            <span class="edd-shift-badge">{{ row.shift_code or sc or '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.check_in %}
+                            <span class="edd-time">{{ row.check_in.strftime('%H:%M') }}</span>
+                            {% else %}<span class="edd-time-none">—</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if row.check_out %}
+                            <span class="edd-time">{{ row.check_out.strftime('%H:%M') }}</span>
+                            {% else %}<span class="edd-time-none">—</span>{% endif %}
+                        </td>
+                        <td class="num">{{ "%.2f"|format(row.actual_work_hours) }}</td>
+                        <td class="num" style="{% if row.overtime_hours > 0 %}color:#DC2626;font-weight:600;{% else %}color:#CBD5E1;{% endif %}">
+                            {{ "%.2f"|format(row.overtime_hours) if row.overtime_hours > 0 else '—' }}
+                        </td>
+                        <td class="num" style="font-weight:600;">{{ "%.2f"|format(row.paid_hours) }}</td>
+                        <td style="color:#64748B;font-size:11.5px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            {% if sc == 'OFF' %}OFF{% if row.notes %} · {{ row.notes }}{% endif %}
+                            {% elif sc == 'N' %}Nghỉ không phép{% if row.notes %} · {{ row.notes }}{% endif %}
+                            {% elif sc in ['P','S','C'] %}Có phép{% if row.notes %} · {{ row.notes }}{% endif %}
+                            {% else %}{{ row.notes or '—' }}{% endif %}
+                        </td>
+                        {% if current_user_is_admin %}
+                        <td>
+                            <div class="edd-row-actions">
+                                {% set remaining_leave = leave_remaining_by_year.get(row.work_date.year, 0) %}
+                                {% if row.can_reset_override %}
+                                <form method="post"
+                                      action="{{ url_for('reset_employee_day_override', employee_id=employee.id) }}"
+                                      class="row-action-form"
+                                      data-confirm="Reset ngày {{ row.work_date }} về trạng thái ban đầu?">
+                                    <input type="hidden" name="month_key" value="{{ month_key }}">
+                                    <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
+                                    <button type="submit" class="edd-act-btn edd-act-btn-red">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if sc == 'N' %}
+                                <form method="post"
+                                      action="{{ url_for('convert_employee_missing_to_worked', employee_id=employee.id) }}"
+                                      class="row-action-form"
+                                      data-confirm="Xác nhận ngày {{ row.work_date }} có đi làm dù máy bị mất log?">
+                                    <input type="hidden" name="month_key" value="{{ month_key }}">
+                                    <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
+                                    <button type="submit" class="edd-act-btn edd-act-btn-blue">
+                                        <i class="bi bi-person-check"></i> Đi làm
+                                    </button>
+                                </form>
+                                {% if remaining_leave >= 1 %}
+                                <form method="post"
+                                      action="{{ url_for('convert_employee_unexcused_to_paid_leave', employee_id=employee.id) }}"
+                                      class="row-action-form"
+                                      data-confirm="Đổi ngày này sang nghỉ có phép và trừ 1 ngày phép năm?">
+                                    <input type="hidden" name="month_key" value="{{ month_key }}">
+                                    <input type="hidden" name="work_date" value="{{ row.work_date.isoformat() }}">
+                                    <button type="submit" class="edd-act-btn edd-act-btn-green">
+                                        <i class="bi bi-calendar-check"></i> Có phép
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span style="font-size:10.5px;color:#CBD5E1;">Hết phép</span>
+                                {% endif %}
+                                {% elif not row.can_reset_override %}
+                                <span style="color:#CBD5E1;font-size:11px;">—</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{{ 10 if current_user_is_admin else 9 }}"
+                            style="text-align:center;color:#94A3B8;padding:28px 12px;">
+                            Chưa có dữ liệu chấm công tháng {{ month_key }}.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

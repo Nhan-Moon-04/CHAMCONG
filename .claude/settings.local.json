@@ -6,7 +6,8 @@
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://127.0.0.1:5000/)",
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" \"http://127.0.0.1:5000/salaries?month=2026-04\")",
       "Bash(Get-Content \"d:/CODE/CHAMCONG/attendance_web/app/static/css/advances_append.css\")",
-      "Bash(Add-Content \"d:/CODE/CHAMCONG/attendance_web/app/static/css/style.css\" -Encoding UTF8)"
+      "Bash(Add-Content \"d:/CODE/CHAMCONG/attendance_web/app/static/css/style.css\" -Encoding UTF8)",
+      "Bash(python -c \"from app import create_app; app = create_app\\(\\); print\\('OK'\\)\")"
     ]
   }
 }
