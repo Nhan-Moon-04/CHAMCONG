@@ -3915,15 +3915,9 @@ def register_routes(app):
                     "backup_type": backup_type,
                     "summary": summary,
                 },
-                notes="Backup thu cong",
+                notes="Backup full du lieu",
             )
             db.session.commit()
-
-            if backup_type == "portable_json":
-                flash(
-                    "Khong tim thay pg_dump, he thong da backup full du lieu bang file portable.",
-                    "warning",
-                )
 
             flash(f"Backup thanh cong: {Path(backup_file).name}", "success")
         except Exception as exc:

@@ -1,100 +1,162 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="panel">
-    <h2>Lich su sua doi he thong</h2>
-    <p class="muted">Moi thay doi du lieu quan trong duoc ghi vao audit log. Ban co the backup, tai file backup ve may va khoi phuc khi can.</p>
-    <div class="form-grid">
-        <a class="button-link button-link-secondary" href="{{ url_for('export_audit_csv') }}">Xuat CSV audit</a>
 
-        <form method="post" action="{{ url_for('run_backup_now') }}" class="form-grid">
-            <input name="changed_by" placeholder="Nguoi backup" value="{{ current_user_username or 'admin' }}">
-            <button type="submit" class="secondary">Backup server (pg_dump neu co)</button>
-        </form>
-
-        <form id="portable-backup-form" method="post" action="{{ url_for('export_portable_backup_now') }}" class="form-grid">
-            <input name="changed_by" placeholder="Nguoi export" value="{{ current_user_username or 'admin' }}">
-            <button type="button" id="portable-backup-saveas">Backup + chon noi luu tren may</button>
-            <button type="submit" class="secondary">Tai nhanh file backup (.json.gz)</button>
-        </form>
+<div class="aud-topbar">
+    <div class="aud-bread">
+        <span>He thong</span>
+        <span class="sep">/</span>
+        <span class="cur">Audit & backup</span>
     </div>
-    <p id="portable-backup-status" class="muted" aria-live="polite"></p>
 
-    <form method="post" action="{{ url_for('restore_backup_data') }}" enctype="multipart/form-data" class="form-grid" style="margin-top: 10px;">
-        <input name="changed_by" placeholder="Nguoi khoi phuc" value="{{ current_user_username or 'admin' }}">
-        <input type="file" name="backup_file" accept=".json,.json.gz,.gz" required>
-        <input name="confirm_text" placeholder="Nhap RESTORE de xac nhan" required>
-        <button type="submit" class="danger">Khoi phuc du lieu tu backup</button>
-    </form>
-    <p class="muted">Khoi phuc se ghi de toan bo du lieu hien tai bang du lieu trong file backup.</p>
-</div>
+    <span class="aud-chip aud-chip-logs"><i class="bi bi-clipboard2-data"></i> Log <strong>{{ audit_logs | length }}</strong></span>
+    <span class="aud-chip aud-chip-files"><i class="bi bi-archive"></i> File <strong>{{ backup_files | length }}</strong></span>
 
-<div class="panel">
-    <h3>Danh sach file backup tren server</h3>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Thoi gian</th>
-                    <th>Ten file</th>
-                    <th>Loai</th>
-                    <th>Dung luong</th>
-                    <th>Hanh dong</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for backup in backup_files %}
-                <tr>
-                    <td>{{ backup.modified_at }}</td>
-                    <td>{{ backup.name }}</td>
-                    <td>{{ backup.backup_type }}</td>
-                    <td>{{ backup.size_label }}</td>
-                    <td><a class="link-pill" href="{{ url_for('download_backup_file', filename=backup.name) }}">Tai ve</a></td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5">Chua co file backup nao.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="aud-actions">
+        <a class="aud-btn" href="{{ url_for('export_audit_csv') }}">
+            <i class="bi bi-file-earmark-text"></i> Xuat CSV
+        </a>
     </div>
 </div>
 
-<div class="panel">
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Thoi gian</th>
-                    <th>Nguoi sua</th>
-                    <th>Bang</th>
-                    <th>Hanh dong</th>
-                    <th>Ban ghi</th>
-                    <th>Truoc</th>
-                    <th>Sau</th>
-                    <th>Ghi chu</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in audit_logs %}
-                <tr>
-                    <td>{{ row.changed_at }}</td>
-                    <td>{{ row.changed_by }}</td>
-                    <td>{{ row.table_name }}</td>
-                    <td>{{ row.action }}</td>
-                    <td>{{ row.record_id }}</td>
-                    <td>{{ row.before_data or '-' }}</td>
-                    <td>{{ row.after_data or '-' }}</td>
-                    <td>{{ row.notes or '-' }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="8">Chua co log thay doi.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="aud-body">
+    <section class="aud-panel">
+        <div class="aud-panel-head">
+            <div>
+                <h3>Sao luu va khoi phuc</h3>
+                <p>Backup se lay toan bo du lieu cac bang, khong gom ten database.</p>
+            </div>
+        </div>
+        <div class="aud-panel-body">
+            <div class="aud-tool-grid">
+                <form method="post" action="{{ url_for('run_backup_now') }}" class="aud-tool-card">
+                    <div>
+                        <h4>Backup tren server</h4>
+                        <p class="aud-tool-desc">Luu file vao thu muc backups tren server.</p>
+                    </div>
+                    <div class="aud-tool-fields">
+                        <input name="changed_by" placeholder="Nguoi backup" value="{{ current_user_username or 'admin' }}">
+                        <button type="submit" class="aud-primary">
+                            <i class="bi bi-database"></i> Tao backup
+                        </button>
+                    </div>
+                </form>
+
+                <form id="portable-backup-form" method="post" action="{{ url_for('export_portable_backup_now') }}" class="aud-tool-card">
+                    <div>
+                        <h4>Backup tai ve may</h4>
+                        <p class="aud-tool-desc">Tao file .json.gz va tai ve may.</p>
+                    </div>
+                    <div class="aud-tool-fields">
+                        <input name="changed_by" placeholder="Nguoi export" value="{{ current_user_username or 'admin' }}">
+                        <div class="aud-tool-actions">
+                            <button type="button" id="portable-backup-saveas" class="aud-secondary">
+                                <i class="bi bi-folder2-open"></i> Chon noi luu
+                            </button>
+                            <button type="submit" class="aud-secondary">
+                                <i class="bi bi-download"></i> Tai nhanh
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <p id="portable-backup-status" class="aud-status" aria-live="polite"></p>
+
+            <form method="post" action="{{ url_for('restore_backup_data') }}" enctype="multipart/form-data" class="aud-restore-form">
+                <input name="changed_by" placeholder="Nguoi khoi phuc" value="{{ current_user_username or 'admin' }}">
+                <input type="file" name="backup_file" accept=".json,.json.gz,.gz" required>
+                <input name="confirm_text" placeholder="Nhap RESTORE de xac nhan" required>
+                <button type="submit" class="aud-danger">
+                    <i class="bi bi-arrow-clockwise"></i> Khoi phuc du lieu
+                </button>
+            </form>
+            <p class="aud-help">Khoi phuc se ghi de toan bo du lieu hien tai bang du lieu trong file backup.</p>
+        </div>
+    </section>
+
+    <section class="aud-panel">
+        <div class="aud-panel-head">
+            <div>
+                <h3>Danh sach file backup tren server</h3>
+                <p>File moi se duoc dat theo ngay thang nam hien tai.</p>
+            </div>
+        </div>
+        <div class="aud-panel-body">
+            <div class="table-wrap">
+                <table class="aud-table">
+                    <thead>
+                        <tr>
+                            <th>Thoi gian</th>
+                            <th>Ten file</th>
+                            <th>Loai</th>
+                            <th>Dung luong</th>
+                            <th>Hanh dong</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for backup in backup_files %}
+                        <tr>
+                            <td>{{ backup.modified_at }}</td>
+                            <td class="aud-file">{{ backup.name }}</td>
+                            <td>{{ backup.backup_type }}</td>
+                            <td>{{ backup.size_label }}</td>
+                            <td><a class="aud-link" href="{{ url_for('download_backup_file', filename=backup.name) }}">Tai ve</a></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5">Chua co file backup nao.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="aud-panel">
+        <div class="aud-panel-head">
+            <div>
+                <h3>Lich su thay doi</h3>
+                <p>Moi thay doi du lieu quan trong duoc ghi vao audit log.</p>
+            </div>
+        </div>
+        <div class="aud-panel-body">
+            <div class="table-wrap">
+                <table class="aud-table">
+                    <thead>
+                        <tr>
+                            <th>Thoi gian</th>
+                            <th>Nguoi sua</th>
+                            <th>Bang</th>
+                            <th>Hanh dong</th>
+                            <th>Ban ghi</th>
+                            <th>Truoc</th>
+                            <th>Sau</th>
+                            <th>Ghi chu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in audit_logs %}
+                        <tr>
+                            <td>{{ row.changed_at }}</td>
+                            <td>{{ row.changed_by }}</td>
+                            <td>{{ row.table_name }}</td>
+                            <td>{{ row.action }}</td>
+                            <td>{{ row.record_id }}</td>
+                            <td>{{ row.before_data or '-' }}</td>
+                            <td>{{ row.after_data or '-' }}</td>
+                            <td>{{ row.notes or '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8">Chua co log thay doi.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
 </div>
 <script>
     (function () {
@@ -137,7 +199,7 @@
             const now = new Date();
             const pad = (value) => String(value).padStart(2, "0");
             return [
-                "attendance_full_",
+            "backup_full_",
                 now.getFullYear(),
                 pad(now.getMonth() + 1),
                 pad(now.getDate()),

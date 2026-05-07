@@ -1,46 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel page-toolbar">
-    <div>
-        <p class="topbar-eyebrow">Hệ thống / Ngày OFF và lễ</p>
-        <h2>Bảng ngày OFF, Chủ nhật, ngày lễ</h2>
-        <p class="muted">Tháng đang xem: <strong>{{ month_key }}</strong> • {{ holidays|length }} dòng</p>
+
+<div class="hol-topbar">
+    <div class="hol-bread">
+        <span>Hệ thống</span>
+        <span class="sep">/</span>
+        <span class="cur">Ngày OFF & lễ</span>
     </div>
-    <div class="toolbar-actions">
-        <form method="get" class="toolbar-month-form">
+
+    <span class="hol-period"><i class="bi bi-calendar3"></i> Tháng {{ month_key }}</span>
+    <span class="hol-count-chip"><i class="bi bi-table"></i> <strong>{{ holidays|length }}</strong> dòng</span>
+
+    <div class="hol-actions">
+        <form method="get" class="hol-month-form">
             <label for="holiday-month">Tháng</label>
             <input id="holiday-month" type="month" name="month" value="{{ month_key }}" required>
-            <button type="submit">Xem</button>
+            <button type="submit" class="det-btn">
+                <i class="bi bi-arrow-clockwise"></i> Xem
+            </button>
         </form>
-        <button type="button" id="holiday-tools-toggle-btn" class="secondary" aria-expanded="false">Mở công cụ</button>
+        <button type="button" id="holiday-tools-toggle-btn" class="det-btn" aria-expanded="false">
+            <i class="bi bi-sliders"></i> Mở công cụ
+        </button>
     </div>
-</section>
+</div>
 
-<section id="holiday-tools-container" class="page-tools tools-collapsed">
-    <div class="panel soft-panel">
-        <h3>Tạo nhanh OFF và ngày lễ theo tháng</h3>
-        <form method="post" class="form-grid">
-            <input type="hidden" name="action" value="generate_month">
-            <input type="month" name="month_key" value="{{ month_key }}" required>
-            <input name="changed_by" placeholder="Người sửa" value="admin">
-            <button type="submit" class="secondary">Tạo OFF Chủ nhật + lễ VN</button>
-        </form>
-    </div>
+<div id="holiday-tools-container" class="hol-tools tools-collapsed">
+    <div class="hol-tools-grid">
+        <div class="panel soft-panel hol-tool-card">
+            <h3>Tạo nhanh OFF và ngày lễ theo tháng</h3>
+            <form method="post" class="hol-form-grid">
+                <input type="hidden" name="action" value="generate_month">
+                <input type="month" name="month_key" value="{{ month_key }}" required>
+                <input name="changed_by" placeholder="Người sửa" value="admin">
+                <button type="submit" class="hol-submit secondary">Tạo OFF Chủ nhật + lễ VN</button>
+            </form>
+        </div>
 
-    <div class="panel soft-panel">
-        <h3>Thêm nhanh ngày OFF, lễ</h3>
-        <form method="post" class="form-grid">
-            <input type="hidden" name="action" value="save_single">
-            <input type="hidden" name="month_key" value="{{ month_key }}">
-            <input type="date" name="holiday_date" required>
-            <input name="name" placeholder="Tên ngày lễ" required>
-            <input name="notes" placeholder="Ghi chú">
-            <label><input type="checkbox" name="is_paid" checked> Tick nghỉ</label>
-            <input name="changed_by" placeholder="Người sửa" value="admin">
-            <button type="submit">Lưu ngày OFF</button>
-        </form>
+        <div class="panel soft-panel hol-tool-card">
+            <h3>Thêm nhanh ngày OFF, lễ</h3>
+            <form method="post" class="hol-form-grid">
+                <input type="hidden" name="action" value="save_single">
+                <input type="hidden" name="month_key" value="{{ month_key }}">
+                <input type="date" name="holiday_date" required>
+                <input name="name" placeholder="Tên ngày lễ" required>
+                <input name="notes" placeholder="Ghi chú">
+                <label><input type="checkbox" name="is_paid" checked> Tick nghỉ</label>
+                <input name="changed_by" placeholder="Người sửa" value="admin">
+                <button type="submit" class="hol-submit">Lưu ngày OFF</button>
+            </form>
+        </div>
     </div>
-</section>
+</div>
 
 <section class="panel data-panel" id="holiday-table-panel">
     <div class="table-wrap">
@@ -135,8 +146,11 @@
 
     const setToolsState = (collapsed) => {
         toolsContainer.classList.toggle("tools-collapsed", collapsed);
-        toggleButton.textContent = collapsed ? "Mở công cụ" : "Thu gọn";
+        toggleButton.classList.toggle("det-active", !collapsed);
         toggleButton.setAttribute("aria-expanded", String(!collapsed));
+        toggleButton.innerHTML = collapsed
+            ? '<i class="bi bi-sliders"></i> Mở công cụ'
+            : '<i class="bi bi-dash-lg"></i> Thu gọn';
     };
 
     toggleButton.addEventListener("click", () => {
